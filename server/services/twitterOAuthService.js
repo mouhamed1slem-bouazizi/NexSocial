@@ -170,8 +170,25 @@ class TwitterOAuthService {
   // Upload media using OAuth 1.0a
   async uploadMedia(mediaData, oauth1AccessToken, oauth1AccessTokenSecret) {
     try {
+      // Debug: Log media data structure
+      console.log('📤 Media data received:', {
+        name: mediaData.name,
+        type: mediaData.type,
+        dataLength: mediaData.data?.length,
+        hasData: !!mediaData.data
+      });
+      
+      // Validate media data
+      if (!mediaData.data) {
+        throw new Error('Media data is missing');
+      }
+      
       // Convert base64 to buffer
       const base64Data = mediaData.data.split(',')[1];
+      if (!base64Data) {
+        throw new Error('Invalid base64 data format');
+      }
+      
       const buffer = Buffer.from(base64Data, 'base64');
       
       // Determine content type
@@ -185,18 +202,31 @@ class TwitterOAuthService {
 
       console.log(`Uploading media to Twitter: ${mediaData.name} (${contentType}, ${buffer.length} bytes)`);
 
-      // Create form data
-      const FormData = require('form-data');
-      const form = new FormData();
-      form.append('media', buffer, {
-        filename: mediaData.name,
-        contentType: contentType
-      });
+      // Use simple upload for small files, chunked for larger ones
+      if (buffer.length <= 5 * 1024 * 1024) { // 5MB limit for simple upload
+        return await this.uploadMediaSimple(buffer, contentType, mediaData.name, oauth1AccessToken, oauth1AccessTokenSecret);
+      } else {
+        return await this.uploadMediaChunked(buffer, contentType, mediaData.name, oauth1AccessToken, oauth1AccessTokenSecret);
+      }
+    } catch (error) {
+      console.error('Media upload error:', error);
+      throw error;
+    }
+  }
 
-      // Prepare OAuth 1.0a request
+  // Simple media upload for smaller files
+  async uploadMediaSimple(buffer, contentType, filename, oauth1AccessToken, oauth1AccessTokenSecret) {
+    try {
+      console.log('📤 Using simple media upload...');
+      
+      // Create form data using URLSearchParams with base64 encoded media
+      const formData = new URLSearchParams();
+      formData.append('media_data', buffer.toString('base64'));
+
       const requestData = {
         url: 'https://upload.twitter.com/1.1/media/upload.json',
-        method: 'POST'
+        method: 'POST',
+        data: Object.fromEntries(formData)
       };
 
       const token = {
@@ -210,14 +240,14 @@ class TwitterOAuthService {
         method: 'POST',
         headers: {
           'Authorization': authHeader.Authorization,
-          ...form.getHeaders()
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: form
+        body: formData
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Media upload failed:', response.status, errorText);
+        console.error('Simple media upload failed:', response.status, errorText);
         throw new Error(`Media upload failed: ${errorText}`);
       }
 
@@ -227,12 +257,130 @@ class TwitterOAuthService {
         throw new Error('No media ID returned from Twitter');
       }
 
-      console.log(`Successfully uploaded media: ${uploadData.media_id_string}`);
+      console.log(`✅ Successfully uploaded media: ${uploadData.media_id_string}`);
       return uploadData.media_id_string;
     } catch (error) {
-      console.error('Media upload error:', error);
+      console.error('Simple media upload error:', error);
       throw error;
     }
+  }
+
+  // Chunked media upload for larger files
+  async uploadMediaChunked(buffer, contentType, filename, oauth1AccessToken, oauth1AccessTokenSecret) {
+    try {
+      const totalBytes = buffer.length;
+      const mediaType = contentType;
+      
+      // Step 1: Initialize upload
+      console.log('🔄 Initializing chunked upload...');
+      const initData = {
+        command: 'INIT',
+        total_bytes: totalBytes,
+        media_type: mediaType
+      };
+
+      const initResponse = await this.makeOAuthRequest(
+        'https://upload.twitter.com/1.1/media/upload.json',
+        'POST',
+        initData,
+        oauth1AccessToken,
+        oauth1AccessTokenSecret
+      );
+
+      if (!initResponse.ok) {
+        const errorText = await initResponse.text();
+        console.error('Media init failed:', initResponse.status, errorText);
+        throw new Error(`Media init failed: ${errorText}`);
+      }
+
+      const initResult = await initResponse.json();
+      const mediaIdString = initResult.media_id_string;
+      
+      console.log('✅ Upload initialized, media ID:', mediaIdString);
+
+      // Step 2: Upload the media in chunks
+      console.log('📤 Uploading media chunk...');
+      const chunkData = new URLSearchParams();
+      chunkData.append('command', 'APPEND');
+      chunkData.append('media_id', mediaIdString);
+      chunkData.append('segment_index', '0');
+      chunkData.append('media', buffer.toString('base64'));
+
+      const appendResponse = await this.makeOAuthRequest(
+        'https://upload.twitter.com/1.1/media/upload.json',
+        'POST',
+        chunkData,
+        oauth1AccessToken,
+        oauth1AccessTokenSecret,
+        'application/x-www-form-urlencoded'
+      );
+
+      if (!appendResponse.ok) {
+        const errorText = await appendResponse.text();
+        console.error('Media append failed:', appendResponse.status, errorText);
+        throw new Error(`Media append failed: ${errorText}`);
+      }
+
+      console.log('✅ Media chunk uploaded successfully');
+
+      // Step 3: Finalize upload
+      console.log('🏁 Finalizing upload...');
+      const finalizeData = {
+        command: 'FINALIZE',
+        media_id: mediaIdString
+      };
+
+      const finalizeResponse = await this.makeOAuthRequest(
+        'https://upload.twitter.com/1.1/media/upload.json',
+        'POST',
+        finalizeData,
+        oauth1AccessToken,
+        oauth1AccessTokenSecret
+      );
+
+      if (!finalizeResponse.ok) {
+        const errorText = await finalizeResponse.text();
+        console.error('Media finalize failed:', finalizeResponse.status, errorText);
+        throw new Error(`Media finalize failed: ${errorText}`);
+      }
+
+      const finalizeResult = await finalizeResponse.json();
+      console.log('✅ Successfully uploaded media:', mediaIdString);
+      
+      return mediaIdString;
+    } catch (error) {
+      console.error('Chunked media upload error:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to make OAuth 1.0a authenticated requests
+  async makeOAuthRequest(url, method, data, oauth1AccessToken, oauth1AccessTokenSecret, contentType = 'application/x-www-form-urlencoded') {
+    const requestData = {
+      url: url,
+      method: method,
+      data: data instanceof URLSearchParams ? Object.fromEntries(data) : data
+    };
+
+    const token = {
+      key: oauth1AccessToken,
+      secret: oauth1AccessTokenSecret
+    };
+
+    const authHeader = this.oauth1.toHeader(this.oauth1.authorize(requestData, token));
+
+    const headers = {
+      'Authorization': authHeader.Authorization,
+      'Content-Type': contentType
+    };
+
+    const body = data instanceof URLSearchParams ? data : new URLSearchParams(data);
+
+    return await fetch(url, {
+      method: method,
+      headers: headers,
+      body: body
+    });
   }
 
   // Post tweet using OAuth 2.0
@@ -260,7 +408,13 @@ class TwitterOAuthService {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Tweet post failed:', errorData);
-        throw new Error(errorData.errors?.[0]?.message || 'Failed to post tweet');
+        
+        // Handle specific error cases
+        if (errorData.detail && errorData.detail.includes('duplicate content')) {
+          throw new Error('Twitter rejected duplicate content. Please modify your message or try again later.');
+        }
+        
+        throw new Error(errorData.errors?.[0]?.message || errorData.detail || 'Failed to post tweet');
       }
 
       const data = await response.json();

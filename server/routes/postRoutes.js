@@ -161,9 +161,21 @@ const postToTwitter = async (account, content, media = []) => {
       console.log(`Successfully uploaded ${mediaIds.length} out of ${media.length} media items`);
     }
 
-    // Post tweet with media
+    // Post tweet with media (add timestamp to avoid duplicates)
+    let tweetContent = content;
+    if (mediaIds.length === 0) {
+      // Add timestamp to avoid duplicate content when no media is uploaded
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const uniqueNote = `\n\n⏰ ${timestamp}`;
+      if (tweetContent.length + uniqueNote.length <= 280) {
+        tweetContent += uniqueNote;
+      } else {
+        tweetContent = tweetContent.substring(0, 280 - uniqueNote.length) + uniqueNote;
+      }
+    }
+    
     const tweetData = await twitterService.postTweet(
-      content,
+      tweetContent,
       mediaIds,
       account.access_token
     );
