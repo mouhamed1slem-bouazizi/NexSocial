@@ -2,6 +2,8 @@ const express = require('express');
 const { requireUser } = require('./middleware/auth.js');
 const SocialAccountService = require('../services/socialAccountService.js');
 const TwitterOAuthService = require('../services/twitterOAuthService.js');
+const YouTubeService = require('../services/youtubeService.js');
+const { generateSocialMediaContent } = require('../services/llmService.js');
 
 const router = express.Router();
 
@@ -299,20 +301,201 @@ const postToInstagram = async (account, content, media = []) => {
   }
 };
 
-// Helper function to post to YouTube (Community posts)
+// Helper function to post to YouTube (Video upload)
 const postToYouTube = async (account, content, media = []) => {
   try {
-    // YouTube Community posts are more complex and have restrictions
-    // For now, we'll return a placeholder response
-    return {
-      success: false,
-      error: 'YouTube Community posts are not yet supported. Please use YouTube Studio directly.'
-    };
+    console.log(`📺 Posting to YouTube for account ${account.username}`);
+    console.log(`Content: ${content}`);
+    console.log(`Media items: ${media.length}`);
+
+    // YouTube requires video content - check if we have video media
+    const videoMedia = media.filter(item => {
+      const type = item.type?.toLowerCase() || '';
+      const name = item.name?.toLowerCase() || '';
+      
+      console.log(`📺 Checking media item:`, {
+        name: item.name,
+        type: item.type,
+        typeLower: type,
+        nameLower: name
+      });
+      
+      // Check if type starts with 'video/' or is just 'video'
+      // Also check file extension for video files
+      const isVideoType = type.startsWith('video/') || type === 'video';
+      const isVideoExtension = /\.(mp4|mov|avi|wmv|flv|webm|mkv|3gp|m4v)$/i.test(name);
+      
+      console.log(`📺 Video detection results:`, {
+        isVideoType,
+        isVideoExtension,
+        typeStartsWithVideo: type.startsWith('video/'),
+        typeEqualsVideo: type === 'video',
+        finalResult: isVideoType || isVideoExtension
+      });
+      
+      return isVideoType || isVideoExtension;
+    });
+    
+    console.log('📺 Video media detection:');
+    console.log('📺 Total media items:', media.length);
+    console.log('📺 Media details:', media.map(item => ({ name: item.name, type: item.type })));
+    console.log('📺 Video media found:', videoMedia.length);
+    
+    if (videoMedia.length === 0) {
+      console.log('📺 No video content found for YouTube');
+      return {
+        success: false,
+        error: 'YouTube requires video content. Please upload a video file to post to YouTube. Text-only posts are not supported.',
+        platform: 'youtube'
+      };
+    }
+
+    if (videoMedia.length > 1) {
+      console.log('📺 Multiple videos detected - YouTube supports one video per post');
+      return {
+        success: false,
+        error: 'YouTube supports one video per post. Please select a single video file.',
+        platform: 'youtube'
+      };
+    }
+
+    const videoFile = videoMedia[0];
+    console.log(`📺 Processing video: ${videoFile.name} (${videoFile.type})`);
+    console.log(`📺 Video data length: ${videoFile.data?.length || 0} characters`);
+
+    // Validate video data
+    if (!videoFile.data) {
+      console.error('📺 No video data found in media item');
+      return {
+        success: false,
+        error: 'Video file data is missing. Please try uploading the video again.',
+        platform: 'youtube'
+      };
+    }
+
+    // Convert base64 video data to buffer
+    try {
+      const base64Data = videoFile.data.split(',')[1];
+      if (!base64Data) {
+        console.error('📺 Invalid base64 data format');
+        return {
+          success: false,
+          error: 'Invalid video file format. Please ensure the video is properly uploaded.',
+          platform: 'youtube'
+        };
+      }
+      
+      const videoBuffer = Buffer.from(base64Data, 'base64');
+      console.log(`📺 Video buffer size: ${videoBuffer.length} bytes`);
+      
+      if (videoBuffer.length === 0) {
+        console.error('📺 Video buffer is empty');
+        return {
+          success: false,
+          error: 'Video file appears to be empty. Please try uploading a valid video file.',
+          platform: 'youtube'
+        };
+      }
+      
+      // Get video metadata
+      const videoMetadata = await YouTubeService.getVideoMetadata(videoBuffer, videoFile.name);
+      console.log('📺 Video metadata:', videoMetadata);
+
+      // Prepare upload metadata
+      const uploadMetadata = {
+        title: content.substring(0, 100) || `Video from NexSocial - ${new Date().toLocaleDateString()}`,
+        description: content.length > 100 ? content : `${content}\n\nPosted via NexSocial`,
+        tags: ['NexSocial', 'SocialMedia'],
+        privacyStatus: 'public',
+        categoryId: '22', // People & Blogs
+        mimeType: videoMetadata.mimeType,
+        duration: videoMetadata.duration,
+        isShort: videoMetadata.isShort,
+        filename: videoFile.name
+      };
+
+      // Add hashtags from content as tags
+      const hashtagMatches = content.match(/#[\w]+/g);
+      if (hashtagMatches) {
+        const hashtags = hashtagMatches.map(tag => tag.substring(1)); // Remove # symbol
+        uploadMetadata.tags = [...uploadMetadata.tags, ...hashtags];
+      }
+
+      // Upload video (automatically detects if it's a Short)
+      let result;
+      if (videoMetadata.isShort) {
+        console.log('📺 Uploading as YouTube Short...');
+        result = await YouTubeService.uploadShort(account.access_token, videoBuffer, uploadMetadata);
+      } else {
+        console.log('📺 Uploading as regular YouTube video...');
+        result = await YouTubeService.uploadVideo(account.access_token, videoBuffer, uploadMetadata);
+      }
+
+      console.log('✅ YouTube video upload successful!');
+      console.log('📺 Video URL:', result.videoUrl);
+
+      return {
+        success: true,
+        videoId: result.videoId,
+        videoUrl: result.videoUrl,
+        message: result.isShort 
+          ? `YouTube Short uploaded successfully! 🎬 Watch it at: ${result.videoUrl}`
+          : `YouTube video uploaded successfully! 🎬 Watch it at: ${result.videoUrl}`,
+        platform: 'youtube',
+        isShort: result.isShort,
+        title: result.title,
+        description: result.description,
+        mediaCount: 1,
+        uploadedMedia: [{
+          type: 'video',
+          url: result.videoUrl,
+          isShort: result.isShort
+        }]
+      };
+
+    } catch (bufferError) {
+      console.error('📺 Error processing video data:', bufferError);
+      return {
+        success: false,
+        error: 'Failed to process video file. Please ensure the video is in a supported format.',
+        platform: 'youtube'
+      };
+    }
   } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
+    console.error('📺 YouTube posting error:', error);
+    
+    // Handle specific YouTube API errors
+    if (error.message.includes('quotaExceeded')) {
+      return {
+        success: false,
+        error: 'YouTube API quota exceeded. Please try again later or check your Google Cloud Console quota settings.',
+        platform: 'youtube'
+      };
+    } else if (error.message.includes('insufficientPermissions')) {
+      return {
+        success: false,
+        error: 'Insufficient permissions to upload videos to YouTube. Please check your channel settings and verify your channel.',
+        platform: 'youtube'
+      };
+    } else if (error.message.includes('uploadLimitExceeded')) {
+      return {
+        success: false,
+        error: 'YouTube upload limit exceeded. Please try again later or check your channel limits.',
+        platform: 'youtube'
+      };
+    } else if (error.message.includes('mediaBodyRequired')) {
+      return {
+        success: false,
+        error: 'YouTube API requires video content. Text-only posts are not supported.',
+        platform: 'youtube'
+      };
+    } else {
+      return {
+        success: false,
+        error: error.message || 'Failed to upload video to YouTube',
+        platform: 'youtube'
+      };
+    }
   }
 };
 
@@ -446,6 +629,64 @@ router.get('/', requireUser, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch posts'
+    });
+  }
+});
+
+// AI Content Generation endpoint
+router.post('/ai-generate', requireUser, async (req, res) => {
+  try {
+    const { prompt, tone = 'professional', platforms = [] } = req.body;
+    const userId = req.user.id;
+
+    console.log(`🤖 AI content generation requested by user: ${userId}`);
+    console.log(`Prompt: ${prompt}`);
+    console.log(`Tone: ${tone}`);
+    console.log(`Platforms: ${platforms.join(', ')}`);
+
+    // Validate input
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Prompt is required for AI content generation'
+      });
+    }
+
+    // Generate content using OpenAI
+    const generatedContent = await generateSocialMediaContent(prompt.trim(), tone, platforms);
+
+    console.log('✅ AI content generated successfully');
+
+    res.status(200).json({
+      success: true,
+      content: generatedContent,
+      message: 'AI content generated successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error generating AI content:', error);
+    
+    // Handle specific OpenAI errors
+    if (error.message.includes('API key')) {
+      return res.status(500).json({
+        success: false,
+        error: 'OpenAI API key is not configured properly. Please check your environment variables.',
+        message: 'AI service configuration error'
+      });
+    }
+
+    if (error.message.includes('rate limit')) {
+      return res.status(429).json({
+        success: false,
+        error: 'AI service rate limit exceeded. Please try again in a few minutes.',
+        message: 'Rate limit exceeded'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate AI content',
+      message: 'AI content generation failed'
     });
   }
 });

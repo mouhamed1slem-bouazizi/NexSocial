@@ -53,7 +53,8 @@ const toneOptions = [
   'Promotional',
   'Humorous',
   'Inspirational',
-  'Educational'
+  'Educational',
+  'Conversational'
 ]
 
 export function CreatePost() {
@@ -187,25 +188,58 @@ export function CreatePost() {
 
     setAiLoading(true)
     try {
-      // Simulate AI generation
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      const generatedContent = `🚀 Exciting news! ${aiPrompt}
-
-This is AI-generated content that's optimized for your selected platforms. Feel free to edit and customize it to match your brand voice perfectly!
-
-#innovation #socialmedia #content`
-
-      setContent(generatedContent)
-      toast({
-        title: "Success",
-        description: "AI content generated successfully!",
+      // Import the generateAIContent function
+      const { generateAIContent } = await import('../api/posts')
+      
+      // Get selected platforms for better content optimization
+      const selectedPlatformNames = selectedAccounts
+        .map(accountId => {
+          const account = socialAccounts.find(acc => acc.id === accountId)
+          return account?.platform
+        })
+        .filter((platform): platform is string => platform !== undefined)
+      
+      const uniquePlatforms = [...new Set(selectedPlatformNames)]
+      
+      // Generate AI content
+      const response = await generateAIContent({
+        prompt: aiPrompt.trim(),
+        tone: selectedTone.toLowerCase() || 'professional',
+        platforms: uniquePlatforms
       })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate AI content",
-        variant: "destructive"
-      })
+
+      if (response.success) {
+        setContent(response.content)
+        toast({
+          title: "Success",
+          description: response.message || "AI content generated successfully!",
+        })
+      } else {
+        throw new Error(response.message || 'Failed to generate AI content')
+      }
+    } catch (error: any) {
+      console.error('AI generation error:', error)
+      
+      // Handle specific error types
+      if (error.message.includes('API key')) {
+        toast({
+          title: "Configuration Error",
+          description: "OpenAI API key is not configured. Please contact your administrator.",
+          variant: "destructive"
+        })
+      } else if (error.message.includes('rate limit')) {
+        toast({
+          title: "Rate Limit",
+          description: "AI service is temporarily busy. Please try again in a few minutes.",
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to generate AI content. Please try again.",
+          variant: "destructive"
+        })
+      }
     } finally {
       setAiLoading(false)
     }

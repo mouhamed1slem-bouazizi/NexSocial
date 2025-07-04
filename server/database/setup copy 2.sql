@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS social_accounts (
     platform_user_id VARCHAR(255) NOT NULL,
     access_token TEXT NOT NULL,
     refresh_token TEXT,
+    oauth1_access_token TEXT,
+    oauth1_access_token_secret TEXT,
     followers INTEGER DEFAULT 0,
     is_connected BOOLEAN DEFAULT true,
     profile_image TEXT DEFAULT '',

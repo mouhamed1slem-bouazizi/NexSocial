@@ -67,6 +67,60 @@ async function sendLLMRequest(provider, model, message) {
   }
 }
 
+// Generate social media content using OpenAI GPT-4.1 nano
+async function generateSocialMediaContent(prompt, tone = 'professional', platforms = []) {
+  try {
+    console.log('🤖 Generating AI content with GPT-4.1 nano, prompt:', prompt);
+    
+    const toneInstructions = {
+      professional: 'professional and informative',
+      casual: 'casual and friendly',
+      humorous: 'humorous and engaging',
+      inspirational: 'motivational and inspiring',
+      educational: 'educational and informative',
+      promotional: 'promotional but not overly sales-focused',
+      conversational: 'conversational and approachable'
+    };
+
+    const platformInstructions = platforms.length > 0 
+      ? `This content will be posted on: ${platforms.join(', ')}. `
+      : '';
+
+    const systemMessage = `You are a social media content creator. Create engaging social media content that is ${toneInstructions[tone.toLowerCase()] || 'professional and engaging'}. 
+
+${platformInstructions}Consider the following guidelines:
+- Keep it concise and engaging
+- Include relevant hashtags (2-5 hashtags maximum)
+- Use emojis appropriately to enhance engagement
+- Make it shareable and likely to generate interaction
+- Ensure the content is authentic and valuable to the audience
+- If multiple platforms are specified, create content that works well across all of them
+
+User's request: ${prompt}
+
+Generate only the social media post content, without any additional explanation or meta-commentary.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4.1-nano', // Using GPT-4.1 nano as requested
+      messages: [
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 500, // Increased for social media content
+      temperature: 0.7, // Good balance of creativity and coherence
+    });
+
+    const generatedContent = response.choices[0].message.content.trim();
+    console.log('✅ AI content generated successfully');
+    
+    return generatedContent;
+  } catch (error) {
+    console.error('❌ Error generating AI content:', error);
+    throw new Error(`Failed to generate AI content: ${error.message}`);
+  }
+}
+
 module.exports = {
-  sendLLMRequest
+  sendLLMRequest,
+  generateSocialMediaContent
 };

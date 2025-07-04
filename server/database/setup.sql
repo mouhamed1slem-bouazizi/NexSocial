@@ -125,6 +125,8 @@ CREATE TABLE public.social_accounts (
   platform_user_id character varying NOT NULL,
   access_token text NOT NULL,
   refresh_token text,
+  oauth1_access_token text,
+  oauth1_access_token_secret text,
   followers integer DEFAULT 0,
   is_connected boolean DEFAULT true,
   profile_image text DEFAULT ''::text,

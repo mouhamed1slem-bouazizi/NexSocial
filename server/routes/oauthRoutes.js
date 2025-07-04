@@ -568,21 +568,54 @@ router.get('/youtube/callback', async (req, res) => {
 
     console.log('Successfully obtained YouTube access token');
 
-    // Get channel info
+    // Get channel info with enhanced debugging
+    console.log('🎬 Fetching YouTube channel information...');
     const channelResponse = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`
       }
     });
+
+    console.log('🎬 YouTube API response status:', channelResponse.status);
+    console.log('🎬 YouTube API response headers:', Object.fromEntries(channelResponse.headers.entries()));
+
+    if (!channelResponse.ok) {
+      const errorText = await channelResponse.text();
+      console.error('🚨 YouTube API request failed:', {
+        status: channelResponse.status,
+        statusText: channelResponse.statusText,
+        body: errorText
+      });
+      return res.redirect(`${process.env.CLIENT_URL}?error=youtube_api_failed`);
+    }
+
     const channelData = await channelResponse.json();
+    console.log('🎬 YouTube API response data:', JSON.stringify(channelData, null, 2));
 
     if (!channelData.items || channelData.items.length === 0) {
-      console.error('No YouTube channel found for user');
+      console.error('🚨 No YouTube channel found for user. Response details:', {
+        totalResults: channelData.pageInfo?.totalResults || 0,
+        resultsPerPage: channelData.pageInfo?.resultsPerPage || 0,
+        itemsLength: channelData.items?.length || 0,
+        fullResponse: channelData
+      });
+      
+      // Check if there's an error in the response
+      if (channelData.error) {
+        console.error('🚨 YouTube API returned error:', channelData.error);
+        return res.redirect(`${process.env.CLIENT_URL}?error=youtube_api_error&details=${encodeURIComponent(channelData.error.message)}`);
+      }
+      
       return res.redirect(`${process.env.CLIENT_URL}?error=no_youtube_channel`);
     }
 
     const channel = channelData.items[0];
-    console.log('Successfully fetched YouTube channel:', channel.snippet.title);
+    console.log('✅ Successfully fetched YouTube channel:', {
+      id: channel.id,
+      title: channel.snippet?.title,
+      customUrl: channel.snippet?.customUrl,
+      subscriberCount: channel.statistics?.subscriberCount
+    });
 
     // Save to database
     const accountData = {
@@ -597,11 +630,11 @@ router.get('/youtube/callback', async (req, res) => {
     };
 
     await SocialAccountService.create(userId, accountData);
-    console.log('YouTube account successfully saved to database');
+    console.log('✅ YouTube account successfully saved to database');
 
     res.redirect(`${process.env.CLIENT_URL}?success=youtube_connected`);
   } catch (error) {
-    console.error('YouTube OAuth callback error:', error);
+    console.error('🚨 YouTube OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });

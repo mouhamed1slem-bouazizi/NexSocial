@@ -202,11 +202,13 @@ class TwitterOAuthService {
 
       console.log(`Uploading media to Twitter: ${mediaData.name} (${contentType}, ${buffer.length} bytes)`);
 
-      // Use simple upload for small files, chunked for larger ones
-      if (buffer.length <= 5 * 1024 * 1024) { // 5MB limit for simple upload
-        return await this.uploadMediaSimple(buffer, contentType, mediaData.name, oauth1AccessToken, oauth1AccessTokenSecret);
-      } else {
+      // Use chunked upload for videos or large files (>5MB)
+      if (contentType.startsWith('video/') || buffer.length > 5 * 1024 * 1024) {
+        console.log('🔄 Using chunked upload for video/large file...');
         return await this.uploadMediaChunked(buffer, contentType, mediaData.name, oauth1AccessToken, oauth1AccessTokenSecret);
+      } else {
+        console.log('📤 Using simple upload for small image...');
+        return await this.uploadMediaSimple(buffer, contentType, mediaData.name, oauth1AccessToken, oauth1AccessTokenSecret);
       }
     } catch (error) {
       console.error('Media upload error:', error);
@@ -270,13 +272,17 @@ class TwitterOAuthService {
     try {
       const totalBytes = buffer.length;
       const mediaType = contentType;
+      const chunkSize = 1 * 1024 * 1024; // 1MB chunks (reduced from 5MB)
+      
+      console.log(`🔄 Chunked upload: ${totalBytes} bytes, ${Math.ceil(totalBytes / chunkSize)} chunks`);
       
       // Step 1: Initialize upload
       console.log('🔄 Initializing chunked upload...');
       const initData = {
         command: 'INIT',
         total_bytes: totalBytes,
-        media_type: mediaType
+        media_type: mediaType,
+        media_category: contentType.startsWith('video/') ? 'tweet_video' : 'tweet_image'
       };
 
       const initResponse = await this.makeOAuthRequest(
@@ -299,29 +305,46 @@ class TwitterOAuthService {
       console.log('✅ Upload initialized, media ID:', mediaIdString);
 
       // Step 2: Upload the media in chunks
-      console.log('📤 Uploading media chunk...');
-      const chunkData = new URLSearchParams();
-      chunkData.append('command', 'APPEND');
-      chunkData.append('media_id', mediaIdString);
-      chunkData.append('segment_index', '0');
-      chunkData.append('media', buffer.toString('base64'));
+      const totalChunks = Math.ceil(totalBytes / chunkSize);
+      console.log(`📤 Uploading ${totalChunks} chunks...`);
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, totalBytes);
+        const chunk = buffer.slice(start, end);
+        
+        console.log(`📤 Uploading chunk ${i + 1}/${totalChunks} (${chunk.length} bytes)`);
+        
+        const chunkData = new URLSearchParams();
+        chunkData.append('command', 'APPEND');
+        chunkData.append('media_id', mediaIdString);
+        chunkData.append('segment_index', i.toString());
+        chunkData.append('media_data', chunk.toString('base64'));
 
-      const appendResponse = await this.makeOAuthRequest(
-        'https://upload.twitter.com/1.1/media/upload.json',
-        'POST',
-        chunkData,
-        oauth1AccessToken,
-        oauth1AccessTokenSecret,
-        'application/x-www-form-urlencoded'
-      );
+        const appendResponse = await this.makeOAuthRequest(
+          'https://upload.twitter.com/1.1/media/upload.json',
+          'POST',
+          chunkData,
+          oauth1AccessToken,
+          oauth1AccessTokenSecret,
+          'application/x-www-form-urlencoded'
+        );
 
-      if (!appendResponse.ok) {
-        const errorText = await appendResponse.text();
-        console.error('Media append failed:', appendResponse.status, errorText);
-        throw new Error(`Media append failed: ${errorText}`);
+        if (!appendResponse.ok) {
+          const errorText = await appendResponse.text();
+          console.error(`Media append failed for chunk ${i + 1}:`, appendResponse.status, errorText);
+          throw new Error(`Media append failed for chunk ${i + 1}: ${errorText}`);
+        }
+
+        console.log(`✅ Chunk ${i + 1}/${totalChunks} uploaded successfully`);
+        
+        // Add small delay between chunks to avoid rate limiting
+        if (i < totalChunks - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
 
-      console.log('✅ Media chunk uploaded successfully');
+      console.log('✅ All chunks uploaded successfully');
 
       // Step 3: Finalize upload
       console.log('🏁 Finalizing upload...');
@@ -345,8 +368,53 @@ class TwitterOAuthService {
       }
 
       const finalizeResult = await finalizeResponse.json();
-      console.log('✅ Successfully uploaded media:', mediaIdString);
       
+      // Step 4: Check processing status for videos (simplified approach)
+      if (contentType.startsWith('video/')) {
+        console.log('🎬 Video upload - checking processing status...');
+        const processingInfo = finalizeResult.processing_info;
+        
+        if (processingInfo && processingInfo.state === 'pending') {
+          console.log('⏳ Video is being processed by Twitter...');
+          
+          // Simple approach: wait a bit, check once, then proceed
+          console.log('⏳ Waiting 15 seconds for initial processing...');
+          await new Promise(resolve => setTimeout(resolve, 15000));
+          
+          try {
+            const statusResponse = await this.makeOAuthRequest(
+              `https://upload.twitter.com/1.1/media/upload.json?command=STATUS&media_id=${mediaIdString}`,
+              'GET',
+              {},
+              oauth1AccessToken,
+              oauth1AccessTokenSecret
+            );
+            
+            if (statusResponse.ok) {
+              const statusResult = await statusResponse.json();
+              const status = statusResult.processing_info;
+              
+              console.log(`🎬 Processing status: ${status.state}`);
+              
+              if (status.state === 'succeeded') {
+                console.log('✅ Video processing completed successfully');
+              } else if (status.state === 'failed') {
+                console.log('❌ Video processing failed, but proceeding with upload...');
+              } else {
+                console.log('⏳ Video still processing, proceeding with upload...');
+              }
+            } else {
+              console.log('⚠️ Could not check processing status, proceeding with upload...');
+            }
+          } catch (error) {
+            console.log('⚠️ Status check error, proceeding with upload...', error.message);
+          }
+        } else {
+          console.log('✅ Video upload completed immediately (no processing needed)');
+        }
+      }
+
+      console.log('✅ Successfully uploaded media:', mediaIdString);
       return mediaIdString;
     } catch (error) {
       console.error('Chunked media upload error:', error);
@@ -356,31 +424,52 @@ class TwitterOAuthService {
 
   // Helper method to make OAuth 1.0a authenticated requests
   async makeOAuthRequest(url, method, data, oauth1AccessToken, oauth1AccessTokenSecret, contentType = 'application/x-www-form-urlencoded') {
-    const requestData = {
-      url: url,
-      method: method,
-      data: data instanceof URLSearchParams ? Object.fromEntries(data) : data
-    };
+    try {
+      // Convert URLSearchParams to plain object for OAuth signature
+      let oauthData = {};
+      if (data instanceof URLSearchParams) {
+        for (const [key, value] of data.entries()) {
+          oauthData[key] = value;
+        }
+      } else {
+        oauthData = data;
+      }
 
-    const token = {
-      key: oauth1AccessToken,
-      secret: oauth1AccessTokenSecret
-    };
+      const requestData = {
+        url: url,
+        method: method,
+        data: oauthData
+      };
 
-    const authHeader = this.oauth1.toHeader(this.oauth1.authorize(requestData, token));
+      const token = {
+        key: oauth1AccessToken,
+        secret: oauth1AccessTokenSecret
+      };
 
-    const headers = {
-      'Authorization': authHeader.Authorization,
-      'Content-Type': contentType
-    };
+      const authHeader = this.oauth1.toHeader(this.oauth1.authorize(requestData, token));
 
-    const body = data instanceof URLSearchParams ? data : new URLSearchParams(data);
+      const headers = {
+        'Authorization': authHeader.Authorization
+      };
 
-    return await fetch(url, {
-      method: method,
-      headers: headers,
-      body: body
-    });
+      // Only add Content-Type and body for non-GET requests
+      const fetchOptions = {
+        method: method,
+        headers: headers
+      };
+
+      if (method.toLowerCase() !== 'get' && method.toLowerCase() !== 'head') {
+        headers['Content-Type'] = contentType;
+        fetchOptions.body = data instanceof URLSearchParams ? data : new URLSearchParams(data);
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      return response;
+    } catch (error) {
+      console.error('OAuth request error:', error);
+      throw error;
+    }
   }
 
   // Post tweet using OAuth 2.0
@@ -410,6 +499,10 @@ class TwitterOAuthService {
         console.error('Tweet post failed:', errorData);
         
         // Handle specific error cases
+        if (response.status === 429) {
+          throw new Error('Twitter API rate limit exceeded. Please wait a few minutes before trying again.');
+        }
+        
         if (errorData.detail && errorData.detail.includes('duplicate content')) {
           throw new Error('Twitter rejected duplicate content. Please modify your message or try again later.');
         }

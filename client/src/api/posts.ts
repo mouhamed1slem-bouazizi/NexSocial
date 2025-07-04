@@ -28,14 +28,19 @@ export interface CreatePostData {
 export interface PostResponse {
   success: boolean;
   message: string;
-  results?: {
-    [accountId: string]: {
-      success: boolean;
-      message: string;
-      postId?: string;
-      error?: string;
-    };
-  };
+  results?: Record<string, any>;
+}
+
+export interface AIGenerateData {
+  prompt: string;
+  tone?: string;
+  platforms?: string[];
+}
+
+export interface AIGenerateResponse {
+  success: boolean;
+  content: string;
+  message: string;
 }
 
 // Description: Create and publish/schedule a post to selected social media accounts
@@ -58,14 +63,9 @@ export const createPost = async (data: CreatePostData): Promise<PostResponse> =>
 // Endpoint: GET /api/posts
 // Request: {}
 // Response: { success: boolean, posts: Array<Post> }
-export const getPosts = async () => {
-  try {
-    const response = await api.get('/api/posts');
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Get posts error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
-  }
+export const getPosts = async (): Promise<Post[]> => {
+  const response = await api.get('/api/posts');
+  return response.data.posts;
 };
 
 // Description: Get a specific post by ID
@@ -92,6 +92,22 @@ export const deletePost = async (id: string) => {
     return response.data;
   } catch (error: any) {
     console.error('❌ Delete post error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Generate AI content for social media posts
+// Endpoint: POST /api/posts/ai-generate
+// Request: { prompt: string, tone?: string, platforms?: string[] }
+// Response: { success: boolean, content: string, message: string }
+export const generateAIContent = async (data: AIGenerateData): Promise<AIGenerateResponse> => {
+  try {
+    console.log('🤖 Generating AI content with data:', data);
+    const response = await api.post('/api/posts/ai-generate', data);
+    console.log('✅ AI content generation response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ AI content generation error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
