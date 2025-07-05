@@ -68,7 +68,7 @@ export function CreatePost() {
   const [isScheduled, setIsScheduled] = useState(false)
   const [media, setMedia] = useState<{ id: string; type: 'image' | 'video'; url: string; file: File; name: string; size: number }[]>([])
   const [aiPrompt, setAiPrompt] = useState("")
-  const [selectedTone, setSelectedTone] = useState("")
+  const [selectedTone, setSelectedTone] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const { toast } = useToast()
@@ -102,13 +102,16 @@ export function CreatePost() {
     const fetchSocialAccounts = async () => {
       try {
         setAccountsLoading(true)
+        console.log('📊 Fetching social accounts for Create Post...')
         const response = await getSocialAccounts()
-        setSocialAccounts(response.accounts || [])
+        console.log('✅ Social accounts response:', response)
+        setSocialAccounts(response || [])
         
         // Auto-select connected accounts
-        const connectedAccounts = response.accounts?.filter((acc: SocialAccount) => acc.is_connected) || []
+        const connectedAccounts = response?.filter((acc: SocialAccount) => acc.is_connected) || []
         setSelectedAccounts(connectedAccounts.map((acc: SocialAccount) => acc.id))
         setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
+        console.log('🎯 Auto-selected accounts:', connectedAccounts.length)
       } catch (error: any) {
         console.error('Error fetching social accounts:', error)
         toast({
@@ -197,14 +200,14 @@ export function CreatePost() {
           const account = socialAccounts.find(acc => acc.id === accountId)
           return account?.platform
         })
-        .filter((platform): platform is string => platform !== undefined)
+        .filter((platform): platform is NonNullable<typeof platform> => Boolean(platform))
       
       const uniquePlatforms = [...new Set(selectedPlatformNames)]
       
       // Generate AI content
       const response = await generateAIContent({
         prompt: aiPrompt.trim(),
-        tone: selectedTone.toLowerCase() || 'professional',
+        tone: selectedTone ? selectedTone.toLowerCase() : 'professional',
         platforms: uniquePlatforms
       })
 
@@ -212,10 +215,10 @@ export function CreatePost() {
         setContent(response.content)
         toast({
           title: "Success",
-          description: response.message || "AI content generated successfully!",
+          description: "AI content generated successfully!",
         })
       } else {
-        throw new Error(response.message || 'Failed to generate AI content')
+        throw new Error('Failed to generate AI content')
       }
     } catch (error: any) {
       console.error('AI generation error:', error)
