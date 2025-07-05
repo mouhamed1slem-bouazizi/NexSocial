@@ -220,6 +220,7 @@ const postToLinkedIn = async (account, content, media = []) => {
       console.log(`LinkedIn: Media upload not implemented yet. Posted text with media note.`);
     }
 
+    // Use the newer LinkedIn API format
     const body = {
       author: `urn:li:person:${account.platform_user_id}`,
       lifecycleState: 'PUBLISHED',
