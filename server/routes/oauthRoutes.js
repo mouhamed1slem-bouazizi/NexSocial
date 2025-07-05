@@ -458,12 +458,21 @@ router.get('/twitter/oauth2-callback', async (req, res) => {
 // LinkedIn OAuth callback
 router.get('/linkedin/callback', async (req, res) => {
   console.log('LinkedIn OAuth callback received');
+  console.log('🔍 LinkedIn callback query parameters:', req.query);
 
   try {
-    const { code, state: userId } = req.query;
+    const { code, state: userId, error, error_description } = req.query;
+
+    // Check if user denied authorization
+    if (error) {
+      console.error('LinkedIn OAuth error:', error);
+      console.error('LinkedIn OAuth error description:', error_description);
+      return res.redirect(`${process.env.CLIENT_URL}?error=linkedin_${error}`);
+    }
 
     if (!code) {
       console.error('No authorization code received from LinkedIn');
+      console.error('Available query parameters:', Object.keys(req.query));
       return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
     }
 
