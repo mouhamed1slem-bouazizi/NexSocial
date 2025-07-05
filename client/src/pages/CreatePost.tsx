@@ -44,7 +44,8 @@ const platforms = [
   { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'bg-pink-500', limit: 2200 },
   { id: 'twitter', name: 'Twitter/X', icon: Twitter, color: 'bg-sky-500', limit: 280 },
   { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'bg-blue-700', limit: 3000 },
-  { id: 'youtube', name: 'YouTube', icon: Youtube, color: 'bg-red-500', limit: 5000 }
+  { id: 'youtube', name: 'YouTube', icon: Youtube, color: 'bg-red-500', limit: 5000 },
+  { id: 'tiktok', name: 'TikTok', icon: Video, color: 'bg-black', limit: 2200 }
 ]
 
 const toneOptions = [
