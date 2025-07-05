@@ -91,7 +91,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'linkedin':
         clientId = process.env.LINKEDIN_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/linkedin/callback`);
-        scope = encodeURIComponent('profile w_member_social');
+        scope = encodeURIComponent('w_member_social');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'LinkedIn OAuth not configured' });
@@ -500,8 +500,8 @@ router.get('/linkedin/callback', async (req, res) => {
 
     console.log('Successfully obtained LinkedIn access token');
 
-    // Get user profile using modern LinkedIn API
-    const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+    // Get user profile using official LinkedIn API
+    const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`
       }
@@ -510,24 +510,47 @@ router.get('/linkedin/callback', async (req, res) => {
 
     console.log('LinkedIn profile data received:', profileData);
 
-    if (!profileData.sub) {
+    if (!profileData.id) {
       console.error('Failed to get LinkedIn profile data:', profileData);
       return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
     }
 
-    const displayName = profileData.name || `${profileData.given_name || ''} ${profileData.family_name || ''}`.trim();
+    // Get additional profile info if available
+    let firstName = '';
+    let lastName = '';
+    let profilePicture = '';
+    
+    try {
+      // Try to get detailed profile info (may require additional scopes)
+      const detailedProfileResponse = await fetch('https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      });
+      
+      if (detailedProfileResponse.ok) {
+        const detailedData = await detailedProfileResponse.json();
+        firstName = detailedData.firstName?.localized?.en_US || '';
+        lastName = detailedData.lastName?.localized?.en_US || '';
+        profilePicture = detailedData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier || '';
+      }
+    } catch (detailedError) {
+      console.log('Detailed profile info not available, using basic data');
+    }
+
+    const displayName = `${firstName} ${lastName}`.trim() || `LinkedIn User ${profileData.id.slice(-6)}`;
 
     console.log('Successfully fetched LinkedIn profile for user:', displayName);
 
     // Save to database
     const accountData = {
       platform: 'linkedin',
-      username: displayName.toLowerCase().replace(/\s+/g, ''),
+      username: displayName.toLowerCase().replace(/\s+/g, '') || `linkedin_${profileData.id.slice(-6)}`,
       displayName,
-      platformUserId: profileData.sub,
+      platformUserId: profileData.id,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
-      profileImage: profileData.picture || '',
+      profileImage: profilePicture || '',
       followers: 0 // LinkedIn doesn't provide follower count in basic profile
     };
 
