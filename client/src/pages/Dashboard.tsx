@@ -34,7 +34,8 @@ import {
   Youtube,
   Trash2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Video
 } from "lucide-react"
 import { SocialAccount } from "@/api/socialAccounts"
 import {
@@ -50,7 +51,7 @@ const platformIcons = {
   twitter: Twitter,
   linkedin: Linkedin,
   youtube: Youtube,
-  tiktok: MessageSquare // Using MessageSquare as placeholder for TikTok
+  tiktok: Video // Using Video icon for TikTok
 }
 
 const platformColors = {
@@ -272,7 +273,7 @@ export function Dashboard() {
               YouTube
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleConnectAccount('tiktok')} disabled={connecting !== null}>
-              <MessageSquare className="mr-2 h-4 w-4" />
+              <Video className="mr-2 h-4 w-4" />
               TikTok
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -379,10 +380,10 @@ export function Dashboard() {
                   <Youtube className="mr-2 h-4 w-4" />
                   YouTube
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleConnectAccount('tiktok')} disabled={connecting !== null}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  TikTok
-                </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleConnectAccount('tiktok')} disabled={connecting !== null}>
+              <Video className="mr-2 h-4 w-4" />
+              TikTok
+            </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

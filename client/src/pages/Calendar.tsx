@@ -19,7 +19,8 @@ import {
   Youtube,
   Users,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Video
 } from "lucide-react"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns"
 
@@ -29,7 +30,7 @@ const platformIcons = {
   twitter: Twitter,
   linkedin: Linkedin,
   youtube: Youtube,
-  tiktok: Users
+  tiktok: Video
 }
 
 const platformColors = {
@@ -190,6 +191,7 @@ export function Calendar() {
               <SelectItem value="twitter">Twitter</SelectItem>
               <SelectItem value="linkedin">LinkedIn</SelectItem>
               <SelectItem value="youtube">YouTube</SelectItem>
+              <SelectItem value="tiktok">TikTok</SelectItem>
             </SelectContent>
           </Select>
         </div>
