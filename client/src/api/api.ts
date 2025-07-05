@@ -1,7 +1,12 @@
-import axios, { AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig, AxiosInstance } from 'axios';
-import JSONbig from 'json-bigint';
+import axios, { AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig, AxiosInstance, AxiosResponse } from 'axios';
+
+// Configure API base URL for development and production
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '/api'  // Use relative path in production since server serves the client
+  : 'http://localhost:3001/api';
 
 const localApi = axios.create({
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -11,7 +16,7 @@ const localApi = axios.create({
       return { success: false, error: 'Empty response from server' };
     }
     try {
-      return JSONbig.parse(data);
+      return JSON.parse(data);
     } catch (error) {
       console.error('Failed to parse JSON response:', data);
       return { success: false, error: 'Invalid JSON response from server' };
@@ -53,143 +58,61 @@ const isValidJWT = (token: string): boolean => {
   }
 };
 
-const setupInterceptors = (apiInstance: typeof axios) => {
+// Request interceptor to add auth token
+const setupInterceptors = (apiInstance: any) => {
+  // Request interceptor
   apiInstance.interceptors.request.use(
-    (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-      console.log('🔄 API Request:', config.method?.toUpperCase(), config.url);
-      if (!accessToken) {
-        accessToken = localStorage.getItem('accessToken');
-      }
+    (config: any) => {
+      console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`);
       
-      // Validate token before using it
-      if (accessToken) {
-        if (isValidJWT(accessToken)) {
-          if (config.headers) {
-            config.headers.Authorization = `Bearer ${accessToken}`;
-            console.log('🔑 Added auth token to request');
-          }
-        } else {
-          console.error('❌ Invalid access token format detected in request interceptor');
-          // Clear invalid token
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          accessToken = null;
-          console.log('⚠️ Cleared invalid tokens, request will proceed without auth');
-        }
-      } else {
-        console.log('⚠️ No auth token available for request');
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log('🔑 Added auth token to request');
       }
       return config;
     },
-    (error: AxiosError): Promise<AxiosError> => Promise.reject(error)
+    (error: any) => {
+      console.log('❌ API Request Error:', error);
+      return Promise.reject(error);
+    }
   );
 
+  // Response interceptor
   apiInstance.interceptors.response.use(
-    (response) => {
-      console.log('✅ API Response:', response.status, response.config.url);
-
-      // Check for auth errors in successful responses (due to our custom validateStatus)
-      if (response.status === 401 || response.status === 403) {
-        console.log('🔄 Auth error detected in response, triggering token refresh');
-        const error = new Error('Authentication required');
-        (error as any).response = response;
-        (error as any).config = response.config;
-        throw error;
-      }
-
-      // Check if the response indicates a server error or service unavailable
-      if (response.status >= 500 || response.status === 503) {
-        console.error('Server error:', response.data);
-        const error = new Error(response.data?.error || response.data?.message || 'Service unavailable');
-        (error as any).response = response;
-        throw error;
-      }
+    (response: AxiosResponse) => {
+      console.log(`✅ API Response: ${response.status} ${response.config.url}`);
       return response;
     },
-    async (error: AxiosError): Promise<any> => {
-      console.error('❌ API request failed:', error.message);
-      console.error('❌ Request URL:', error.config?.url);
-      console.error('❌ Response status:', error.response?.status);
-      console.error('❌ Response data:', error.response?.data);
+    async (error: any) => {
+      console.log('❌ API Response Error:', error.response?.status, error.response?.data);
+      
+      const originalRequest = error.config;
 
-      // Handle network errors (server down)
-      if (error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET') {
-        console.error('Server is not accessible. Please check if the server is running.');
-        return Promise.reject(new Error('Server is not accessible. Please check if the server is running.'));
-      }
-
-      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-
-      // Only refresh token when we get a 401/403 error (token is invalid/expired)
-      if (error.response?.status && [401, 403].includes(error.response.status) &&
-          !originalRequest._retry &&
-          originalRequest.url && !isRefreshTokenEndpoint(originalRequest.url)) {
+      if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
 
         try {
           const refreshToken = localStorage.getItem('refreshToken');
-          if (!refreshToken) {
-            console.log('❌ No refresh token available, redirecting to login');
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            accessToken = null;
-            window.location.href = '/login';
-            throw new Error('No refresh token available');
+          if (refreshToken) {
+            console.log('🔄 Attempting to refresh token...');
+            const response = await localApi.post(`/auth/refresh`, {
+              refreshToken,
+            });
+
+            const { token: newToken } = response.data;
+            localStorage.setItem('authToken', newToken);
+            
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return localApi(originalRequest);
           }
-
-          // Validate refresh token format
-          if (!isValidJWT(refreshToken)) {
-            console.error('❌ Invalid refresh token format, redirecting to login');
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            accessToken = null;
-            window.location.href = '/login';
-            throw new Error('Invalid refresh token format');
-          }
-
-          console.log('🔄 Attempting to refresh token...');
-          const response = await localApi.post(`/api/auth/refresh`, {
-            refreshToken,
-          });
-
-          console.log('🔄 Refresh token response:', response.status, response.data);
-
-          if (response.status === 200 && response.data.success && response.data.data) {
-            const newAccessToken = response.data.data.accessToken;
-            const newRefreshToken = response.data.data.refreshToken;
-
-            // Validate new tokens before storing
-            if (!isValidJWT(newAccessToken)) {
-              console.error('❌ Received invalid access token from refresh endpoint');
-              throw new Error('Invalid access token received');
-            }
-
-            localStorage.setItem('accessToken', newAccessToken);
-            if (newRefreshToken && isValidJWT(newRefreshToken)) {
-              localStorage.setItem('refreshToken', newRefreshToken);
-            }
-            accessToken = newAccessToken;
-
-            console.log('✅ Token refreshed successfully');
-
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-            }
-
-            console.log('🔄 Retrying original request with new token');
-            return getApiInstance(originalRequest.url || '')(originalRequest);
-          } else {
-            console.error('❌ Invalid response from refresh token endpoint:', response.data);
-            throw new Error('Invalid response from refresh token endpoint');
-          }
-        } catch (err) {
-          console.log('❌ Token refresh failed, clearing tokens and redirecting to login');
-          console.error('❌ Refresh error details:', err);
+        } catch (refreshError) {
+          console.log('❌ Token refresh failed:', refreshError);
+          // Clear tokens and redirect to login
+          localStorage.removeItem('authToken');
           localStorage.removeItem('refreshToken');
-          localStorage.removeItem('accessToken');
-          accessToken = null;
           window.location.href = '/login';
-          return Promise.reject(err);
         }
       }
 
@@ -203,7 +126,7 @@ setupInterceptors(localApi);
 const api = {
   request: (config: AxiosRequestConfig) => {
     const apiInstance = getApiInstance(config.url || '');
-    return apiInstance(config);
+    return apiInstance.request(config);
   },
   get: (url: string, config?: AxiosRequestConfig) => {
     const apiInstance = getApiInstance(url);

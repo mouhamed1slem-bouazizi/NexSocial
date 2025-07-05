@@ -8,6 +8,7 @@ const oauthRoutes = require("./routes/oauthRoutes");
 const postRoutes = require("./routes/postRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
+const path = require('path');
 
 console.log('🚀 Starting server...');
 console.log('🔧 Environment variables check:');
@@ -27,10 +28,22 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors({}));
+// Configure CORS
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.CLIENT_URL || 'https://your-app-name.onrender.com'
+    : 'http://localhost:5173',
+  credentials: true
+}));
+
 // Increase payload limit to handle base64 encoded images/videos
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve static files from client build in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+}
 
 // Database connection with retry mechanism
 let dbConnection = null;
@@ -159,6 +172,13 @@ app.use((err, req, res, next) => {
     message: 'There was an error serving your request'
   });
 });
+
+// Serve React app for all non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+}
 
 // Start server
 app.listen(port, () => {

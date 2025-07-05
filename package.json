@@ -1,24 +1,20 @@
 {
-  "name": "NexSocial",
+  "name": "nexsocial",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Social Media Management Platform",
+  "main": "server/server.js",
   "scripts": {
-    "postinstall": "concurrently -n \"client,server\" \"npm run client-install\" \"npm run server-install\"",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "client": "cd client && npm run dev",
-    "client-install": "cd client && npm install",
-    "server": "cd server && npm run dev",
-    "server-install": "cd server && npm install",
-    "start": "concurrently -n \"client,server\" \"npm run client\" \"npm run server\"",
-    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm run server\""
+    "build": "cd client && npm install && npm run build",
+    "start": "cd server && npm install && node server.js",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "install-deps": "cd server && npm install && cd ../client && npm install"
   },
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "concurrently": "^9.1.0"
+  "engines": {
+    "node": ">=18.0.0"
   },
+  "author": "Your Name",
+  "license": "MIT",
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "concurrently": "^8.2.0"
   }
 }
