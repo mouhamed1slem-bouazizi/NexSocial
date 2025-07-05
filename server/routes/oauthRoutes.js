@@ -500,27 +500,119 @@ router.get('/linkedin/callback', async (req, res) => {
 
     console.log('Successfully obtained LinkedIn access token');
 
-    // Since we only have w_member_social scope, create posting-only account
-    console.log('Creating LinkedIn posting-only account (profile scopes not available)');
-    
-    // Generate unique identifier for this LinkedIn connection
-    const userId_linkedin = `linkedin_posting_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const displayName = 'LinkedIn Posting Account';
-    
-    console.log('LinkedIn posting account setup for posting capabilities only');
+    // Try to get profile information even with limited scope
+    let profileData = null;
+    let displayName = 'LinkedIn Posting Account';
+    let username = 'linkedinpostingaccount';
+    let userId_linkedin = `linkedin_posting_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    let profileImage = '';
+    let followers = 0;
+
+    try {
+      console.log('Attempting to retrieve profile information...');
+      
+      // Try the basic profile endpoint first
+      const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      });
+
+      const profileResult = await profileResponse.json();
+      console.log('LinkedIn profile API response:', profileResult);
+
+      if (profileResponse.ok && profileResult.id) {
+        userId_linkedin = profileResult.id;
+        console.log('✅ Got LinkedIn user ID:', userId_linkedin);
+
+        // Try to get detailed profile information
+        try {
+          const detailedResponse = await fetch('https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))', {
+            headers: {
+              'Authorization': `Bearer ${tokenData.access_token}`
+            }
+          });
+
+          if (detailedResponse.ok) {
+            const detailedData = await detailedResponse.json();
+            console.log('✅ Got detailed LinkedIn profile:', detailedData);
+            
+            // Handle different possible name formats from LinkedIn API
+            let firstName = '';
+            let lastName = '';
+            
+            if (detailedData.firstName) {
+              if (detailedData.firstName.localized) {
+                firstName = detailedData.firstName.localized.en_US || 
+                           detailedData.firstName.localized[Object.keys(detailedData.firstName.localized)[0]] || '';
+              } else if (detailedData.firstName.preferredLocale) {
+                firstName = detailedData.firstName.preferredLocale.localized.en_US || 
+                           detailedData.firstName.preferredLocale.localized[Object.keys(detailedData.firstName.preferredLocale.localized)[0]] || '';
+              }
+            }
+            
+            if (detailedData.lastName) {
+              if (detailedData.lastName.localized) {
+                lastName = detailedData.lastName.localized.en_US || 
+                          detailedData.lastName.localized[Object.keys(detailedData.lastName.localized)[0]] || '';
+              } else if (detailedData.lastName.preferredLocale) {
+                lastName = detailedData.lastName.preferredLocale.localized.en_US || 
+                          detailedData.lastName.preferredLocale.localized[Object.keys(detailedData.lastName.preferredLocale.localized)[0]] || '';
+              }
+            }
+            
+            if (firstName || lastName) {
+              displayName = `${firstName} ${lastName}`.trim();
+              username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'linkedinuser';
+              console.log('✅ Got LinkedIn name:', displayName);
+            } else {
+              displayName = 'LinkedIn User';
+              username = 'linkedinuser';
+            }
+
+            // Try to get profile picture
+            if (detailedData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier) {
+              profileImage = detailedData.profilePicture.displayImage.elements[0].identifiers[0].identifier;
+              console.log('✅ Got LinkedIn profile picture');
+            }
+          } else {
+            console.log('⚠️  Detailed profile info not accessible, using basic info');
+            // Use the LinkedIn ID to create a more specific account name
+            displayName = `LinkedIn User ${userId_linkedin.slice(-6)}`;
+            username = `linkedinuser${userId_linkedin.slice(-6)}`;
+          }
+        } catch (detailedError) {
+          console.log('⚠️  Could not fetch detailed profile info:', detailedError.message);
+        }
+
+        console.log('✅ LinkedIn profile setup complete with available information');
+      } else {
+        console.log('⚠️  Basic profile not accessible, using posting-only account');
+        // Create a unique posting account identifier
+        const timestamp = Date.now().toString().slice(-6);
+        displayName = `LinkedIn Account ${timestamp}`;
+        username = `linkedinaccount${timestamp}`;
+      }
+    } catch (error) {
+      console.log('⚠️  Profile retrieval failed, using posting-only account:', error.message);
+      // Create a unique posting account identifier
+      const timestamp = Date.now().toString().slice(-6);
+      displayName = `LinkedIn Account ${timestamp}`;
+      username = `linkedinaccount${timestamp}`;
+    }
 
     console.log('Successfully set up LinkedIn account for user:', displayName);
 
     // Save to database
     const accountData = {
       platform: 'linkedin',
-      username: displayName.toLowerCase().replace(/\s+/g, ''),
+      username: username,
       displayName,
       platformUserId: userId_linkedin,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
-      profileImage: '', // No profile image access with posting-only scope
-      followers: 0 // LinkedIn doesn't provide follower count with basic scope
+      profileImage: profileImage,
+      followers: followers
     };
 
     await SocialAccountService.create(userId, accountData);
