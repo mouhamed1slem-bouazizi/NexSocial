@@ -21,6 +21,7 @@ import { ContactUs } from "./pages/ContactUs"
 import { PrivacyPolicy } from "./pages/PrivacyPolicy"
 import { TermsOfService } from "./pages/TermsOfService"
 import { HelpCenter } from "./pages/HelpCenter"
+import { DataDeletion } from "./pages/DataDeletion"
 import { BlankPage } from "./pages/BlankPage"
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
               <Route path="about" element={<AboutUs />} />
               <Route path="contact" element={<ContactUs />} />
               <Route path="help" element={<HelpCenter />} />
+              <Route path="data-deletion" element={<DataDeletion />} />
               <Route path="privacy" element={<PrivacyPolicy />} />
               <Route path="terms" element={<TermsOfService />} />
             </Route>

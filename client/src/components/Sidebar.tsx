@@ -19,7 +19,8 @@ import {
   Mail,
   Shield,
   FileText,
-  HelpCircle
+  HelpCircle,
+  Trash2
 } from "lucide-react"
 import { Button } from "./ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible"
@@ -41,6 +42,7 @@ const aboutSubmenu = [
   { name: 'About Us', href: '/about', icon: Info },
   { name: 'Contact Us', href: '/contact', icon: Mail },
   { name: 'Help Center', href: '/help', icon: HelpCircle },
+  { name: 'Data Deletion', href: '/data-deletion', icon: Trash2 },
   { name: 'Privacy Policy', href: '/privacy', icon: Shield },
   { name: 'Terms of Service', href: '/terms', icon: FileText },
 ]
