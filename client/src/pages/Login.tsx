@@ -44,9 +44,14 @@ export function Login() {
         console.log('Login successful, extracting tokens...')
         console.log('Access token available:', !!response.data.accessToken)
         console.log('Refresh token available:', !!response.data.refreshToken)
+        console.log('User data available:', !!response.data.user)
         
-        // Call AuthContext login with the JWT tokens from the API response
-        login(response.data.accessToken, response.data.refreshToken)
+        // Call AuthContext login with the JWT tokens and user data from the API response
+        login(
+          response.data.accessToken, 
+          response.data.refreshToken,
+          response.data.user
+        )
         
         toast({
           title: "Success",

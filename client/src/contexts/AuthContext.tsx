@@ -9,7 +9,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (accessToken: string, refreshToken?: string) => void;
+  login: (accessToken: string, refreshToken?: string, userData?: User) => void;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
 }
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const login = (accessToken: string, refreshToken?: string) => {
+  const login = (accessToken: string, refreshToken?: string, userData?: User) => {
     console.log('🔐 Login called with tokens');
     console.log('🔐 Login - Access token preview:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null/undefined');
     console.log('🔐 Login - Refresh token preview:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'null/undefined');
@@ -86,10 +86,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
 
-    // For now, we'll set a basic user object
-    // In a real app, you'd decode the JWT or fetch user info
-    setUser({ id: 'user', email: 'user@example.com' });
-    console.log('✅ User state set successfully');
+    // Set user data from the provided userData or extract from token
+    if (userData) {
+      setUser(userData);
+      console.log('✅ User data set from provided userData:', userData);
+    } else {
+      // Try to extract user info from JWT payload
+      try {
+        const payload = JSON.parse(atob(accessToken.split('.')[1]));
+        setUser({ id: payload.userId, email: payload.email || 'user@example.com' });
+        console.log('✅ User data extracted from JWT payload');
+      } catch (error) {
+        console.error('❌ Failed to extract user data from JWT, using default');
+        setUser({ id: 'user', email: 'user@example.com' });
+      }
+    }
   };
 
   const logout = () => {
@@ -131,9 +142,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return false;
         }
 
-        console.log('✅ Valid tokens found, user appears to be logged in');
-        setUser({ id: 'user', email: 'user@example.com' });
-        return true;
+        // Extract user data from JWT
+        try {
+          const payload = JSON.parse(atob(accessToken.split('.')[1]));
+          setUser({ id: payload.userId, email: payload.email || 'user@example.com' });
+          console.log('✅ Valid tokens found, user data extracted from JWT');
+          return true;
+        } catch (error) {
+          console.error('❌ Failed to extract user data from JWT');
+          setUser({ id: 'user', email: 'user@example.com' });
+          return true;
+        }
       } else {
         console.log('❌ No access token found');
         setUser(null);

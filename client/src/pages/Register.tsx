@@ -5,15 +5,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/contexts/AuthContext"
 import { register } from "@/api/auth"
 
 export function Register() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,22 +29,30 @@ export function Register() {
       return
     }
 
-    setLoading(true)
+    setIsLoading(true)
     
     try {
       const response = await register(email, password) as any
       
-      if (response.success) {
-        // Store both tokens as per the corrected registration flow
-        localStorage.setItem('accessToken', response.data.accessToken)
-        localStorage.setItem('refreshToken', response.data.refreshToken)
+      if (response.success && response.data) {
+        console.log('Registration successful, extracting tokens...')
+        console.log('Access token available:', !!response.data.accessToken)
+        console.log('User data available:', !!response.data.user)
+        
+        // Call AuthContext login with the JWT token and user data from the API response
+        // Note: Registration doesn't return refreshToken, only accessToken
+        login(
+          response.data.accessToken, 
+          undefined, // No refresh token from registration
+          response.data.user
+        )
         
         toast({
           title: "Success",
-          description: "Account created successfully!"
+          description: "Registration successful! Welcome to NexSocial!"
         })
         
-        navigate('/')
+        navigate("/")
       } else {
         throw new Error(response.error || 'Registration failed')
       }
@@ -53,7 +63,7 @@ export function Register() {
         variant: "destructive"
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -101,8 +111,8 @@ export function Register() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating Account..." : "Create Account"}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
           <div className="mt-4 text-center">

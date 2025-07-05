@@ -65,7 +65,7 @@ const setupInterceptors = (apiInstance: any) => {
     (config: any) => {
       console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`);
       
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('accessToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         console.log('🔑 Added auth token to request');
@@ -100,8 +100,11 @@ const setupInterceptors = (apiInstance: any) => {
               refreshToken,
             });
 
-            const { token: newToken } = response.data;
-            localStorage.setItem('authToken', newToken);
+            const { accessToken: newToken, refreshToken: newRefreshToken } = response.data.data;
+            localStorage.setItem('accessToken', newToken);
+            if (newRefreshToken) {
+              localStorage.setItem('refreshToken', newRefreshToken);
+            }
             
             // Retry original request with new token
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -110,7 +113,7 @@ const setupInterceptors = (apiInstance: any) => {
         } catch (refreshError) {
           console.log('❌ Token refresh failed:', refreshError);
           // Clear tokens and redirect to login
-          localStorage.removeItem('authToken');
+          localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           window.location.href = '/login';
         }
