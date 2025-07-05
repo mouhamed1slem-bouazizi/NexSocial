@@ -91,7 +91,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'linkedin':
         clientId = process.env.LINKEDIN_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/linkedin/callback`);
-        scope = encodeURIComponent('w_member_social');
+        scope = encodeURIComponent('r_liteprofile w_member_social');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'LinkedIn OAuth not configured' });
@@ -500,54 +500,65 @@ router.get('/linkedin/callback', async (req, res) => {
 
     console.log('Successfully obtained LinkedIn access token');
 
-    // Get user profile using official LinkedIn API
-    const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`
-      }
-    });
-    const profileData = await profileResponse.json();
-
-    console.log('LinkedIn profile data received:', profileData);
-
-    if (!profileData.id) {
-      console.error('Failed to get LinkedIn profile data:', profileData);
-      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
-    }
-
-    // Get additional profile info if available
+    // Get user profile - handle gracefully if profile access is denied
+    let profileData = null;
     let firstName = '';
     let lastName = '';
     let profilePicture = '';
+    let userId_linkedin = '';
     
     try {
-      // Try to get detailed profile info (may require additional scopes)
-      const detailedProfileResponse = await fetch('https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))', {
+      // Try to get basic profile info
+      const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`
         }
       });
       
-      if (detailedProfileResponse.ok) {
-        const detailedData = await detailedProfileResponse.json();
-        firstName = detailedData.firstName?.localized?.en_US || '';
-        lastName = detailedData.lastName?.localized?.en_US || '';
-        profilePicture = detailedData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier || '';
+      const profileResult = await profileResponse.json();
+      console.log('LinkedIn profile data received:', profileResult);
+      
+      if (profileResponse.ok && profileResult.id) {
+        profileData = profileResult;
+        userId_linkedin = profileResult.id;
+        
+        // Try to get detailed profile info
+        try {
+          const detailedProfileResponse = await fetch('https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))', {
+            headers: {
+              'Authorization': `Bearer ${tokenData.access_token}`
+            }
+          });
+          
+          if (detailedProfileResponse.ok) {
+            const detailedData = await detailedProfileResponse.json();
+            firstName = detailedData.firstName?.localized?.en_US || '';
+            lastName = detailedData.lastName?.localized?.en_US || '';
+            profilePicture = detailedData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier || '';
+          }
+        } catch (detailedError) {
+          console.log('Detailed profile info not available, using basic data');
+        }
+      } else {
+        console.log('Profile access denied, but we have posting permissions. Proceeding with limited account info.');
+        // Generate a unique identifier based on the access token or timestamp
+        userId_linkedin = `linkedin_user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
-    } catch (detailedError) {
-      console.log('Detailed profile info not available, using basic data');
+    } catch (profileError) {
+      console.log('Profile access failed, but continuing with posting-only account:', profileError.message);
+      userId_linkedin = `linkedin_user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
-    const displayName = `${firstName} ${lastName}`.trim() || `LinkedIn User ${profileData.id.slice(-6)}`;
+    const displayName = `${firstName} ${lastName}`.trim() || 'LinkedIn User';
 
-    console.log('Successfully fetched LinkedIn profile for user:', displayName);
+    console.log('Successfully set up LinkedIn account for user:', displayName);
 
     // Save to database
     const accountData = {
       platform: 'linkedin',
-      username: displayName.toLowerCase().replace(/\s+/g, '') || `linkedin_${profileData.id.slice(-6)}`,
+      username: displayName.toLowerCase().replace(/\s+/g, '') || `linkedin_${userId_linkedin.slice(-6)}`,
       displayName,
-      platformUserId: profileData.id,
+      platformUserId: userId_linkedin,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       profileImage: profilePicture || '',
@@ -555,7 +566,7 @@ router.get('/linkedin/callback', async (req, res) => {
     };
 
     await SocialAccountService.create(userId, accountData);
-    console.log('LinkedIn account successfully saved to database');
+    console.log('LinkedIn account successfully saved to database with posting permissions');
 
     res.redirect(`${process.env.CLIENT_URL}?success=linkedin_connected`);
   } catch (error) {
