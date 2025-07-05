@@ -31,7 +31,7 @@ const port = process.env.PORT || 3001;
 // Configure CORS
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.CLIENT_URL || 'https://your-app-name.onrender.com'
+    ? ['https://nexsocial.onrender.com', process.env.CLIENT_URL].filter(Boolean)
     : 'http://localhost:5173',
   credentials: true
 }));
@@ -152,13 +152,20 @@ app.use('/api/oauth', checkDatabaseConnection, oauthRoutes);
 // Post Routes - require database
 app.use('/api/posts', checkDatabaseConnection, postRoutes);
 
-// 404 handler
-app.use((req, res, next) => {
-  console.log(`❌ 404 - Route not found: ${req.method} ${req.url}`);
+// Serve React app for all non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+}
+
+// 404 handler for API routes only
+app.use('/api/*', (req, res, next) => {
+  console.log(`❌ 404 - API route not found: ${req.method} ${req.url}`);
   res.status(404).json({
     success: false,
-    error: 'Page not found',
-    message: 'The requested endpoint does not exist'
+    error: 'API endpoint not found',
+    message: 'The requested API endpoint does not exist'
   });
 });
 
@@ -172,13 +179,6 @@ app.use((err, req, res, next) => {
     message: 'There was an error serving your request'
   });
 });
-
-// Serve React app for all non-API routes in production
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  });
-}
 
 // Start server
 app.listen(port, () => {

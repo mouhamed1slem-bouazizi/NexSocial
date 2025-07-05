@@ -8,7 +8,7 @@ export const login = async (email: string, password: string) => {
   console.log('🔄 API Login request starting for:', email);
   
   try {
-    const response = await api.post('/api/auth/login', { email, password });
+    const response = await api.post('/auth/login', { email, password });
     console.log('✅ API Login response received:', response.status);
     console.log('🔍 Login response data structure:', {
       success: response.data?.success,
@@ -34,7 +34,7 @@ export const register = async (email: string, password: string) => {
   console.log('🔄 API Register request starting for:', email);
   
   try {
-    const response = await api.post('/api/auth/register', { email, password });
+    const response = await api.post('/auth/register', { email, password });
     console.log('✅ API Register response received:', response.status);
     console.log('🔍 Register response data structure:', {
       success: response.data?.success,
@@ -58,7 +58,7 @@ export const logout = async () => {
   console.log('🔄 API Logout request starting');
   
   try {
-    const response = await api.post('/api/auth/logout');
+    const response = await api.post('/auth/logout');
     console.log('✅ API Logout response received:', response.status);
     return response.data;
   } catch (error: any) {

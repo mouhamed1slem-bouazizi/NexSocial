@@ -5,6 +5,7 @@ export interface SocialAccount {
   platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'tiktok' | 'youtube';
   username: string;
   display_name: string; // Changed from displayName to display_name for Supabase
+  platform_user_id: string;
   followers: number;
   is_connected: boolean; // Changed from isConnected to is_connected for Supabase
   profile_image: string; // Changed from profileImage to profile_image for Supabase
@@ -18,13 +19,15 @@ export interface SocialAccount {
 // Endpoint: GET /api/social-accounts
 // Request: {}
 // Response: { success: boolean, accounts: Array<SocialAccount> }
-export const getSocialAccounts = async () => {
+export const getSocialAccounts = async (): Promise<SocialAccount[]> => {
   try {
-    const response = await api.get('/api/social-accounts');
-    return response.data;
+    console.log('🔄 Fetching social accounts...');
+    const response = await api.get('/social-accounts');
+    console.log('✅ Social accounts response:', response.data);
+    return response.data.data || [];
   } catch (error: any) {
-    console.error(error);
-    throw new Error(error?.response?.data?.error || error.message);
+    console.error('❌ Error fetching social accounts:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch social accounts');
   }
 };
 
@@ -69,13 +72,14 @@ export const getSocialAccount = async (id: string) => {
 // Endpoint: DELETE /api/social-accounts/:id
 // Request: {}
 // Response: { success: boolean, message: string }
-export const disconnectSocialAccount = async (id: string) => {
+export const disconnectSocialAccount = async (accountId: string): Promise<void> => {
   try {
-    const response = await api.delete(`/api/social-accounts/${id}`);
-    return response.data;
+    console.log('🔄 Disconnecting social account:', accountId);
+    await api.delete(`/social-accounts/${accountId}`);
+    console.log('✅ Social account disconnected successfully');
   } catch (error: any) {
-    console.error(error);
-    throw new Error(error?.response?.data?.error || error.message);
+    console.error('❌ Error disconnecting social account:', error);
+    throw new Error(error.response?.data?.message || 'Failed to disconnect social account');
   }
 };
 

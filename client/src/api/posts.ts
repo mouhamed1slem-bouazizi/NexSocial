@@ -39,42 +39,48 @@ export interface AIGenerateData {
 
 export interface AIGenerateResponse {
   success: boolean;
-  content: string;
-  message: string;
+  content?: string;
+  error?: string;
 }
 
 // Description: Create and publish/schedule a post to selected social media accounts
-// Endpoint: POST /api/posts
+// Endpoint: POST /posts
 // Request: { content: string, platforms: string[], selectedAccounts: string[], scheduledAt?: string, media?: string[] }
 // Response: { success: boolean, message: string, results: object }
-export const createPost = async (data: CreatePostData): Promise<PostResponse> => {
+export const createPost = async (postData: CreatePostData): Promise<PostResponse> => {
   try {
-    console.log('🔄 Creating post with data:', data);
-    const response = await api.post('/api/posts', data);
+    console.log('📝 Creating post with data:', postData);
+    const response = await api.post('/posts', postData);
     console.log('✅ Post creation response:', response.data);
     return response.data;
   } catch (error: any) {
-    console.error('❌ Post creation error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    console.error('❌ Error creating post:', error);
+    console.error('❌ Error response:', error.response?.data);
+    throw new Error(error.response?.data?.message || 'Failed to create post');
   }
 };
 
 // Description: Get all posts for the authenticated user
-// Endpoint: GET /api/posts
+// Endpoint: GET /posts
 // Request: {}
 // Response: { success: boolean, posts: Array<Post> }
 export const getPosts = async (): Promise<Post[]> => {
-  const response = await api.get('/api/posts');
-  return response.data.posts;
+  try {
+    const response = await api.get('/posts');
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('❌ Error fetching posts:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch posts');
+  }
 };
 
 // Description: Get a specific post by ID
-// Endpoint: GET /api/posts/:id
+// Endpoint: GET /posts/:id
 // Request: {}
 // Response: { success: boolean, post: Post }
 export const getPost = async (id: string) => {
   try {
-    const response = await api.get(`/api/posts/${id}`);
+    const response = await api.get(`/posts/${id}`);
     return response.data;
   } catch (error: any) {
     console.error('❌ Get post error:', error);
@@ -83,31 +89,31 @@ export const getPost = async (id: string) => {
 };
 
 // Description: Delete a post by ID
-// Endpoint: DELETE /api/posts/:id
+// Endpoint: DELETE /posts/:id
 // Request: {}
 // Response: { success: boolean, message: string }
-export const deletePost = async (id: string) => {
+export const deletePost = async (postId: string): Promise<void> => {
   try {
-    const response = await api.delete(`/api/posts/${id}`);
-    return response.data;
+    await api.delete(`/posts/${postId}`);
   } catch (error: any) {
-    console.error('❌ Delete post error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    console.error('❌ Error deleting post:', error);
+    throw new Error(error.response?.data?.message || 'Failed to delete post');
   }
 };
 
 // Description: Generate AI content for social media posts
-// Endpoint: POST /api/posts/ai-generate
+// Endpoint: POST /posts/ai-generate
 // Request: { prompt: string, tone?: string, platforms?: string[] }
 // Response: { success: boolean, content: string, message: string }
 export const generateAIContent = async (data: AIGenerateData): Promise<AIGenerateResponse> => {
   try {
     console.log('🤖 Generating AI content with data:', data);
-    const response = await api.post('/api/posts/ai-generate', data);
-    console.log('✅ AI content generation response:', response.data);
+    const response = await api.post('/posts/ai-generate', data);
+    console.log('✅ AI generation response:', response.data);
     return response.data;
   } catch (error: any) {
-    console.error('❌ AI content generation error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    console.error('❌ Error generating AI content:', error);
+    console.error('❌ Error response:', error.response?.data);
+    throw new Error(error.response?.data?.message || 'Failed to generate AI content');
   }
 };
