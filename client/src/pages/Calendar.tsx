@@ -55,8 +55,9 @@ export function Calendar() {
       try {
         console.log('Fetching posts for calendar...')
         const data = await getPosts()
-        setPosts((data as any).posts)
-        console.log('Posts loaded for calendar')
+        console.log('✅ Posts API response:', data)
+        setPosts(data || [])
+        console.log('Posts loaded for calendar:', data?.length || 0)
       } catch (error) {
         console.error('Error fetching posts:', error)
         toast({
