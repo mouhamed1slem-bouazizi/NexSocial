@@ -91,7 +91,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'linkedin':
         clientId = process.env.LINKEDIN_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/linkedin/callback`);
-        scope = encodeURIComponent('r_liteprofile r_emailaddress w_member_social');
+        scope = encodeURIComponent('r_liteprofile w_member_social');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'LinkedIn OAuth not configured' });
