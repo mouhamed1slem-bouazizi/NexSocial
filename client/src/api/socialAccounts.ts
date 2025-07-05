@@ -24,7 +24,7 @@ export const getSocialAccounts = async (): Promise<SocialAccount[]> => {
     console.log('🔄 Fetching social accounts...');
     const response = await api.get('/social-accounts');
     console.log('✅ Social accounts response:', response.data);
-    return response.data.data || [];
+    return response.data.accounts || [];
   } catch (error: any) {
     console.error('❌ Error fetching social accounts:', error);
     throw new Error(error.response?.data?.message || 'Failed to fetch social accounts');
@@ -104,7 +104,7 @@ export const updateSocialAccountStatus = async (id: string, isConnected: boolean
 export const initiateOAuth = async (platform: string) => {
   try {
     console.log(`Initiating OAuth for platform: ${platform}`);
-    const response = await api.post('/api/oauth/initiate', { platform });
+    const response = await api.post('/oauth/initiate', { platform });
     return response.data;
   } catch (error: any) {
     console.error(`OAuth initiation error for ${platform}:`, error);

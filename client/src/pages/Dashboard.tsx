@@ -165,7 +165,7 @@ export function Dashboard() {
       console.log('📊 Fetching social accounts...')
       const response = await getSocialAccounts()
       console.log('✅ Social accounts response:', response)
-      setSocialAccounts(response.accounts || [])
+      setSocialAccounts(response || [])
     } catch (err: any) {
       console.error('❌ Error fetching social accounts:', err)
       setError(err.message)
@@ -455,7 +455,7 @@ export function Dashboard() {
                           @{account.username} • {account.followers?.toLocaleString() || 0} followers
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Last sync: {new Date(account.last_sync).toLocaleDateString()}
+                          Last sync: {new Date(account.last_sync || new Date()).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
