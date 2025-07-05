@@ -91,7 +91,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'linkedin':
         clientId = process.env.LINKEDIN_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/linkedin/callback`);
-        scope = encodeURIComponent('r_liteprofile w_member_social');
+        scope = encodeURIComponent('profile w_member_social');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'LinkedIn OAuth not configured' });
@@ -500,22 +500,22 @@ router.get('/linkedin/callback', async (req, res) => {
 
     console.log('Successfully obtained LinkedIn access token');
 
-    // Get user profile
-    const profileResponse = await fetch('https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))', {
+    // Get user profile using modern LinkedIn API
+    const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`
       }
     });
     const profileData = await profileResponse.json();
 
-    if (!profileData.id) {
+    console.log('LinkedIn profile data received:', profileData);
+
+    if (!profileData.sub) {
       console.error('Failed to get LinkedIn profile data:', profileData);
       return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
     }
 
-    const firstName = profileData.firstName?.localized?.en_US || '';
-    const lastName = profileData.lastName?.localized?.en_US || '';
-    const displayName = `${firstName} ${lastName}`.trim();
+    const displayName = profileData.name || `${profileData.given_name || ''} ${profileData.family_name || ''}`.trim();
 
     console.log('Successfully fetched LinkedIn profile for user:', displayName);
 
@@ -524,10 +524,10 @@ router.get('/linkedin/callback', async (req, res) => {
       platform: 'linkedin',
       username: displayName.toLowerCase().replace(/\s+/g, ''),
       displayName,
-      platformUserId: profileData.id,
+      platformUserId: profileData.sub,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
-      profileImage: profileData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier || '',
+      profileImage: profileData.picture || '',
       followers: 0 // LinkedIn doesn't provide follower count in basic profile
     };
 
