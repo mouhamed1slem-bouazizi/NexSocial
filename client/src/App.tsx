@@ -16,6 +16,11 @@ import { Team } from "./pages/Team"
 import { Settings } from "./pages/Settings"
 import { Automation } from "./pages/Automation"
 import { AdsManager } from "./pages/AdsManager"
+import { AboutUs } from "./pages/AboutUs"
+import { ContactUs } from "./pages/ContactUs"
+import { PrivacyPolicy } from "./pages/PrivacyPolicy"
+import { TermsOfService } from "./pages/TermsOfService"
+import { HelpCenter } from "./pages/HelpCenter"
 import { BlankPage } from "./pages/BlankPage"
 
 function App() {
@@ -41,6 +46,11 @@ function App() {
               <Route path="automation" element={<Automation />} />
               <Route path="ads" element={<AdsManager />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="about" element={<AboutUs />} />
+              <Route path="contact" element={<ContactUs />} />
+              <Route path="help" element={<HelpCenter />} />
+              <Route path="privacy" element={<PrivacyPolicy />} />
+              <Route path="terms" element={<TermsOfService />} />
             </Route>
             <Route path="*" element={<BlankPage />} />
           </Routes>
