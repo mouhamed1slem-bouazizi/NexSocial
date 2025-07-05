@@ -4,8 +4,8 @@
   "description": "Social Media Management Platform",
   "main": "server/server.js",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
-    "start": "cd server && npm install && node server.js",
+    "build": "NODE_ENV=production npm install && cd client && npm install && npm run build",
+    "start": "NODE_ENV=production cd server && npm install && node server.js",
     "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
     "install-deps": "cd server && npm install && cd ../client && npm install"
   },
