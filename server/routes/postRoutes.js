@@ -216,9 +216,9 @@ const postToLinkedIn = async (account, content, media = []) => {
     console.log(`Content: ${content}`);
     console.log(`Media items: ${media.length}`);
 
-    // Validate LinkedIn user ID - must be a real LinkedIn member ID
-    const isValidLinkedInId = /^\d+$/.test(account.platform_user_id);
-    if (!isValidLinkedInId || account.platform_user_id.includes('linkedin_posting_')) {
+    // Validate LinkedIn user ID - must be a real LinkedIn member ID (not a fake generated one)
+    const isFakeLinkedInId = account.platform_user_id.includes('linkedin_posting_');
+    if (isFakeLinkedInId || !account.platform_user_id || account.platform_user_id.length < 3) {
       console.log('❌ Invalid LinkedIn member ID detected:', account.platform_user_id);
       return {
         success: false,

@@ -91,7 +91,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'linkedin':
         clientId = process.env.LINKEDIN_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/linkedin/callback`);
-        scope = encodeURIComponent('r_liteprofile w_member_social');
+        scope = encodeURIComponent('openid profile w_member_social');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'LinkedIn OAuth not configured' });
@@ -509,97 +509,55 @@ router.get('/linkedin/callback', async (req, res) => {
     let followers = 0;
 
     try {
-      console.log('Attempting to retrieve profile information...');
+      console.log('Attempting to retrieve profile information using OpenID Connect...');
       
-      // Try the basic profile endpoint first with the new profile scope
-      const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
+      // Use the new OpenID Connect userinfo endpoint
+      const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`
         }
       });
 
       const profileResult = await profileResponse.json();
-      console.log('LinkedIn profile API response:', profileResult);
+      console.log('LinkedIn userinfo API response:', profileResult);
 
-      if (profileResponse.ok && profileResult.id) {
-        userId_linkedin = profileResult.id;
+      if (profileResponse.ok && profileResult.sub) {
+        userId_linkedin = profileResult.sub;
         console.log('✅ Got LinkedIn user ID:', userId_linkedin);
 
-        // Validate that we got a real LinkedIn ID (should be numeric)
-        if (!/^\d+$/.test(userId_linkedin)) {
-          console.error('❌ Invalid LinkedIn user ID format:', userId_linkedin);
-          throw new Error('Invalid LinkedIn user ID format');
-        }
-
-        // Try to get detailed profile information
-        try {
-          const detailedResponse = await fetch('https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))', {
-            headers: {
-              'Authorization': `Bearer ${tokenData.access_token}`
-            }
-          });
-
-          if (detailedResponse.ok) {
-            const detailedData = await detailedResponse.json();
-            console.log('✅ Got detailed LinkedIn profile:', detailedData);
-            
-            // Handle different possible name formats from LinkedIn API
-            let firstName = '';
-            let lastName = '';
-            
-            if (detailedData.firstName) {
-              if (detailedData.firstName.localized) {
-                firstName = detailedData.firstName.localized.en_US || 
-                           detailedData.firstName.localized[Object.keys(detailedData.firstName.localized)[0]] || '';
-              } else if (detailedData.firstName.preferredLocale) {
-                firstName = detailedData.firstName.preferredLocale.localized.en_US || 
-                           detailedData.firstName.preferredLocale.localized[Object.keys(detailedData.firstName.preferredLocale.localized)[0]] || '';
-              }
-            }
-            
-            if (detailedData.lastName) {
-              if (detailedData.lastName.localized) {
-                lastName = detailedData.lastName.localized.en_US || 
-                          detailedData.lastName.localized[Object.keys(detailedData.lastName.localized)[0]] || '';
-              } else if (detailedData.lastName.preferredLocale) {
-                lastName = detailedData.lastName.preferredLocale.localized.en_US || 
-                          detailedData.lastName.preferredLocale.localized[Object.keys(detailedData.lastName.preferredLocale.localized)[0]] || '';
-              }
-            }
-            
-            if (firstName || lastName) {
-              displayName = `${firstName} ${lastName}`.trim();
-              username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'linkedinuser';
-              console.log('✅ Got LinkedIn name:', displayName);
-            } else {
-              displayName = `LinkedIn User ${userId_linkedin.slice(-6)}`;
-              username = `linkedinuser${userId_linkedin.slice(-6)}`;
-            }
-
-            // Try to get profile picture
-            if (detailedData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier) {
-              profileImage = detailedData.profilePicture.displayImage.elements[0].identifiers[0].identifier;
-              console.log('✅ Got LinkedIn profile picture');
-            }
-          } else {
-            console.log('⚠️  Detailed profile info not accessible, using basic info');
-            // Use the LinkedIn ID to create a more specific account name
-            displayName = `LinkedIn User ${userId_linkedin.slice(-6)}`;
-            username = `linkedinuser${userId_linkedin.slice(-6)}`;
-          }
-        } catch (detailedError) {
-          console.log('⚠️  Could not fetch detailed profile info:', detailedError.message);
-          // Still use the valid LinkedIn ID
+        // The OpenID Connect 'sub' field contains the user identifier
+        // This is always a valid LinkedIn identifier, no need to validate format
+        
+        // Extract profile information from OpenID Connect response
+        const firstName = profileResult.given_name || '';
+        const lastName = profileResult.family_name || '';
+        const fullName = profileResult.name || '';
+        
+        // Build display name and username
+        if (fullName) {
+          displayName = fullName;
+        } else if (firstName || lastName) {
+          displayName = `${firstName} ${lastName}`.trim();
+        } else {
           displayName = `LinkedIn User ${userId_linkedin.slice(-6)}`;
-          username = `linkedinuser${userId_linkedin.slice(-6)}`;
+        }
+        
+        username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') || `linkedinuser${userId_linkedin.slice(-6)}`;
+        
+        console.log('✅ Got LinkedIn name:', displayName);
+
+        // Get profile picture if available
+        if (profileResult.picture) {
+          profileImage = profileResult.picture;
+          console.log('✅ Got LinkedIn profile picture');
         }
 
-        console.log('✅ LinkedIn profile setup complete with valid member ID');
+        console.log('✅ LinkedIn profile setup complete with OpenID Connect');
       } else {
-        console.error('❌ Failed to get LinkedIn user ID from profile API');
+        console.error('❌ Failed to get LinkedIn user info from OpenID Connect API');
         console.error('Response status:', profileResponse.status);
         console.error('Response data:', profileResult);
-        throw new Error('Failed to get LinkedIn user ID');
+        throw new Error('Failed to get LinkedIn user information');
       }
     } catch (error) {
       console.error('❌ Profile retrieval failed:', error.message);

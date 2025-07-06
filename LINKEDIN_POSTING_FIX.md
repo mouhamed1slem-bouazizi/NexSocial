@@ -18,32 +18,39 @@ ERROR :: /author :: "urn:li:person:linkedin_posting_1751742425675_lny9tvqs3" doe
 
 ## Changes Made
 
-### 1. Updated LinkedIn OAuth Scope
+### 1. Updated LinkedIn OAuth to OpenID Connect
 **File**: `server/routes/oauthRoutes.js`
-**Change**: Updated LinkedIn OAuth scope to use `r_liteprofile` instead of deprecated `profile` scope
+**Change**: Updated LinkedIn OAuth to use the official OpenID Connect system
 ```javascript
 // Before
 scope = encodeURIComponent('w_member_social');
 
 // After  
-scope = encodeURIComponent('r_liteprofile w_member_social');
+scope = encodeURIComponent('openid profile w_member_social');
 ```
 
-**Note**: The `profile` scope is for LinkedIn's new OpenID Connect system, but the `/v2/me` endpoint still requires the `r_liteprofile` permission for profile access.
+**Note**: LinkedIn now officially supports OpenID Connect authentication. The new system uses `openid` and `profile` scopes instead of the deprecated `r_liteprofile` permission.
 
-### 2. Enhanced OAuth Callback Validation
+### 2. Migrated to OpenID Connect Userinfo Endpoint
 **File**: `server/routes/oauthRoutes.js`
 **Changes**:
-- Added validation for LinkedIn member ID format (must be numeric)
-- Made OAuth fail if real LinkedIn ID cannot be obtained
+- Switched from deprecated `/v2/me` endpoint to `/v2/userinfo`
+- Updated to handle OpenID Connect response format
+- Simplified profile data extraction using standard OIDC fields
 - Removed fake ID generation fallback
-- Added proper error messaging
 
 ```javascript
-// Added validation
-if (!/^\d+$/.test(userId_linkedin)) {
-  console.error('❌ Invalid LinkedIn user ID format:', userId_linkedin);
-  throw new Error('Invalid LinkedIn user ID format');
+// Use OpenID Connect userinfo endpoint
+const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+  headers: {
+    'Authorization': `Bearer ${tokenData.access_token}`
+  }
+});
+
+// Handle OpenID Connect response
+if (profileResponse.ok && profileResult.sub) {
+  userId_linkedin = profileResult.sub; // OpenID Connect subject identifier
+  displayName = profileResult.name || `${profileResult.given_name} ${profileResult.family_name}`.trim();
 }
 ```
 
@@ -55,9 +62,9 @@ if (!/^\d+$/.test(userId_linkedin)) {
 - Return specific error for reconnection requirements
 
 ```javascript
-// Validate LinkedIn user ID - must be a real LinkedIn member ID
-const isValidLinkedInId = /^\d+$/.test(account.platform_user_id);
-if (!isValidLinkedInId || account.platform_user_id.includes('linkedin_posting_')) {
+// Validate LinkedIn user ID - must be a real LinkedIn member ID (not a fake generated one)
+const isFakeLinkedInId = account.platform_user_id.includes('linkedin_posting_');
+if (isFakeLinkedInId || !account.platform_user_id || account.platform_user_id.length < 3) {
   return {
     success: false,
     error: 'LinkedIn posting requires a valid member ID. Please reconnect your LinkedIn account to enable posting.',
@@ -82,12 +89,13 @@ const linkedinReconnectRequired = Object.values(results).some(result =>
 
 ## How the Fix Works
 
-### New OAuth Flow
+### New OpenID Connect Flow
 1. User initiates LinkedIn connection
-2. OAuth requests both `profile` and `w_member_social` scopes
-3. System attempts to retrieve real LinkedIn member ID via `/v2/me` endpoint
-4. If successful, stores the real numeric LinkedIn ID
-5. If fails, OAuth connection is rejected (no fake ID fallback)
+2. OAuth requests `openid`, `profile`, and `w_member_social` scopes
+3. System exchanges authorization code for access token
+4. System retrieves user info via `/v2/userinfo` endpoint (OpenID Connect standard)
+5. Extracts LinkedIn member ID from `sub` field and profile data from standard OIDC fields
+6. If successful, stores the real LinkedIn ID; if fails, OAuth connection is rejected
 
 ### New Posting Flow
 1. User attempts to post to LinkedIn
@@ -126,12 +134,12 @@ Users with existing LinkedIn accounts that have fake IDs will need to:
 ## Environment Requirements
 
 Ensure your LinkedIn Developer Application has:
-- `r_liteprofile` permission enabled (for profile access)
-- `w_member_social` permission enabled (for posting)
+- **"Sign in with LinkedIn using OpenID Connect"** product enabled (for `openid` and `profile` scopes)
+- **"Share on LinkedIn"** product enabled (for `w_member_social` permission)
 - Correct redirect URIs configured
 - Valid client ID and secret in environment variables
 
-**Important**: You may need to add the "Sign in with LinkedIn" product to your LinkedIn Developer Application to get access to the `r_liteprofile` permission.
+**Important**: You must add the "Sign in with LinkedIn using OpenID Connect" product to your LinkedIn Developer Application to get access to the new OpenID Connect authentication system.
 
 ## Monitoring and Logs
 
@@ -144,7 +152,8 @@ The fix includes enhanced logging to help debug issues:
 ## Summary
 
 This fix addresses the fundamental issue of using fake LinkedIn IDs for posting by:
-1. Ensuring real LinkedIn member IDs are obtained during OAuth
-2. Validating LinkedIn IDs before posting attempts
-3. Providing clear user guidance for reconnection when needed
-4. Maintaining backward compatibility with proper error handling 
+1. **Migrating to Official OpenID Connect**: Using LinkedIn's official OpenID Connect system instead of deprecated APIs
+2. **Ensuring Real LinkedIn IDs**: Obtaining actual LinkedIn member IDs during OAuth via `/v2/userinfo` endpoint
+3. **Validating LinkedIn IDs**: Checking for fake IDs before posting attempts
+4. **Providing Clear User Guidance**: Informing users when reconnection is needed
+5. **Future-Proofing**: Using LinkedIn's current and supported authentication system 
