@@ -212,58 +212,184 @@ const postToTwitter = async (account, content, media = []) => {
 // Helper function to post to LinkedIn
 const postToLinkedIn = async (account, content, media = []) => {
   try {
-    let postContent = content;
+    console.log(`🔗 Posting to LinkedIn for account ${account.username}`);
+    console.log(`Content: ${content}`);
+    console.log(`Media items: ${media.length}`);
+
+    let mediaAssets = [];
     
-    // Add media note to content if media is provided
+    // Process media uploads if any
     if (media.length > 0) {
-      postContent += `\n\n📸 Includes ${media.length} media item${media.length > 1 ? 's' : ''}`;
-      console.log(`LinkedIn: Media upload not implemented yet. Posted text with media note.`);
-    }
-
-    // Use the newer LinkedIn API format
-    const body = {
-      author: `urn:li:person:${account.platform_user_id}`,
-      lifecycleState: 'PUBLISHED',
-      specificContent: {
-        'com.linkedin.ugc.ShareContent': {
-          shareCommentary: {
-            text: postContent
-          },
-          shareMediaCategory: 'NONE'
+      console.log('🔗 Processing media for LinkedIn...');
+      
+      for (const mediaItem of media) {
+        try {
+          console.log(`🔗 Processing media: ${mediaItem.name} (${mediaItem.type})`);
+          
+          // Determine media type
+          const isImage = mediaItem.type.startsWith('image/');
+          const isVideo = mediaItem.type.startsWith('video/');
+          
+          if (!isImage && !isVideo) {
+            console.log(`🔗 Skipping unsupported media type: ${mediaItem.type}`);
+            continue;
+          }
+          
+          // Convert base64 to buffer
+          const base64Data = mediaItem.data.split(',')[1];
+          if (!base64Data) {
+            console.error('🔗 Invalid media data format');
+            continue;
+          }
+          
+          const mediaBuffer = Buffer.from(base64Data, 'base64');
+          console.log(`🔗 Media buffer size: ${mediaBuffer.length} bytes`);
+          
+          // Step 1: Register upload for LinkedIn
+          const registerUploadBody = {
+            registerUploadRequest: {
+              recipes: isImage ? ['urn:li:digitalmediaRecipe:feedshare-image'] : ['urn:li:digitalmediaRecipe:feedshare-video'],
+              owner: `urn:li:person:${account.platform_user_id}`,
+              serviceRelationships: [{
+                relationshipType: 'OWNER',
+                identifier: 'urn:li:userGeneratedContent'
+              }]
+            }
+          };
+          
+          console.log('🔗 Registering upload with LinkedIn...');
+          const registerResponse = await fetch('https://api.linkedin.com/v2/assets?action=registerUpload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${account.access_token}`
+            },
+            body: JSON.stringify(registerUploadBody)
+          });
+          
+          if (!registerResponse.ok) {
+            const registerError = await registerResponse.text();
+            console.error('🔗 Failed to register upload:', registerError);
+            continue;
+          }
+          
+          const registerData = await registerResponse.json();
+          const uploadUrl = registerData.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl;
+          const asset = registerData.value.asset;
+          
+          console.log('🔗 Upload registered, uploading media...');
+          
+          // Step 2: Upload the actual media file
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${account.access_token}`,
+              'Content-Type': 'application/octet-stream'
+            },
+            body: mediaBuffer
+          });
+          
+          if (!uploadResponse.ok) {
+            const uploadError = await uploadResponse.text();
+            console.error('🔗 Failed to upload media:', uploadError);
+            continue;
+          }
+          
+          console.log('🔗 Media uploaded successfully');
+          mediaAssets.push({
+            status: 'READY',
+            description: {
+              text: `Media uploaded via NexSocial`
+            },
+            media: asset,
+            title: {
+              text: mediaItem.name
+            }
+          });
+          
+        } catch (mediaError) {
+          console.error('🔗 Error processing media item:', mediaError);
+          continue;
         }
-      },
-      visibility: {
-        'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
       }
-    };
-
+    }
+    
+    // Create the LinkedIn post
+    let postBody;
+    
+    if (mediaAssets.length > 0) {
+      // Post with media
+      postBody = {
+        author: `urn:li:person:${account.platform_user_id}`,
+        lifecycleState: 'PUBLISHED',
+        specificContent: {
+          'com.linkedin.ugc.ShareContent': {
+            shareCommentary: {
+              text: content
+            },
+            shareMediaCategory: 'IMAGE', // LinkedIn uses IMAGE for both images and videos in UGC
+            media: mediaAssets
+          }
+        },
+        visibility: {
+          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
+        }
+      };
+    } else {
+      // Text-only post
+      postBody = {
+        author: `urn:li:person:${account.platform_user_id}`,
+        lifecycleState: 'PUBLISHED',
+        specificContent: {
+          'com.linkedin.ugc.ShareContent': {
+            shareCommentary: {
+              text: content
+            },
+            shareMediaCategory: 'NONE'
+          }
+        },
+        visibility: {
+          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
+        }
+      };
+    }
+    
+    console.log('🔗 Creating LinkedIn post...');
     const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${account.access_token}`
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(postBody)
     });
 
     const data = await response.json();
+    console.log('🔗 LinkedIn API response:', data);
 
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to post to LinkedIn');
+      throw new Error(data.message || `LinkedIn API error: ${response.status} ${response.statusText}`);
     }
+
+    const successMessage = mediaAssets.length > 0 
+      ? `Posted to LinkedIn successfully with ${mediaAssets.length} media item${mediaAssets.length > 1 ? 's' : ''}!`
+      : 'Posted to LinkedIn successfully!';
 
     return {
       success: true,
       postId: data.id,
-      message: media.length > 0 
-        ? `Posted to LinkedIn successfully (${media.length} media items noted)`
-        : 'Posted to LinkedIn successfully',
-      mediaCount: media.length
+      message: successMessage,
+      mediaCount: mediaAssets.length,
+      uploadedMedia: mediaAssets.map(asset => ({
+        type: asset.media.includes('image') ? 'image' : 'video',
+        status: 'uploaded'
+      }))
     };
   } catch (error) {
+    console.error('🔗 LinkedIn posting error:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message || 'Failed to post to LinkedIn'
     };
   }
 };
@@ -500,6 +626,47 @@ const postToYouTube = async (account, content, media = []) => {
   }
 };
 
+// Helper function to post to TikTok
+const postToTikTok = async (account, content, media = []) => {
+  try {
+    console.log(`🎵 TikTok posting for account ${account.username}`);
+    
+    // TikTok requires video content for posts
+    const videoMedia = media.filter(item => item.type.startsWith('video/'));
+    
+    if (videoMedia.length === 0) {
+      return {
+        success: false,
+        error: 'TikTok requires video content. Please upload a video file to post to TikTok.',
+        platform: 'tiktok'
+      };
+    }
+
+    if (videoMedia.length > 1) {
+      return {
+        success: false,
+        error: 'TikTok supports one video per post. Please select a single video file.',
+        platform: 'tiktok'
+      };
+    }
+
+    // For now, return a placeholder implementation
+    // TikTok Content Posting API requires special approval and has limited availability
+    return {
+      success: false,
+      error: 'TikTok video posting API requires special approval from TikTok. Currently only available for verified business accounts.',
+      platform: 'tiktok'
+    };
+  } catch (error) {
+    console.error('🎵 TikTok posting error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to post to TikTok',
+      platform: 'tiktok'
+    };
+  }
+};
+
 // Main posting function
 const postToSocialMedia = async (account, content, media = []) => {
   console.log(`Posting to ${account.platform} for account ${account.username}`);
@@ -515,6 +682,8 @@ const postToSocialMedia = async (account, content, media = []) => {
       return await postToInstagram(account, content, media);
     case 'youtube':
       return await postToYouTube(account, content, media);
+    case 'tiktok':
+      return await postToTikTok(account, content, media);
     default:
       return {
         success: false,
