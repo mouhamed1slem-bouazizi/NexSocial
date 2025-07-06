@@ -216,6 +216,17 @@ const postToLinkedIn = async (account, content, media = []) => {
     console.log(`Content: ${content}`);
     console.log(`Media items: ${media.length}`);
 
+    // Validate LinkedIn user ID - must be a real LinkedIn member ID
+    const isValidLinkedInId = /^\d+$/.test(account.platform_user_id);
+    if (!isValidLinkedInId || account.platform_user_id.includes('linkedin_posting_')) {
+      console.log('❌ Invalid LinkedIn member ID detected:', account.platform_user_id);
+      return {
+        success: false,
+        error: 'LinkedIn posting requires a valid member ID. Please reconnect your LinkedIn account to enable posting.',
+        requiresReconnect: true
+      };
+    }
+
     let mediaAssets = [];
     
     // Process media uploads if any
@@ -759,13 +770,25 @@ router.post('/', requireUser, async (req, res) => {
     const successfulPosts = Object.values(results).filter(result => result.success);
     const failedPosts = Object.values(results).filter(result => !result.success);
 
+    // Check for LinkedIn reconnection requirements
+    const linkedinReconnectRequired = Object.values(results).some(result => 
+      result.requiresReconnect && result.error && result.error.includes('LinkedIn')
+    );
+
     let message = '';
     if (successfulPosts.length === validAccounts.length) {
       message = 'Post published successfully to all selected accounts';
     } else if (successfulPosts.length > 0) {
       message = `Post published to ${successfulPosts.length} of ${validAccounts.length} accounts`;
+      if (linkedinReconnectRequired) {
+        message += '. LinkedIn accounts need to be reconnected for posting.';
+      }
     } else {
-      message = 'Failed to publish post to any account';
+      if (linkedinReconnectRequired) {
+        message = 'LinkedIn accounts need to be reconnected with profile permissions to enable posting. Please reconnect your LinkedIn account.';
+      } else {
+        message = 'Failed to publish post to any account';
+      }
     }
 
     console.log(`✅ Post creation completed. Success: ${successfulPosts.length}, Failed: ${failedPosts.length}`);
@@ -773,7 +796,8 @@ router.post('/', requireUser, async (req, res) => {
     res.status(200).json({
       success: successfulPosts.length > 0,
       message,
-      results
+      results,
+      linkedinReconnectRequired
     });
 
   } catch (error) {

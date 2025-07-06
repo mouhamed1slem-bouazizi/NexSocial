@@ -91,7 +91,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'linkedin':
         clientId = process.env.LINKEDIN_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/linkedin/callback`);
-        scope = encodeURIComponent('w_member_social');
+        scope = encodeURIComponent('profile w_member_social');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'LinkedIn OAuth not configured' });
@@ -511,7 +511,7 @@ router.get('/linkedin/callback', async (req, res) => {
     try {
       console.log('Attempting to retrieve profile information...');
       
-      // Try the basic profile endpoint first
+      // Try the basic profile endpoint first with the new profile scope
       const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`
@@ -524,6 +524,12 @@ router.get('/linkedin/callback', async (req, res) => {
       if (profileResponse.ok && profileResult.id) {
         userId_linkedin = profileResult.id;
         console.log('✅ Got LinkedIn user ID:', userId_linkedin);
+
+        // Validate that we got a real LinkedIn ID (should be numeric)
+        if (!/^\d+$/.test(userId_linkedin)) {
+          console.error('❌ Invalid LinkedIn user ID format:', userId_linkedin);
+          throw new Error('Invalid LinkedIn user ID format');
+        }
 
         // Try to get detailed profile information
         try {
@@ -566,8 +572,8 @@ router.get('/linkedin/callback', async (req, res) => {
               username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'linkedinuser';
               console.log('✅ Got LinkedIn name:', displayName);
             } else {
-              displayName = 'LinkedIn User';
-              username = 'linkedinuser';
+              displayName = `LinkedIn User ${userId_linkedin.slice(-6)}`;
+              username = `linkedinuser${userId_linkedin.slice(-6)}`;
             }
 
             // Try to get profile picture
@@ -583,22 +589,23 @@ router.get('/linkedin/callback', async (req, res) => {
           }
         } catch (detailedError) {
           console.log('⚠️  Could not fetch detailed profile info:', detailedError.message);
+          // Still use the valid LinkedIn ID
+          displayName = `LinkedIn User ${userId_linkedin.slice(-6)}`;
+          username = `linkedinuser${userId_linkedin.slice(-6)}`;
         }
 
-        console.log('✅ LinkedIn profile setup complete with available information');
+        console.log('✅ LinkedIn profile setup complete with valid member ID');
       } else {
-        console.log('⚠️  Basic profile not accessible, using posting-only account');
-        // Create a unique posting account identifier
-        const timestamp = Date.now().toString().slice(-6);
-        displayName = `LinkedIn Account ${timestamp}`;
-        username = `linkedinaccount${timestamp}`;
+        console.error('❌ Failed to get LinkedIn user ID from profile API');
+        console.error('Response status:', profileResponse.status);
+        console.error('Response data:', profileResult);
+        throw new Error('Failed to get LinkedIn user ID');
       }
     } catch (error) {
-      console.log('⚠️  Profile retrieval failed, using posting-only account:', error.message);
-      // Create a unique posting account identifier
-      const timestamp = Date.now().toString().slice(-6);
-      displayName = `LinkedIn Account ${timestamp}`;
-      username = `linkedinaccount${timestamp}`;
+      console.error('❌ Profile retrieval failed:', error.message);
+      // If we can't get the LinkedIn ID, we should not create a posting account
+      // as it won't work for posting anyway
+      throw new Error('LinkedIn account setup failed: Unable to retrieve valid LinkedIn member ID. Please ensure your LinkedIn account has the necessary permissions.');
     }
 
     console.log('Successfully set up LinkedIn account for user:', displayName);
