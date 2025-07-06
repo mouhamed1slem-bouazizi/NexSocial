@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS social_accounts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL,
-    platform VARCHAR(50) NOT NULL CHECK (platform IN ('facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube')),
+    platform VARCHAR(50) NOT NULL CHECK (platform IN ('facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube', 'pinterest', 'discord', 'telegram', 'whatsapp', 'snapchat', 'reddit', 'vimeo', 'threads', 'twitch', 'line', 'tumblr', 'vk')),
     username VARCHAR(255) NOT NULL,
     display_name VARCHAR(255) NOT NULL,
     platform_user_id VARCHAR(255) NOT NULL,

@@ -11,7 +11,17 @@ import {
   Instagram,
   Twitter,
   Linkedin,
-  Youtube
+  Youtube,
+  Pin,
+  MessageCircle,
+  Send,
+  MessageSquare,
+  Camera,
+  Circle,
+  Video,
+  Hash,
+  Tv,
+  Square
 } from "lucide-react"
 
 export function AboutUs() {
@@ -53,7 +63,19 @@ export function AboutUs() {
     { name: "Instagram", icon: Instagram, color: "text-pink-600" },
     { name: "Twitter", icon: Twitter, color: "text-sky-600" },
     { name: "LinkedIn", icon: Linkedin, color: "text-blue-700" },
-    { name: "YouTube", icon: Youtube, color: "text-red-600" }
+    { name: "YouTube", icon: Youtube, color: "text-red-600" },
+    { name: "Pinterest", icon: Pin, color: "text-red-600" },
+    { name: "Discord", icon: MessageCircle, color: "text-purple-600" },
+    { name: "Telegram", icon: Send, color: "text-blue-400" },
+    { name: "WhatsApp", icon: MessageSquare, color: "text-green-600" },
+    { name: "Snapchat", icon: Camera, color: "text-yellow-500" },
+    { name: "Reddit", icon: Circle, color: "text-orange-600" },
+    { name: "Vimeo", icon: Video, color: "text-blue-600" },
+    { name: "Threads", icon: Hash, color: "text-black" },
+    { name: "Twitch", icon: Tv, color: "text-purple-600" },
+    { name: "Line", icon: MessageSquare, color: "text-green-400" },
+    { name: "Tumblr", icon: Square, color: "text-blue-900" },
+    { name: "VK (Vkontakte)", icon: Users, color: "text-blue-600" }
   ]
 
   return (

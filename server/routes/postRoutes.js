@@ -725,6 +725,22 @@ const postToSocialMedia = async (account, content, media = []) => {
       return await postToYouTube(account, content, media);
     case 'tiktok':
       return await postToTikTok(account, content, media);
+    case 'pinterest':
+    case 'discord':
+    case 'telegram':
+    case 'whatsapp':
+    case 'snapchat':
+    case 'reddit':
+    case 'vimeo':
+    case 'threads':
+    case 'twitch':
+    case 'line':
+    case 'tumblr':
+    case 'vk':
+      return {
+        success: false,
+        error: `Posting to ${account.platform} is not implemented yet. This platform is available for connection but posting functionality is coming soon.`
+      };
     default:
       return {
         success: false,

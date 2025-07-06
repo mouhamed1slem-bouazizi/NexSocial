@@ -38,7 +38,7 @@ router.post('/', requireUser, async (req, res) => {
     }
 
     // Validate platform
-    const validPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube'];
+    const validPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube', 'pinterest', 'discord', 'telegram', 'whatsapp', 'snapchat', 'reddit', 'vimeo', 'threads', 'twitch', 'line', 'tumblr', 'vk'];
     if (!validPlatforms.includes(platform)) {
       return res.status(400).json({
         success: false,

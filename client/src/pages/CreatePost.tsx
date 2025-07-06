@@ -35,7 +35,16 @@ import {
   AlertTriangle,
   CheckCircle,
   Link as LinkIcon,
-  Settings
+  Settings,
+  Pin,
+  MessageCircle,
+  Send,
+  MessageSquare,
+  Camera,
+  Circle,
+  Tv,
+  Square,
+  Users
 } from "lucide-react"
 import { format } from "date-fns"
 
@@ -45,7 +54,19 @@ const platforms = [
   { id: 'twitter', name: 'Twitter/X', icon: Twitter, color: 'bg-sky-500', limit: 280 },
   { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'bg-blue-700', limit: 3000 },
   { id: 'youtube', name: 'YouTube', icon: Youtube, color: 'bg-red-500', limit: 5000 },
-  { id: 'tiktok', name: 'TikTok', icon: Video, color: 'bg-black', limit: 2200 }
+  { id: 'tiktok', name: 'TikTok', icon: Video, color: 'bg-black', limit: 2200 },
+  { id: 'pinterest', name: 'Pinterest', icon: Pin, color: 'bg-red-600', limit: 500 },
+  { id: 'discord', name: 'Discord', icon: MessageCircle, color: 'bg-purple-500', limit: 2000 },
+  { id: 'telegram', name: 'Telegram', icon: Send, color: 'bg-blue-400', limit: 4096 },
+  { id: 'whatsapp', name: 'WhatsApp', icon: MessageSquare, color: 'bg-green-500', limit: 65536 },
+  { id: 'snapchat', name: 'Snapchat', icon: Camera, color: 'bg-yellow-400', limit: 250 },
+  { id: 'reddit', name: 'Reddit', icon: Circle, color: 'bg-orange-500', limit: 40000 },
+  { id: 'vimeo', name: 'Vimeo', icon: Video, color: 'bg-blue-600', limit: 500 },
+  { id: 'threads', name: 'Threads', icon: Hash, color: 'bg-black', limit: 500 },
+  { id: 'twitch', name: 'Twitch', icon: Tv, color: 'bg-purple-600', limit: 500 },
+  { id: 'line', name: 'Line', icon: MessageSquare, color: 'bg-green-400', limit: 500 },
+  { id: 'tumblr', name: 'Tumblr', icon: Square, color: 'bg-blue-900', limit: 4096 },
+  { id: 'vk', name: 'VK (Vkontakte)', icon: Users, color: 'bg-blue-500', limit: 15000 }
 ]
 
 const toneOptions = [

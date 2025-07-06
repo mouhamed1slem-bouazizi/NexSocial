@@ -119,7 +119,7 @@ CREATE TABLE public.roles (
 CREATE TABLE public.social_accounts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
-  platform character varying NOT NULL CHECK (platform::text = ANY (ARRAY['facebook'::character varying, 'instagram'::character varying, 'twitter'::character varying, 'linkedin'::character varying, 'tiktok'::character varying, 'youtube'::character varying]::text[])),
+  platform character varying NOT NULL CHECK (platform::text = ANY (ARRAY['facebook'::character varying, 'instagram'::character varying, 'twitter'::character varying, 'linkedin'::character varying, 'tiktok'::character varying, 'youtube'::character varying, 'pinterest'::character varying, 'discord'::character varying, 'telegram'::character varying, 'whatsapp'::character varying, 'snapchat'::character varying, 'reddit'::character varying, 'vimeo'::character varying, 'threads'::character varying, 'twitch'::character varying, 'line'::character varying, 'tumblr'::character varying, 'vk'::character varying]::text[])),
   username character varying NOT NULL,
   display_name character varying NOT NULL,
   platform_user_id character varying NOT NULL,

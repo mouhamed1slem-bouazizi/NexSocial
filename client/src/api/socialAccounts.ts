@@ -2,7 +2,7 @@ import api from './api';
 
 export interface SocialAccount {
   id: string; // Changed from _id to id for Supabase
-  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'tiktok' | 'youtube';
+  platform: 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'tiktok' | 'youtube' | 'pinterest' | 'discord' | 'telegram' | 'whatsapp' | 'snapchat' | 'reddit' | 'vimeo' | 'threads' | 'twitch' | 'line' | 'tumblr' | 'vk';
   username: string;
   display_name: string; // Changed from displayName to display_name for Supabase
   platform_user_id: string;

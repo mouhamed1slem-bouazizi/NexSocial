@@ -35,7 +35,14 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle,
-  Video
+  Video,
+  Pin,
+  Send,
+  Camera,
+  Circle,
+  Hash,
+  Tv,
+  Square
 } from "lucide-react"
 import { SocialAccount } from "@/api/socialAccounts"
 import {
@@ -51,7 +58,19 @@ const platformIcons = {
   twitter: Twitter,
   linkedin: Linkedin,
   youtube: Youtube,
-  tiktok: Video // Using Video icon for TikTok
+  tiktok: Video,
+  pinterest: Pin,
+  discord: MessageSquare,
+  telegram: Send,
+  whatsapp: MessageSquare,
+  snapchat: Camera,
+  reddit: Circle,
+  vimeo: Video,
+  threads: Hash,
+  twitch: Tv,
+  line: MessageSquare,
+  tumblr: Square,
+  vk: Users
 }
 
 const platformColors = {
@@ -60,7 +79,19 @@ const platformColors = {
   twitter: "#1DA1F2",
   linkedin: "#0A66C2",
   youtube: "#FF0000",
-  tiktok: "#000000"
+  tiktok: "#000000",
+  pinterest: "#E60023",
+  discord: "#7289DA",
+  telegram: "#0088CC",
+  whatsapp: "#25D366",
+  snapchat: "#FFFC00",
+  reddit: "#FF4500",
+  vimeo: "#1AB7EA",
+  threads: "#000000",
+  twitch: "#9146FF",
+  line: "#00C300",
+  tumblr: "#001935",
+  vk: "#4680C2"
 }
 
 export function Dashboard() {
@@ -276,6 +307,54 @@ export function Dashboard() {
               <Video className="mr-2 h-4 w-4" />
               TikTok
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('pinterest')} disabled={connecting !== null}>
+              <Pin className="mr-2 h-4 w-4" />
+              Pinterest
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('discord')} disabled={connecting !== null}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Discord
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('telegram')} disabled={connecting !== null}>
+              <Send className="mr-2 h-4 w-4" />
+              Telegram
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('whatsapp')} disabled={connecting !== null}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              WhatsApp
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('snapchat')} disabled={connecting !== null}>
+              <Camera className="mr-2 h-4 w-4" />
+              Snapchat
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('reddit')} disabled={connecting !== null}>
+              <Circle className="mr-2 h-4 w-4" />
+              Reddit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('vimeo')} disabled={connecting !== null}>
+              <Video className="mr-2 h-4 w-4" />
+              Vimeo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('threads')} disabled={connecting !== null}>
+              <Hash className="mr-2 h-4 w-4" />
+              Threads
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('twitch')} disabled={connecting !== null}>
+              <Tv className="mr-2 h-4 w-4" />
+              Twitch
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('line')} disabled={connecting !== null}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Line
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('tumblr')} disabled={connecting !== null}>
+              <Square className="mr-2 h-4 w-4" />
+              Tumblr
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('vk')} disabled={connecting !== null}>
+              <Users className="mr-2 h-4 w-4" />
+              VK (Vkontakte)
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -408,7 +487,7 @@ export function Dashboard() {
                 Connect your social media accounts to start managing your content
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
-                {['Facebook', 'Instagram', 'Twitter', 'LinkedIn', 'YouTube', 'TikTok'].map((platform) => (
+                {['Facebook', 'Instagram', 'Twitter', 'LinkedIn', 'YouTube', 'TikTok', 'Pinterest', 'Discord', 'Telegram', 'WhatsApp', 'Snapchat', 'Reddit', 'Vimeo', 'Threads', 'Twitch', 'Line', 'Tumblr', 'VK'].map((platform) => (
                   <Button
                     key={platform}
                     variant="outline"
