@@ -273,40 +273,46 @@ const postToLinkedIn = async (account, content, media = []) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${account.access_token}`
+              'Authorization': `Bearer ${account.access_token}`,
+              'X-Restli-Protocol-Version': '2.0.0'
             },
             body: JSON.stringify(registerUploadBody)
           });
           
           if (!registerResponse.ok) {
             const registerError = await registerResponse.text();
-            console.error('🔗 Failed to register upload:', registerError);
+            console.error('🔗 Failed to register upload:', registerResponse.status, registerError);
             continue;
           }
           
           const registerData = await registerResponse.json();
+          console.log('🔗 Register response:', JSON.stringify(registerData, null, 2));
+          
           const uploadUrl = registerData.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl;
           const asset = registerData.value.asset;
           
+          console.log('🔗 Upload URL:', uploadUrl);
+          console.log('🔗 Asset URN:', asset);
+          
           console.log('🔗 Upload registered, uploading media...');
           
-          // Step 2: Upload the actual media file
+          // Step 2: Upload the actual media file (binary upload as per LinkedIn documentation)
           const uploadResponse = await fetch(uploadUrl, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${account.access_token}`,
-              'Content-Type': 'application/octet-stream'
+              'Authorization': `Bearer ${account.access_token}`
             },
             body: mediaBuffer
           });
           
           if (!uploadResponse.ok) {
             const uploadError = await uploadResponse.text();
-            console.error('🔗 Failed to upload media:', uploadError);
+            console.error('🔗 Failed to upload media:', uploadResponse.status, uploadError);
+            console.error('🔗 Upload response headers:', Object.fromEntries(uploadResponse.headers.entries()));
             continue;
           }
           
-          console.log('🔗 Media uploaded successfully');
+          console.log('🔗 Media uploaded successfully:', uploadResponse.status);
           mediaAssets.push({
             status: 'READY',
             description: {
@@ -329,6 +335,10 @@ const postToLinkedIn = async (account, content, media = []) => {
     let postBody;
     
     if (mediaAssets.length > 0) {
+      // Determine shareMediaCategory based on media type
+      const hasVideo = media.some(item => item.type.startsWith('video/'));
+      const shareMediaCategory = hasVideo ? 'VIDEO' : 'IMAGE';
+      
       // Post with media
       postBody = {
         author: `urn:li:person:${account.platform_user_id}`,
@@ -338,7 +348,7 @@ const postToLinkedIn = async (account, content, media = []) => {
             shareCommentary: {
               text: content
             },
-            shareMediaCategory: 'IMAGE', // LinkedIn uses IMAGE for both images and videos in UGC
+            shareMediaCategory: shareMediaCategory,
             media: mediaAssets
           }
         },
@@ -366,19 +376,23 @@ const postToLinkedIn = async (account, content, media = []) => {
     }
     
     console.log('🔗 Creating LinkedIn post...');
+    console.log('🔗 Post body:', JSON.stringify(postBody, null, 2));
+    
     const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${account.access_token}`
+        'Authorization': `Bearer ${account.access_token}`,
+        'X-Restli-Protocol-Version': '2.0.0'
       },
       body: JSON.stringify(postBody)
     });
 
     const data = await response.json();
-    console.log('🔗 LinkedIn API response:', data);
+    console.log('🔗 LinkedIn API response:', response.status, data);
 
     if (!response.ok) {
+      console.error('🔗 LinkedIn post creation failed:', response.status, data);
       throw new Error(data.message || `LinkedIn API error: ${response.status} ${response.statusText}`);
     }
 
@@ -386,14 +400,18 @@ const postToLinkedIn = async (account, content, media = []) => {
       ? `Posted to LinkedIn successfully with ${mediaAssets.length} media item${mediaAssets.length > 1 ? 's' : ''}!`
       : 'Posted to LinkedIn successfully!';
 
+    console.log('✅ LinkedIn post created successfully:', data.id);
+
     return {
       success: true,
       postId: data.id,
       message: successMessage,
       mediaCount: mediaAssets.length,
-      uploadedMedia: mediaAssets.map(asset => ({
-        type: asset.media.includes('image') ? 'image' : 'video',
-        status: 'uploaded'
+      uploadedMedia: mediaAssets.map((asset, index) => ({
+        type: media[index]?.type?.startsWith('video/') ? 'video' : 'image',
+        name: media[index]?.name || 'Unknown',
+        status: 'uploaded',
+        assetUrn: asset.media
       }))
     };
   } catch (error) {
