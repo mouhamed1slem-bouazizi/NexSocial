@@ -20,14 +20,16 @@ ERROR :: /author :: "urn:li:person:linkedin_posting_1751742425675_lny9tvqs3" doe
 
 ### 1. Updated LinkedIn OAuth Scope
 **File**: `server/routes/oauthRoutes.js`
-**Change**: Added `profile` scope to LinkedIn OAuth request
+**Change**: Updated LinkedIn OAuth scope to use `r_liteprofile` instead of deprecated `profile` scope
 ```javascript
 // Before
 scope = encodeURIComponent('w_member_social');
 
 // After  
-scope = encodeURIComponent('profile w_member_social');
+scope = encodeURIComponent('r_liteprofile w_member_social');
 ```
+
+**Note**: The `profile` scope is for LinkedIn's new OpenID Connect system, but the `/v2/me` endpoint still requires the `r_liteprofile` permission for profile access.
 
 ### 2. Enhanced OAuth Callback Validation
 **File**: `server/routes/oauthRoutes.js`
@@ -124,10 +126,12 @@ Users with existing LinkedIn accounts that have fake IDs will need to:
 ## Environment Requirements
 
 Ensure your LinkedIn Developer Application has:
-- `profile` scope enabled
-- `w_member_social` scope enabled
+- `r_liteprofile` permission enabled (for profile access)
+- `w_member_social` permission enabled (for posting)
 - Correct redirect URIs configured
 - Valid client ID and secret in environment variables
+
+**Important**: You may need to add the "Sign in with LinkedIn" product to your LinkedIn Developer Application to get access to the `r_liteprofile` permission.
 
 ## Monitoring and Logs
 
