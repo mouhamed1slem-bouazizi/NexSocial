@@ -338,9 +338,18 @@ const postToLinkedIn = async (account, content, media = []) => {
     let postBody;
     
     if (mediaAssets.length > 0) {
-      // Determine shareMediaCategory based on media type
-      const hasVideo = media.some(item => item.type.startsWith('video/'));
+      // Determine shareMediaCategory based on media type - handle both full MIME types and simplified types
+      const hasVideo = media.some(item => {
+        const mediaType = item.type.toLowerCase();
+        return mediaType.startsWith('video/') || mediaType === 'video';
+      });
       const shareMediaCategory = hasVideo ? 'VIDEO' : 'IMAGE';
+      
+      console.log('🔗 Media category determination:', {
+        mediaTypes: media.map(item => item.type),
+        hasVideo,
+        shareMediaCategory
+      });
       
       // Post with media
       postBody = {
