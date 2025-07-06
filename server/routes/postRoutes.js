@@ -237,9 +237,12 @@ const postToLinkedIn = async (account, content, media = []) => {
         try {
           console.log(`🔗 Processing media: ${mediaItem.name} (${mediaItem.type})`);
           
-          // Determine media type
-          const isImage = mediaItem.type.startsWith('image/');
-          const isVideo = mediaItem.type.startsWith('video/');
+          // Determine media type - handle both full MIME types and simplified types
+          const mediaType = mediaItem.type.toLowerCase();
+          const isImage = mediaType.startsWith('image/') || mediaType === 'image';
+          const isVideo = mediaType.startsWith('video/') || mediaType === 'video';
+          
+          console.log(`🔗 Media type detection: "${mediaItem.type}" -> isImage: ${isImage}, isVideo: ${isVideo}`);
           
           if (!isImage && !isVideo) {
             console.log(`🔗 Skipping unsupported media type: ${mediaItem.type}`);
