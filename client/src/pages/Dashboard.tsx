@@ -412,7 +412,7 @@ export function Dashboard() {
               {connectedPlatforms}
             </div>
             <p className="text-xs text-orange-600 dark:text-orange-400">
-              of 6 available platforms
+              of 18 available platforms
             </p>
           </CardContent>
         </Card>
@@ -459,10 +459,58 @@ export function Dashboard() {
                   <Youtube className="mr-2 h-4 w-4" />
                   YouTube
                 </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleConnectAccount('tiktok')} disabled={connecting !== null}>
-              <Video className="mr-2 h-4 w-4" />
-              TikTok
-            </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('tiktok')} disabled={connecting !== null}>
+                  <Video className="mr-2 h-4 w-4" />
+                  TikTok
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('pinterest')} disabled={connecting !== null}>
+                  <Pin className="mr-2 h-4 w-4" />
+                  Pinterest
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('discord')} disabled={connecting !== null}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Discord
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('telegram')} disabled={connecting !== null}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Telegram
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('whatsapp')} disabled={connecting !== null}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('snapchat')} disabled={connecting !== null}>
+                  <Camera className="mr-2 h-4 w-4" />
+                  Snapchat
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('reddit')} disabled={connecting !== null}>
+                  <Circle className="mr-2 h-4 w-4" />
+                  Reddit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('vimeo')} disabled={connecting !== null}>
+                  <Video className="mr-2 h-4 w-4" />
+                  Vimeo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('threads')} disabled={connecting !== null}>
+                  <Hash className="mr-2 h-4 w-4" />
+                  Threads
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('twitch')} disabled={connecting !== null}>
+                  <Tv className="mr-2 h-4 w-4" />
+                  Twitch
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('line')} disabled={connecting !== null}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Line
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('tumblr')} disabled={connecting !== null}>
+                  <Square className="mr-2 h-4 w-4" />
+                  Tumblr
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('vk')} disabled={connecting !== null}>
+                  <Users className="mr-2 h-4 w-4" />
+                  VK (Vkontakte)
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
