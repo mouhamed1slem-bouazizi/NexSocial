@@ -796,6 +796,9 @@ router.get('/telegram', requireUser, async (req, res) => {
       expires: Date.now() + 10 * 60 * 1000 // 10 minutes
     });
     
+    console.log(`✅ Generated Telegram connection code: ${connectionCode} for user: ${req.user._id}`);
+    console.log(`📊 Total stored codes: ${global.telegramConnectionCodes.size}`);
+    
     const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'your_bot_username';
     const instructions = `
 To connect your Telegram group/channel:
@@ -1052,6 +1055,22 @@ router.post('/telegram/webhook', async (req, res) => {
       }
     }
     
+    // Handle debug command (for troubleshooting)
+    else if (messageText === '/debug') {
+      if (global.telegramConnectionCodes) {
+        const codes = Array.from(global.telegramConnectionCodes.keys());
+        await sendTelegramMessage(chatId,
+          `🔧 Debug Info:\n\n` +
+          `Active connection codes: ${codes.length}\n` +
+          `Codes: ${codes.join(', ')}\n` +
+          `Chat ID: ${chatId}\n` +
+          `User ID: ${userId}`
+        );
+      } else {
+        await sendTelegramMessage(chatId, '🔧 Debug: No connection codes stored');
+      }
+    }
+    
     res.status(200).json({ ok: true });
     
   } catch (error) {
@@ -1063,17 +1082,25 @@ router.post('/telegram/webhook', async (req, res) => {
 // Handle Telegram connection
 async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
   try {
+    console.log(`🔍 Looking up connection code: ${connectionCode}`);
+    console.log(`📊 Available codes:`, global.telegramConnectionCodes ? Array.from(global.telegramConnectionCodes.keys()) : 'none');
+    
     if (!global.telegramConnectionCodes) {
-      await sendTelegramMessage(chatId, '❌ Invalid connection code');
+      console.log('❌ No telegramConnectionCodes global variable found');
+      await sendTelegramMessage(chatId, '❌ Connection system not initialized. Please try generating a new code.');
       return;
     }
     
     const connectionData = global.telegramConnectionCodes.get(connectionCode);
     
     if (!connectionData) {
-      await sendTelegramMessage(chatId, '❌ Invalid or expired connection code');
+      console.log(`❌ Connection code ${connectionCode} not found in stored codes`);
+      console.log(`📝 Stored codes:`, Array.from(global.telegramConnectionCodes.keys()));
+      await sendTelegramMessage(chatId, '❌ Invalid or expired connection code. Please generate a new one from your dashboard.');
       return;
     }
+    
+    console.log(`✅ Found connection data for ${connectionCode}:`, connectionData);
     
     if (Date.now() > connectionData.expires) {
       global.telegramConnectionCodes.delete(connectionCode);
