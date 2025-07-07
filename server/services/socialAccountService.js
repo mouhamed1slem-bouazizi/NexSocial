@@ -214,6 +214,36 @@ class SocialAccountService {
       throw new Error(`Database error while updating social account: ${error.message}`);
     }
   }
+
+  static async findByPlatformUserId(platform, platformUserId) {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
+
+      console.log(`Finding social account by platform: ${platform}, platformUserId: ${platformUserId}`);
+
+      const { data, error } = await supabase
+        .from('social_accounts')
+        .select('*')
+        .eq('platform', platform)
+        .eq('platform_user_id', platformUserId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') { // No rows returned
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error(`Error finding social account by platform ${platform} and platformUserId ${platformUserId}:`, error);
+      throw new Error(`Database error while finding social account: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SocialAccountService;

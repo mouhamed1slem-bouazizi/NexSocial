@@ -222,11 +222,44 @@ export function Dashboard() {
       
       const response = await initiateOAuth(platform)
       
-      if (response.success && response.authUrl) {
-        console.log(`✅ OAuth URL received for ${platform}, redirecting...`)
-        window.location.href = response.authUrl
+      if (response.success) {
+        if (platform === 'telegram') {
+          // Handle Telegram connection with modal/instructions
+          const { connectionCode, instructions, botUsername } = response
+          
+          // Show a modal or alert with instructions
+          const message = `To connect your Telegram group/channel:
+
+1. Add our bot (@${botUsername}) to your group/channel
+2. Make the bot an admin with posting permissions  
+3. Send this code to the bot: ${connectionCode}
+4. You'll receive a confirmation message
+
+Connection code: ${connectionCode}
+(This code expires in 10 minutes)
+
+The bot will confirm when the connection is successful.`
+
+          toast({
+            title: "Telegram Connection Instructions",
+            description: message,
+            duration: 15000, // Show for 15 seconds
+          })
+          
+          // Also log to console for easy copying
+          console.log('📱 Telegram Connection Instructions:')
+          console.log(instructions)
+          console.log(`🤖 Bot Username: @${botUsername}`)
+          console.log(`🔐 Connection Code: ${connectionCode}`)
+          
+        } else if (response.authUrl) {
+          console.log(`✅ OAuth URL received for ${platform}, redirecting...`)
+          window.location.href = response.authUrl
+        } else {
+          throw new Error('Failed to get OAuth URL')
+        }
       } else {
-        throw new Error('Failed to get OAuth URL')
+        throw new Error('Failed to initiate connection')
       }
     } catch (err: any) {
       console.error(`❌ Error initiating OAuth for ${platform}:`, err)

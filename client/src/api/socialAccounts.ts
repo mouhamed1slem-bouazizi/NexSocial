@@ -100,10 +100,18 @@ export const updateSocialAccountStatus = async (id: string, isConnected: boolean
 // Description: Initiate OAuth flow for a platform
 // Endpoint: POST /api/oauth/initiate
 // Request: { platform: string }
-// Response: { success: boolean, authUrl: string }
+// Response: { success: boolean, authUrl?: string, connectionCode?: string, instructions?: string, botUsername?: string }
 export const initiateOAuth = async (platform: string) => {
   try {
     console.log(`Initiating OAuth for platform: ${platform}`);
+    
+    // Handle Telegram differently - it uses connection codes instead of OAuth
+    if (platform === 'telegram') {
+      const response = await api.get('/oauth/telegram');
+      return response.data;
+    }
+    
+    // Standard OAuth flow for other platforms
     const response = await api.post('/oauth/initiate', { platform });
     return response.data;
   } catch (error: any) {

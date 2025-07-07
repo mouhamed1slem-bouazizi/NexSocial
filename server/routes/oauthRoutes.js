@@ -776,4 +776,228 @@ router.get('/tiktok/callback', async (req, res) => {
   }
 });
 
+// Telegram OAuth - Generate connection code
+router.get('/telegram', requireUser, async (req, res) => {
+  try {
+    console.log('🔗 Initiating Telegram connection...');
+    
+    // Generate unique connection code
+    const connectionCode = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    // Store connection code temporarily (you might want to use Redis or database)
+    // For now, we'll use a simple in-memory store
+    if (!global.telegramConnectionCodes) {
+      global.telegramConnectionCodes = new Map();
+    }
+    
+    global.telegramConnectionCodes.set(connectionCode, {
+      userId: req.user._id,
+      timestamp: Date.now(),
+      expires: Date.now() + 10 * 60 * 1000 // 10 minutes
+    });
+    
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'your_bot_username';
+    const instructions = `
+To connect your Telegram group/channel:
+
+1. Add our bot (@${botUsername}) to your group/channel
+2. Make the bot an admin with posting permissions
+3. Send this code to the bot: ${connectionCode}
+4. You'll receive a confirmation message
+
+Connection code: ${connectionCode}
+(This code expires in 10 minutes)
+    `;
+
+    res.json({
+      success: true,
+      connectionCode,
+      instructions,
+      botUsername
+    });
+    
+  } catch (error) {
+    console.error('❌ Telegram connection error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate connection code'
+    });
+  }
+});
+
+// Telegram Webhook Handler
+router.post('/telegram/webhook', async (req, res) => {
+  try {
+    console.log('📨 Telegram webhook received:', JSON.stringify(req.body, null, 2));
+    
+    const { message } = req.body;
+    
+    if (!message) {
+      return res.status(200).json({ ok: true });
+    }
+    
+    const chatId = message.chat.id;
+    const messageText = message.text;
+    const userId = message.from.id;
+    
+    // Handle connection code
+    if (messageText && messageText.startsWith('/connect ')) {
+      const connectionCode = messageText.replace('/connect ', '').trim();
+      await handleTelegramConnection(connectionCode, chatId, message.chat, userId);
+    }
+    
+    // Handle start command
+    else if (messageText === '/start') {
+      await sendTelegramMessage(chatId, 
+        'Welcome to NexSocial Bot! 🚀\n\n' +
+        'To connect your group/channel:\n' +
+        '1. Get a connection code from your NexSocial dashboard\n' +
+        '2. Send: /connect YOUR_CODE\n\n' +
+        'Need help? Send /help'
+      );
+    }
+    
+    // Handle help command
+    else if (messageText === '/help') {
+      await sendTelegramMessage(chatId,
+        'NexSocial Bot Commands:\n\n' +
+        '/start - Welcome message\n' +
+        '/connect CODE - Connect group to NexSocial\n' +
+        '/status - Check connection status\n' +
+        '/help - Show this help message\n\n' +
+        'For support, visit: https://nexsocial.com/support'
+      );
+    }
+    
+    // Handle status command
+    else if (messageText === '/status') {
+      const account = await SocialAccountService.findByPlatformUserId('telegram', chatId.toString());
+      if (account) {
+        await sendTelegramMessage(chatId,
+          `✅ Connected to NexSocial!\n\n` +
+          `Group: ${message.chat.title || 'Private Chat'}\n` +
+          `Connected: ${new Date(account.connected_at).toLocaleDateString()}\n` +
+          `Status: Active`
+        );
+      } else {
+        await sendTelegramMessage(chatId,
+          '❌ Not connected to NexSocial\n\n' +
+          'To connect, get a connection code from your NexSocial dashboard and send:\n' +
+          '/connect YOUR_CODE'
+        );
+      }
+    }
+    
+    res.status(200).json({ ok: true });
+    
+  } catch (error) {
+    console.error('❌ Telegram webhook error:', error);
+    res.status(200).json({ ok: true });
+  }
+});
+
+// Handle Telegram connection
+async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
+  try {
+    if (!global.telegramConnectionCodes) {
+      await sendTelegramMessage(chatId, '❌ Invalid connection code');
+      return;
+    }
+    
+    const connectionData = global.telegramConnectionCodes.get(connectionCode);
+    
+    if (!connectionData) {
+      await sendTelegramMessage(chatId, '❌ Invalid or expired connection code');
+      return;
+    }
+    
+    if (Date.now() > connectionData.expires) {
+      global.telegramConnectionCodes.delete(connectionCode);
+      await sendTelegramMessage(chatId, '❌ Connection code has expired. Please generate a new one.');
+      return;
+    }
+    
+    // Get chat info
+    const chatInfo = await getTelegramChatInfo(chatId);
+    
+    // Save to database
+    const accountData = {
+      platform: 'telegram',
+      username: chat.username || chat.title || `chat_${chatId}`,
+      displayName: chat.title || chat.first_name || `Telegram Chat ${chatId}`,
+      platformUserId: chatId.toString(),
+      accessToken: process.env.TELEGRAM_BOT_TOKEN, // Store bot token
+      refreshToken: null,
+      profileImage: '', // Telegram doesn't provide group photos via bot API
+      followers: chatInfo.member_count || 0
+    };
+    
+    await SocialAccountService.create(connectionData.userId, accountData);
+    
+    // Clean up connection code
+    global.telegramConnectionCodes.delete(connectionCode);
+    
+    await sendTelegramMessage(chatId,
+      `✅ Successfully connected to NexSocial!\n\n` +
+      `Group: ${chat.title || 'Private Chat'}\n` +
+      `You can now manage this ${chat.type} from your NexSocial dashboard.\n\n` +
+      `Visit: ${process.env.CLIENT_URL}/dashboard`
+    );
+    
+    console.log('✅ Telegram connection successful:', chatId);
+    
+  } catch (error) {
+    console.error('❌ Telegram connection error:', error);
+    await sendTelegramMessage(chatId, '❌ Failed to connect. Please try again.');
+  }
+}
+
+// Send message to Telegram
+async function sendTelegramMessage(chatId, text) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'HTML'
+      })
+    });
+    
+    const result = await response.json();
+    if (!result.ok) {
+      console.error('❌ Telegram send message error:', result);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('❌ Telegram API error:', error);
+    throw error;
+  }
+}
+
+// Get chat info
+async function getTelegramChatInfo(chatId) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId
+      })
+    });
+    
+    const result = await response.json();
+    return result.result || {};
+  } catch (error) {
+    console.error('❌ Get chat info error:', error);
+    return {};
+  }
+}
+
 module.exports = router;

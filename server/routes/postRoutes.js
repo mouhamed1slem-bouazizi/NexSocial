@@ -708,6 +708,183 @@ const postToTikTok = async (account, content, media = []) => {
   }
 };
 
+// Post to Telegram
+const postToTelegram = async (account, content, media = []) => {
+  try {
+    console.log(`🔵 Posting to Telegram for account: ${account.username}`);
+    
+    const chatId = account.platform_user_id;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    
+    if (!botToken) {
+      throw new Error('Telegram bot token not configured');
+    }
+
+    let result;
+    
+    // If no media, send text message
+    if (media.length === 0) {
+      result = await sendTelegramTextMessage(chatId, content, botToken);
+    } else {
+      // Handle media posts
+      if (media.length === 1) {
+        // Single media item
+        const mediaItem = media[0];
+        if (mediaItem.type === 'image') {
+          result = await sendTelegramPhoto(chatId, mediaItem, content, botToken);
+        } else if (mediaItem.type === 'video') {
+          result = await sendTelegramVideo(chatId, mediaItem, content, botToken);
+        } else {
+          result = await sendTelegramDocument(chatId, mediaItem, content, botToken);
+        }
+      } else {
+        // Multiple media items - send as media group
+        result = await sendTelegramMediaGroup(chatId, media, content, botToken);
+      }
+    }
+    
+    if (result.ok) {
+      console.log('✅ Successfully posted to Telegram');
+      return {
+        success: true,
+        postId: result.result.message_id.toString(),
+        platform: 'telegram'
+      };
+    } else {
+      throw new Error(result.description || 'Failed to post to Telegram');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error posting to Telegram:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to post to Telegram'
+    };
+  }
+};
+
+// Send text message to Telegram
+async function sendTelegramTextMessage(chatId, text, botToken) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'HTML'
+      })
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Telegram send message error:', error);
+    throw error;
+  }
+}
+
+// Send photo to Telegram
+async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
+  try {
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('photo', mediaItem.file, mediaItem.name);
+    if (caption) {
+      formData.append('caption', caption);
+      formData.append('parse_mode', 'HTML');
+    }
+    
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Telegram send photo error:', error);
+    throw error;
+  }
+}
+
+// Send video to Telegram
+async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
+  try {
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('video', mediaItem.file, mediaItem.name);
+    if (caption) {
+      formData.append('caption', caption);
+      formData.append('parse_mode', 'HTML');
+    }
+    
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Telegram send video error:', error);
+    throw error;
+  }
+}
+
+// Send document to Telegram
+async function sendTelegramDocument(chatId, mediaItem, caption, botToken) {
+  try {
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('document', mediaItem.file, mediaItem.name);
+    if (caption) {
+      formData.append('caption', caption);
+      formData.append('parse_mode', 'HTML');
+    }
+    
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Telegram send document error:', error);
+    throw error;
+  }
+}
+
+// Send media group to Telegram
+async function sendTelegramMediaGroup(chatId, mediaItems, caption, botToken) {
+  try {
+    const media = mediaItems.map((item, index) => ({
+      type: item.type === 'image' ? 'photo' : 'video',
+      media: `attach://${item.name}`,
+      caption: index === 0 ? caption : undefined, // Only add caption to first item
+      parse_mode: index === 0 ? 'HTML' : undefined
+    }));
+    
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('media', JSON.stringify(media));
+    
+    // Add media files
+    mediaItems.forEach(item => {
+      formData.append(item.name, item.file, item.name);
+    });
+    
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMediaGroup`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Telegram send media group error:', error);
+    throw error;
+  }
+}
+
 // Main posting function
 const postToSocialMedia = async (account, content, media = []) => {
   console.log(`Posting to ${account.platform} for account ${account.username}`);
@@ -728,6 +905,7 @@ const postToSocialMedia = async (account, content, media = []) => {
     case 'pinterest':
     case 'discord':
     case 'telegram':
+      return await postToTelegram(account, content, media);
     case 'whatsapp':
     case 'snapchat':
     case 'reddit':
