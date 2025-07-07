@@ -733,91 +733,61 @@ const postToTelegram = async (account, content, media = []) => {
       }
     }
 
-    let groupResult, channelResult;
+    let result;
+    let targetId, targetType;
     
-    // Post to group first
+    // Smart posting logic: 
+    // - If there's a linked channel, post ONLY to the channel (it will auto-forward to supergroup)
+    // - If no linked channel, post directly to the group/supergroup
+    if (channelInfo && channelInfo.channelId) {
+      console.log(`📢 Posting to linked channel (will auto-forward to group): ${channelInfo.channelTitle}`);
+      targetId = channelInfo.channelId;
+      targetType = 'channel';
+    } else {
+      console.log(`📱 Posting directly to group/supergroup`);
+      targetId = chatId;
+      targetType = 'group';
+    }
+    
+    // Send the post to the target (either channel or group)
     if (media.length === 0) {
-      groupResult = await sendTelegramTextMessage(chatId, content, botToken);
+      result = await sendTelegramTextMessage(targetId, content, botToken);
     } else {
       if (media.length === 1) {
         const mediaItem = media[0];
         if (mediaItem.type === 'image') {
-          groupResult = await sendTelegramPhoto(chatId, mediaItem, content, botToken);
+          result = await sendTelegramPhoto(targetId, mediaItem, content, botToken);
         } else if (mediaItem.type === 'video') {
-          groupResult = await sendTelegramVideo(chatId, mediaItem, content, botToken);
+          result = await sendTelegramVideo(targetId, mediaItem, content, botToken);
         } else {
-          groupResult = await sendTelegramDocument(chatId, mediaItem, content, botToken);
+          result = await sendTelegramDocument(targetId, mediaItem, content, botToken);
         }
       } else {
-        groupResult = await sendTelegramMediaGroup(chatId, media, content, botToken);
+        result = await sendTelegramMediaGroup(targetId, media, content, botToken);
       }
     }
     
-    let successCount = 0;
-    let errors = [];
-    
-    if (groupResult.ok) {
-      console.log('✅ Posted to discussion group successfully');
-      successCount++;
-    } else {
-      console.log('❌ Failed to post to discussion group:', groupResult);
-      errors.push(`Group: ${groupResult.description || 'Unknown error'}`);
-    }
-    
-    // If there's a linked channel, post there too
-    if (channelInfo && channelInfo.channelId) {
-      try {
-        console.log(`📢 Also posting to linked channel: ${channelInfo.channelTitle}`);
-        
-        if (media.length === 0) {
-          channelResult = await sendTelegramTextMessage(channelInfo.channelId, content, botToken);
-        } else {
-          if (media.length === 1) {
-            const mediaItem = media[0];
-            if (mediaItem.type === 'image') {
-              channelResult = await sendTelegramPhoto(channelInfo.channelId, mediaItem, content, botToken);
-            } else if (mediaItem.type === 'video') {
-              channelResult = await sendTelegramVideo(channelInfo.channelId, mediaItem, content, botToken);
-            } else {
-              channelResult = await sendTelegramDocument(channelInfo.channelId, mediaItem, content, botToken);
-            }
-          } else {
-            channelResult = await sendTelegramMediaGroup(channelInfo.channelId, media, content, botToken);
-          }
-        }
-        
-        if (channelResult.ok) {
-          console.log('✅ Posted to linked channel successfully');
-          successCount++;
-        } else {
-          console.log('❌ Failed to post to linked channel:', channelResult);
-          errors.push(`Channel: ${channelResult.description || 'Unknown error'}`);
-        }
-      } catch (channelError) {
-        console.log('❌ Error posting to channel:', channelError);
-        errors.push(`Channel: ${channelError.message}`);
-      }
-    }
-    
-    if (successCount > 0) {
+    if (result.ok) {
       const message = channelInfo 
-        ? `Posted to ${successCount} of ${channelInfo.channelId ? 2 : 1} targets`
-        : 'Posted successfully';
+        ? `Posted to channel (auto-forwarding to linked group): ${channelInfo.channelTitle}`
+        : 'Posted to group successfully';
         
       console.log(`✅ Telegram posting completed: ${message}`);
       return {
         success: true,
-        postId: groupResult.ok ? groupResult.result.message_id.toString() : 
-                channelResult?.ok ? channelResult.result.message_id.toString() : 'unknown',
+        postId: result.result.message_id.toString(),
         platform: 'telegram',
         details: {
-          groupPosted: groupResult.ok,
-          channelPosted: channelResult?.ok || false,
-          targets: successCount
+          targetType: targetType,
+          targetId: targetId,
+          channelTitle: channelInfo?.channelTitle,
+          autoForwarding: !!channelInfo
         }
       };
     } else {
-      throw new Error(`All posting attempts failed: ${errors.join(', ')}`);
+      const errorMsg = `Failed to post to ${targetType}: ${result.description || 'Unknown error'}`;
+      console.log(`❌ ${errorMsg}`);
+      throw new Error(errorMsg);
     }
     
   } catch (error) {

@@ -1415,7 +1415,8 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
       ? `✅ Successfully connected to NexSocial!\n\n` +
         `📢 Group: ${chat.title}\n` +
         `📢 Linked Channel: ${linkedChannelInfo.title}\n` +
-        `\nPosts will be sent to BOTH the group and channel!\n` +
+        `\n🎯 Smart Posting: Posts will be sent to the CHANNEL and automatically forwarded to the group!\n` +
+        `This prevents duplicate messages in your group.\n\n` +
         `You can now manage both from your NexSocial dashboard.\n\n` +
         `Visit: ${process.env.CLIENT_URL}/dashboard`
       : `✅ Successfully connected to NexSocial!\n\n` +
