@@ -3,13 +3,19 @@ const { requireUser } = require('./middleware/auth.js');
 const SocialAccountService = require('../services/socialAccountService.js');
 const TwitterOAuthService = require('../services/twitterOAuthService.js');
 const { generatePKCE, storePKCE, retrievePKCE } = require('../utils/pkce.js');
-const { supabase } = require('../config/database.js');
+const { getSupabase } = require('../config/database.js');
 
 const router = express.Router();
 
 // Database functions for storing Telegram connection codes
 async function storeTelegramConnectionCode(connectionCode, userId) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.error('❌ Supabase client not available');
+      return false;
+    }
+    
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
     
     const { data, error } = await supabase
@@ -48,6 +54,12 @@ CREATE TABLE IF NOT EXISTS telegram_connection_codes (
 
 async function getTelegramConnectionCode(connectionCode) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.error('❌ Supabase client not available');
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('telegram_connection_codes')
       .select('*')
@@ -73,6 +85,12 @@ async function getTelegramConnectionCode(connectionCode) {
 
 async function deleteTelegramConnectionCode(connectionCode) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.error('❌ Supabase client not available');
+      return false;
+    }
+    
     const { error } = await supabase
       .from('telegram_connection_codes')
       .delete()
@@ -93,6 +111,12 @@ async function deleteTelegramConnectionCode(connectionCode) {
 
 async function getAllTelegramConnectionCodes() {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.error('❌ Supabase client not available');
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('telegram_connection_codes')
       .select('code')
@@ -112,6 +136,12 @@ async function getAllTelegramConnectionCodes() {
 
 async function cleanupExpiredConnectionCodes() {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.error('❌ Supabase client not available for cleanup');
+      return;
+    }
+    
     const { error } = await supabase
       .from('telegram_connection_codes')
       .delete()
