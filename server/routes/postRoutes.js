@@ -720,38 +720,104 @@ const postToTelegram = async (account, content, media = []) => {
       throw new Error('Telegram bot token not configured');
     }
 
-    let result;
+    // Check if this is a group+channel connection
+    let channelInfo = null;
+    if (account.refresh_token) {
+      try {
+        channelInfo = JSON.parse(account.refresh_token);
+        if (channelInfo.channelId) {
+          console.log(`🔗 Detected group+channel connection: ${channelInfo.channelTitle}`);
+        }
+      } catch (e) {
+        // refresh_token is not channel info, continue normally
+      }
+    }
+
+    let groupResult, channelResult;
     
-    // If no media, send text message
+    // Post to group first
     if (media.length === 0) {
-      result = await sendTelegramTextMessage(chatId, content, botToken);
+      groupResult = await sendTelegramTextMessage(chatId, content, botToken);
     } else {
-      // Handle media posts
       if (media.length === 1) {
-        // Single media item
         const mediaItem = media[0];
         if (mediaItem.type === 'image') {
-          result = await sendTelegramPhoto(chatId, mediaItem, content, botToken);
+          groupResult = await sendTelegramPhoto(chatId, mediaItem, content, botToken);
         } else if (mediaItem.type === 'video') {
-          result = await sendTelegramVideo(chatId, mediaItem, content, botToken);
+          groupResult = await sendTelegramVideo(chatId, mediaItem, content, botToken);
         } else {
-          result = await sendTelegramDocument(chatId, mediaItem, content, botToken);
+          groupResult = await sendTelegramDocument(chatId, mediaItem, content, botToken);
         }
       } else {
-        // Multiple media items - send as media group
-        result = await sendTelegramMediaGroup(chatId, media, content, botToken);
+        groupResult = await sendTelegramMediaGroup(chatId, media, content, botToken);
       }
     }
     
-    if (result.ok) {
-      console.log('✅ Successfully posted to Telegram');
+    let successCount = 0;
+    let errors = [];
+    
+    if (groupResult.ok) {
+      console.log('✅ Posted to discussion group successfully');
+      successCount++;
+    } else {
+      console.log('❌ Failed to post to discussion group:', groupResult);
+      errors.push(`Group: ${groupResult.description || 'Unknown error'}`);
+    }
+    
+    // If there's a linked channel, post there too
+    if (channelInfo && channelInfo.channelId) {
+      try {
+        console.log(`📢 Also posting to linked channel: ${channelInfo.channelTitle}`);
+        
+        if (media.length === 0) {
+          channelResult = await sendTelegramTextMessage(channelInfo.channelId, content, botToken);
+        } else {
+          if (media.length === 1) {
+            const mediaItem = media[0];
+            if (mediaItem.type === 'image') {
+              channelResult = await sendTelegramPhoto(channelInfo.channelId, mediaItem, content, botToken);
+            } else if (mediaItem.type === 'video') {
+              channelResult = await sendTelegramVideo(channelInfo.channelId, mediaItem, content, botToken);
+            } else {
+              channelResult = await sendTelegramDocument(channelInfo.channelId, mediaItem, content, botToken);
+            }
+          } else {
+            channelResult = await sendTelegramMediaGroup(channelInfo.channelId, media, content, botToken);
+          }
+        }
+        
+        if (channelResult.ok) {
+          console.log('✅ Posted to linked channel successfully');
+          successCount++;
+        } else {
+          console.log('❌ Failed to post to linked channel:', channelResult);
+          errors.push(`Channel: ${channelResult.description || 'Unknown error'}`);
+        }
+      } catch (channelError) {
+        console.log('❌ Error posting to channel:', channelError);
+        errors.push(`Channel: ${channelError.message}`);
+      }
+    }
+    
+    if (successCount > 0) {
+      const message = channelInfo 
+        ? `Posted to ${successCount} of ${channelInfo.channelId ? 2 : 1} targets`
+        : 'Posted successfully';
+        
+      console.log(`✅ Telegram posting completed: ${message}`);
       return {
         success: true,
-        postId: result.result.message_id.toString(),
-        platform: 'telegram'
+        postId: groupResult.ok ? groupResult.result.message_id.toString() : 
+                channelResult?.ok ? channelResult.result.message_id.toString() : 'unknown',
+        platform: 'telegram',
+        details: {
+          groupPosted: groupResult.ok,
+          channelPosted: channelResult?.ok || false,
+          targets: successCount
+        }
       };
     } else {
-      throw new Error(result.description || 'Failed to post to Telegram');
+      throw new Error(`All posting attempts failed: ${errors.join(', ')}`);
     }
     
   } catch (error) {

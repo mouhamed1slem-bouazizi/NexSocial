@@ -1102,6 +1102,7 @@ router.post('/telegram/webhook', async (req, res) => {
         const codes = global.telegramConnectionCodes ? Array.from(global.telegramConnectionCodes.keys()) : [];
         const chatInfo = await getTelegramChatInfo(chatId);
         let botStatus = 'unknown';
+        let linkedChannelInfo = null;
         
         // Check bot status if it's a group
         if (chatType !== 'private') {
@@ -1111,20 +1112,38 @@ router.post('/telegram/webhook', async (req, res) => {
           } catch (e) {
             botStatus = 'error checking';
           }
+          
+          // Check for linked channel
+          if (chatType === 'supergroup') {
+            try {
+              linkedChannelInfo = await getLinkedChannel(chatId);
+            } catch (e) {
+              // Ignore errors
+            }
+          }
         }
         
-        await sendTelegramMessage(chatId,
-          `🔧 Debug Info:\n\n` +
+        let debugMessage = `🔧 Debug Info:\n\n` +
           `Chat Type: ${chatType}\n` +
           `Chat ID: ${chatId}\n` +
           `Chat Title: ${chatTitle || 'N/A'}\n` +
           `User ID: ${userId}\n` +
           `Bot Status: ${botStatus}\n` +
-          `Member Count: ${chatInfo.member_count || 'N/A'}\n\n` +
-          `Connection Codes:\n` +
+          `Member Count: ${chatInfo.member_count || 'N/A'}\n`;
+        
+        if (linkedChannelInfo) {
+          debugMessage += `\n🔗 Linked Channel:\n` +
+            `Channel ID: ${linkedChannelInfo.id}\n` +
+            `Channel Title: ${linkedChannelInfo.title}\n` +
+            `Channel Username: ${linkedChannelInfo.username || 'N/A'}\n` +
+            `Channel Members: ${linkedChannelInfo.member_count || 'N/A'}\n`;
+        }
+        
+        debugMessage += `\nConnection Codes:\n` +
           `Active codes: ${codes.length}\n` +
-          `Codes: ${codes.join(', ') || 'none'}`
-        );
+          `Codes: ${codes.join(', ') || 'none'}`;
+        
+        await sendTelegramMessage(chatId, debugMessage);
       } catch (debugError) {
         await sendTelegramMessage(chatId, '❌ Debug error: ' + debugError.message);
       }
@@ -1195,24 +1214,47 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
     // Get chat info
     const chatInfo = await getTelegramChatInfo(chatId);
     
+    // Check if this group has a linked channel
+    let linkedChannelInfo = null;
+    if (chat.type === 'supergroup') {
+      try {
+        linkedChannelInfo = await getLinkedChannel(chatId);
+        if (linkedChannelInfo && linkedChannelInfo.id) {
+          console.log(`🔗 Found linked channel: ${linkedChannelInfo.title} (${linkedChannelInfo.id})`);
+        }
+      } catch (error) {
+        console.log('ℹ️  No linked channel found or error checking:', error.message);
+      }
+    }
+    
     // Determine chat type and prepare account data
     const isGroup = chat.type === 'group' || chat.type === 'supergroup' || chat.type === 'channel';
     const chatType = isGroup ? chat.type : 'private';
     
     console.log(`📱 Connecting ${chatType} chat: ${chat.title || chat.first_name || chatId}`);
+    if (linkedChannelInfo) {
+      console.log(`🔗 This group is linked to channel: ${linkedChannelInfo.title}`);
+    }
     
     // Save to database
     const accountData = {
       platform: 'telegram',
       username: chat.username || chat.title || `chat_${chatId}`,
-      displayName: isGroup 
-        ? `${chat.title} (${chatType})` 
-        : `${chat.first_name || 'Private Chat'} (${chatType})`,
+      displayName: linkedChannelInfo 
+        ? `${chat.title} + ${linkedChannelInfo.title} (group+channel)` 
+        : isGroup 
+          ? `${chat.title} (${chatType})` 
+          : `${chat.first_name || 'Private Chat'} (${chatType})`,
       platformUserId: chatId.toString(),
       accessToken: process.env.TELEGRAM_BOT_TOKEN, // Store bot token
-      refreshToken: null,
+      refreshToken: linkedChannelInfo ? JSON.stringify({
+        groupId: chatId.toString(),
+        channelId: linkedChannelInfo.id.toString(),
+        channelTitle: linkedChannelInfo.title,
+        channelUsername: linkedChannelInfo.username
+      }) : null,
       profileImage: '', // Telegram doesn't provide group photos via bot API
-      followers: chatInfo.member_count || 0
+      followers: (chatInfo.member_count || 0) + (linkedChannelInfo?.member_count || 0)
     };
     
     await SocialAccountService.create(connectionData.userId, accountData);
@@ -1220,13 +1262,20 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
     // Clean up connection code
     global.telegramConnectionCodes.delete(connectionCode);
     
-    await sendTelegramMessage(chatId,
-      `✅ Successfully connected to NexSocial!\n\n` +
-      `${isGroup ? 'Group/Channel' : 'Chat'}: ${chat.title || chat.first_name || 'Private Chat'}\n` +
-      `Type: ${chatType}\n` +
-      `You can now post to this ${chatType} from your NexSocial dashboard.\n\n` +
-      `Visit: ${process.env.CLIENT_URL}/dashboard`
-    );
+    const connectionMessage = linkedChannelInfo 
+      ? `✅ Successfully connected to NexSocial!\n\n` +
+        `📢 Group: ${chat.title}\n` +
+        `📢 Linked Channel: ${linkedChannelInfo.title}\n` +
+        `\nPosts will be sent to BOTH the group and channel!\n` +
+        `You can now manage both from your NexSocial dashboard.\n\n` +
+        `Visit: ${process.env.CLIENT_URL}/dashboard`
+      : `✅ Successfully connected to NexSocial!\n\n` +
+        `${isGroup ? 'Group/Channel' : 'Chat'}: ${chat.title || chat.first_name || 'Private Chat'}\n` +
+        `Type: ${chatType}\n` +
+        `You can now post to this ${chatType} from your NexSocial dashboard.\n\n` +
+        `Visit: ${process.env.CLIENT_URL}/dashboard`;
+
+    await sendTelegramMessage(chatId, connectionMessage);
     
     console.log('✅ Telegram connection successful:', chatId);
     
@@ -1323,6 +1372,56 @@ async function getBotChatMember(chatId) {
   } catch (error) {
     console.error('❌ Get bot chat member error:', error);
     return {};
+  }
+}
+
+// Get linked channel for a supergroup
+async function getLinkedChannel(groupId) {
+  try {
+    // Get full chat info which includes linked channel
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: groupId
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.ok && result.result && result.result.linked_chat_id) {
+      const linkedChatId = result.result.linked_chat_id;
+      
+      // Get info about the linked channel
+      const channelResponse = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: linkedChatId
+        })
+      });
+      
+      const channelResult = await channelResponse.json();
+      
+      if (channelResult.ok && channelResult.result) {
+        return {
+          id: linkedChatId,
+          title: channelResult.result.title,
+          username: channelResult.result.username,
+          type: channelResult.result.type,
+          member_count: channelResult.result.member_count
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Get linked channel error:', error);
+    return null;
   }
 }
 
