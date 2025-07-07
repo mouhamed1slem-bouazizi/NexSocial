@@ -825,6 +825,94 @@ Connection code: ${connectionCode}
   }
 });
 
+// Telegram Webhook Setup Endpoint
+router.post('/telegram/setup-webhook', requireUser, async (req, res) => {
+  try {
+    const { webhookUrl } = req.body;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    
+    if (!botToken) {
+      return res.status(500).json({
+        success: false,
+        error: 'Telegram bot token not configured'
+      });
+    }
+
+    const { baseUrl } = getUrls();
+    const finalWebhookUrl = webhookUrl || `${baseUrl}/api/oauth/telegram/webhook`;
+    
+    console.log('🔗 Setting up Telegram webhook via API...');
+    console.log(`Bot Token: ${botToken.substring(0, 10)}...`);
+    console.log(`Webhook URL: ${finalWebhookUrl}`);
+    
+    // Test bot first
+    const botResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+    const botResult = await botResponse.json();
+    
+    if (!botResult.ok) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to verify bot token',
+        details: botResult
+      });
+    }
+
+    // Set webhook
+    const webhookResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: finalWebhookUrl,
+        allowed_updates: ['message'],
+        drop_pending_updates: true
+      })
+    });
+    
+    const webhookResult = await webhookResponse.json();
+    
+    if (webhookResult.ok) {
+      // Get webhook info to verify
+      const infoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+      const infoResult = await infoResponse.json();
+      
+      console.log('✅ Telegram webhook setup successful');
+      
+      res.json({
+        success: true,
+        message: 'Webhook setup successfully',
+        botInfo: {
+          name: botResult.result.first_name,
+          username: botResult.result.username,
+          id: botResult.result.id
+        },
+        webhookInfo: infoResult.ok ? {
+          url: infoResult.result.url,
+          pendingUpdates: infoResult.result.pending_update_count,
+          lastError: infoResult.result.last_error_message || 'None'
+        } : null
+      });
+      
+    } else {
+      console.log('❌ Failed to set webhook:', webhookResult);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to set webhook',
+        details: webhookResult
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Telegram webhook setup error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to setup webhook',
+      message: error.message
+    });
+  }
+});
+
 // Telegram Webhook Handler
 router.post('/telegram/webhook', async (req, res) => {
   try {

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
+import { api } from "@/api/api"
 import {
   User,
   Bell,
@@ -21,7 +22,8 @@ import {
   Upload,
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  MessageSquare
 } from "lucide-react"
 
 export function Settings() {
@@ -52,6 +54,11 @@ export function Settings() {
   })
 
   const [showPassword, setShowPassword] = useState(false)
+  const [telegramWebhook, setTelegramWebhook] = useState({
+    url: '',
+    isSetup: false,
+    isLoading: false
+  })
   const { toast } = useToast()
 
   const handleSaveProfile = async () => {
@@ -100,6 +107,34 @@ export function Settings() {
         description: "Failed to export data",
         variant: "destructive"
       })
+    }
+  }
+
+  const handleTelegramWebhookSetup = async () => {
+    setTelegramWebhook(prev => ({ ...prev, isLoading: true }))
+    
+    try {
+      const response = await api.post('/oauth/telegram/setup-webhook', {
+        webhookUrl: telegramWebhook.url || undefined
+      })
+
+      if (response.data.success) {
+        setTelegramWebhook(prev => ({ ...prev, isSetup: true }))
+        toast({
+          title: "Success",
+          description: `Telegram webhook setup successfully! Bot: @${response.data.botInfo?.username}`,
+        })
+      } else {
+        throw new Error(response.data.error || 'Setup failed')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || error.message || "Failed to setup Telegram webhook",
+        variant: "destructive"
+      })
+    } finally {
+      setTelegramWebhook(prev => ({ ...prev, isLoading: false }))
     }
   }
 
@@ -593,6 +628,53 @@ export function Settings() {
                   <p className="text-xs text-muted-foreground">
                     Receive real-time notifications about post status changes
                   </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-medium flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Telegram Bot Webhook
+                </h4>
+                <div className="p-4 border rounded-lg">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="telegram-webhook-url">Custom Webhook URL (Optional)</Label>
+                      <Input
+                        id="telegram-webhook-url"
+                        placeholder="https://yourserver.com/api/oauth/telegram/webhook"
+                        value={telegramWebhook.url}
+                        onChange={(e) => setTelegramWebhook(prev => ({ ...prev, url: e.target.value }))}
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Leave empty to use the default webhook URL
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Setup Telegram Webhook</p>
+                        <p className="text-sm text-muted-foreground">
+                          Configure your Telegram bot to receive messages
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {telegramWebhook.isSetup && (
+                          <Badge className="bg-green-100 text-green-800">
+                            Active
+                          </Badge>
+                        )}
+                        <Button 
+                          onClick={handleTelegramWebhookSetup}
+                          disabled={telegramWebhook.isLoading}
+                          size="sm"
+                        >
+                          {telegramWebhook.isLoading ? "Setting up..." : "Setup Webhook"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
