@@ -59,6 +59,10 @@ export function Settings() {
     isSetup: false,
     isLoading: false
   })
+  const [telegramDatabase, setTelegramDatabase] = useState({
+    isFixed: false,
+    isLoading: false
+  })
   const { toast } = useToast()
 
   const handleSaveProfile = async () => {
@@ -135,6 +139,43 @@ export function Settings() {
       })
     } finally {
       setTelegramWebhook(prev => ({ ...prev, isLoading: false }))
+    }
+  }
+
+  const handleTelegramDatabaseFix = async () => {
+    setTelegramDatabase(prev => ({ ...prev, isLoading: true }))
+    
+    try {
+      const response = await api.post('/oauth/telegram/fix-database')
+
+      if (response.data.success) {
+        setTelegramDatabase(prev => ({ ...prev, isFixed: true }))
+        toast({
+          title: "Success",
+          description: "Database constraint fixed! Telegram connections are now enabled.",
+        })
+      } else {
+        // Show manual instructions
+        const manualSql = response.data.manual_sql?.join('\n\n') || 'Check console for SQL commands'
+        toast({
+          title: "Manual Fix Required",
+          description: `${response.data.message}. Check console for SQL commands.`,
+          variant: "destructive"
+        })
+        console.log('🔧 Manual SQL Commands:')
+        console.log('========================')
+        console.log(response.data.manual_sql?.join('\n\n'))
+        console.log('========================')
+        console.log(response.data.instructions)
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || error.message || "Failed to fix database constraint",
+        variant: "destructive"
+      })
+    } finally {
+      setTelegramDatabase(prev => ({ ...prev, isLoading: false }))
     }
   }
 
@@ -634,8 +675,40 @@ export function Settings() {
               <div className="space-y-4">
                 <h4 className="font-medium flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
-                  Telegram Bot Webhook
+                  Telegram Bot Configuration
                 </h4>
+                
+                {/* Database Fix Section */}
+                <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                        Database Configuration
+                      </p>
+                      <p className="text-sm text-yellow-600 dark:text-yellow-300">
+                        Fix database constraint to enable Telegram connections
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {telegramDatabase.isFixed && (
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                          Fixed
+                        </Badge>
+                      )}
+                      <Button 
+                        onClick={handleTelegramDatabaseFix}
+                        disabled={telegramDatabase.isLoading}
+                        size="sm"
+                        variant="outline"
+                        className="border-yellow-300 text-yellow-800 hover:bg-yellow-100 dark:border-yellow-600 dark:text-yellow-300 dark:hover:bg-yellow-900/30"
+                      >
+                        {telegramDatabase.isLoading ? "Fixing..." : "Fix Database"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Webhook Setup Section */}
                 <div className="p-4 border rounded-lg">
                   <div className="space-y-4">
                     <div>

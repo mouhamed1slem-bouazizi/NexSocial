@@ -825,6 +825,82 @@ Connection code: ${connectionCode}
   }
 });
 
+// Telegram Database Fix Endpoint
+router.post('/telegram/fix-database', requireUser, async (req, res) => {
+  try {
+    console.log('🔧 Attempting to fix Telegram database constraint...');
+    
+    // For Supabase, we'll try to run the SQL directly if possible
+    if (process.env.DATABASE_URL) {
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+
+      try {
+        // Drop existing constraint
+        await pool.query('ALTER TABLE social_accounts DROP CONSTRAINT IF EXISTS social_accounts_platform_check;');
+        console.log('✅ Dropped existing constraint');
+
+        // Add new constraint
+        await pool.query(`
+          ALTER TABLE social_accounts ADD CONSTRAINT social_accounts_platform_check 
+          CHECK (platform IN (
+            'facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube',
+            'pinterest', 'discord', 'telegram', 'whatsapp', 'snapchat', 'reddit',
+            'vimeo', 'threads', 'twitch', 'line', 'tumblr', 'vk'
+          ));
+        `);
+        
+        console.log('✅ Added updated constraint with Telegram support');
+        await pool.end();
+        
+        res.json({
+          success: true,
+          message: 'Database constraint fixed successfully! Telegram connections are now enabled.',
+          method: 'automatic'
+        });
+        
+      } catch (dbError) {
+        await pool.end();
+        console.log('❌ Direct database fix failed:', dbError.message);
+        
+        // Provide manual instructions as fallback
+        res.json({
+          success: false,
+          error: 'Automatic fix failed',
+          message: 'Please run the SQL manually in Supabase',
+          manual_sql: [
+            'ALTER TABLE social_accounts DROP CONSTRAINT IF EXISTS social_accounts_platform_check;',
+            `ALTER TABLE social_accounts ADD CONSTRAINT social_accounts_platform_check 
+             CHECK (platform IN (
+               'facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube',
+               'pinterest', 'discord', 'telegram', 'whatsapp', 'snapchat', 'reddit',
+               'vimeo', 'threads', 'twitch', 'line', 'tumblr', 'vk'
+             ));`
+          ],
+          instructions: 'Go to Supabase Dashboard > SQL Editor and run the provided SQL commands'
+        });
+      }
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Database URL not configured',
+        message: 'Cannot perform automatic fix without direct database access'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Telegram database fix error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fix database constraint',
+      message: error.message
+    });
+  }
+});
+
 // Telegram Webhook Setup Endpoint
 router.post('/telegram/setup-webhook', requireUser, async (req, res) => {
   try {
