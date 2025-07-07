@@ -1006,6 +1006,31 @@ router.post('/telegram/webhook', async (req, res) => {
     const chatId = message.chat.id;
     const messageText = message.text;
     const userId = message.from.id;
+    const chatType = message.chat.type;
+    const chatTitle = message.chat.title;
+    
+    console.log('🔍 Message details:');
+    console.log(`   Chat ID: ${chatId}`);
+    console.log(`   Chat Type: ${chatType}`);
+    console.log(`   Chat Title: ${chatTitle || 'N/A'}`);
+    console.log(`   User ID: ${userId}`);
+    console.log(`   Message: ${messageText}`);
+    console.log(`   Is Group/Channel: ${chatType !== 'private'}`);
+    
+    // For group messages, check if bot is admin
+    if (chatType !== 'private' && messageText && messageText.startsWith('/connect')) {
+      console.log('🏆 Group connection attempt detected');
+      try {
+        const chatInfo = await getTelegramChatInfo(chatId);
+        console.log('📊 Chat info:', chatInfo);
+        
+        // Check bot permissions
+        const botInfo = await getBotChatMember(chatId);
+        console.log('🤖 Bot info in chat:', botInfo);
+      } catch (infoError) {
+        console.log('⚠️  Could not get chat/bot info:', infoError.message);
+      }
+    }
     
     // Handle connection code
     if (messageText && messageText.startsWith('/connect ')) {
@@ -1073,17 +1098,35 @@ router.post('/telegram/webhook', async (req, res) => {
     
     // Handle debug command (for troubleshooting)
     else if (messageText === '/debug') {
-      if (global.telegramConnectionCodes) {
-        const codes = Array.from(global.telegramConnectionCodes.keys());
+      try {
+        const codes = global.telegramConnectionCodes ? Array.from(global.telegramConnectionCodes.keys()) : [];
+        const chatInfo = await getTelegramChatInfo(chatId);
+        let botStatus = 'unknown';
+        
+        // Check bot status if it's a group
+        if (chatType !== 'private') {
+          try {
+            const botInfo = await getBotChatMember(chatId);
+            botStatus = botInfo.status || 'unknown';
+          } catch (e) {
+            botStatus = 'error checking';
+          }
+        }
+        
         await sendTelegramMessage(chatId,
           `🔧 Debug Info:\n\n` +
-          `Active connection codes: ${codes.length}\n` +
-          `Codes: ${codes.join(', ')}\n` +
+          `Chat Type: ${chatType}\n` +
           `Chat ID: ${chatId}\n` +
-          `User ID: ${userId}`
+          `Chat Title: ${chatTitle || 'N/A'}\n` +
+          `User ID: ${userId}\n` +
+          `Bot Status: ${botStatus}\n` +
+          `Member Count: ${chatInfo.member_count || 'N/A'}\n\n` +
+          `Connection Codes:\n` +
+          `Active codes: ${codes.length}\n` +
+          `Codes: ${codes.join(', ') || 'none'}`
         );
-      } else {
-        await sendTelegramMessage(chatId, '🔧 Debug: No connection codes stored');
+      } catch (debugError) {
+        await sendTelegramMessage(chatId, '❌ Debug error: ' + debugError.message);
       }
     }
     
@@ -1122,6 +1165,31 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
       global.telegramConnectionCodes.delete(connectionCode);
       await sendTelegramMessage(chatId, '❌ Connection code has expired. Please generate a new one.');
       return;
+    }
+    
+    // For groups, check if bot has admin permissions
+    if (chat.type !== 'private') {
+      console.log(`🏆 Connecting group/channel: ${chat.title || chat.username || chatId}`);
+      try {
+        const botInfo = await getBotChatMember(chatId);
+        console.log(`🤖 Bot status in chat: ${botInfo.status}`);
+        
+        if (!botInfo.status || (botInfo.status !== 'administrator' && botInfo.status !== 'creator')) {
+          await sendTelegramMessage(chatId, 
+            '❌ Bot needs to be an ADMINISTRATOR to post messages.\n\n' +
+            'Please:\n' +
+            '1. Make this bot an admin\n' +
+            '2. Give it permission to post messages\n' +
+            '3. Try connecting again'
+          );
+          return;
+        }
+        
+        console.log('✅ Bot has admin permissions in group');
+      } catch (permError) {
+        console.log('⚠️  Could not verify bot permissions:', permError.message);
+        // Continue anyway - some chats might not allow checking permissions
+      }
     }
     
     // Get chat info
@@ -1212,6 +1280,48 @@ async function getTelegramChatInfo(chatId) {
     return result.result || {};
   } catch (error) {
     console.error('❌ Get chat info error:', error);
+    return {};
+  }
+}
+
+// Get bot's own info
+async function getBotInfo() {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`);
+    const result = await response.json();
+    return result.result || {};
+  } catch (error) {
+    console.error('❌ Get bot info error:', error);
+    return {};
+  }
+}
+
+// Get bot member info in chat
+async function getBotChatMember(chatId) {
+  try {
+    // Get bot's ID first
+    const botInfo = await getBotInfo();
+    const botId = botInfo.id;
+    
+    if (!botId) {
+      throw new Error('Could not get bot ID');
+    }
+    
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChatMember`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        user_id: botId
+      })
+    });
+    
+    const result = await response.json();
+    return result.result || {};
+  } catch (error) {
+    console.error('❌ Get bot chat member error:', error);
     return {};
   }
 }
