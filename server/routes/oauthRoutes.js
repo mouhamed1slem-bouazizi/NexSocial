@@ -1029,10 +1029,26 @@ router.post('/telegram/webhook', async (req, res) => {
       await sendTelegramMessage(chatId,
         'NexSocial Bot Commands:\n\n' +
         '/start - Welcome message\n' +
-        '/connect CODE - Connect group to NexSocial\n' +
+        '/connect CODE - Connect chat/group to NexSocial\n' +
         '/status - Check connection status\n' +
-        '/help - Show this help message\n\n' +
+        '/help - Show this help message\n' +
+        '/group - How to connect groups/channels\n' +
+        '/debug - Show debug info\n\n' +
         'For support, visit: https://nexsocial.com/support'
+      );
+    }
+    
+    // Handle group connection instructions
+    else if (messageText === '/group') {
+      await sendTelegramMessage(chatId,
+        '🏆 How to Connect Groups/Channels:\n\n' +
+        '1. Add this bot to your group/channel\n' +
+        '2. Make the bot an ADMIN with posting permissions\n' +
+        '3. Get a connection code from NexSocial dashboard\n' +
+        '4. In the GROUP (not here), send: /connect YOUR_CODE\n' +
+        '5. Posts will then go to that group/channel\n\n' +
+        '📝 Current chat type: ' + (message.chat.type || 'private') + '\n' +
+        'Chat ID: ' + chatId
       );
     }
     
@@ -1111,11 +1127,19 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
     // Get chat info
     const chatInfo = await getTelegramChatInfo(chatId);
     
+    // Determine chat type and prepare account data
+    const isGroup = chat.type === 'group' || chat.type === 'supergroup' || chat.type === 'channel';
+    const chatType = isGroup ? chat.type : 'private';
+    
+    console.log(`📱 Connecting ${chatType} chat: ${chat.title || chat.first_name || chatId}`);
+    
     // Save to database
     const accountData = {
       platform: 'telegram',
       username: chat.username || chat.title || `chat_${chatId}`,
-      displayName: chat.title || chat.first_name || `Telegram Chat ${chatId}`,
+      displayName: isGroup 
+        ? `${chat.title} (${chatType})` 
+        : `${chat.first_name || 'Private Chat'} (${chatType})`,
       platformUserId: chatId.toString(),
       accessToken: process.env.TELEGRAM_BOT_TOKEN, // Store bot token
       refreshToken: null,
@@ -1130,8 +1154,9 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
     
     await sendTelegramMessage(chatId,
       `✅ Successfully connected to NexSocial!\n\n` +
-      `Group: ${chat.title || 'Private Chat'}\n` +
-      `You can now manage this ${chat.type} from your NexSocial dashboard.\n\n` +
+      `${isGroup ? 'Group/Channel' : 'Chat'}: ${chat.title || chat.first_name || 'Private Chat'}\n` +
+      `Type: ${chatType}\n` +
+      `You can now post to this ${chatType} from your NexSocial dashboard.\n\n` +
       `Visit: ${process.env.CLIENT_URL}/dashboard`
     );
     
