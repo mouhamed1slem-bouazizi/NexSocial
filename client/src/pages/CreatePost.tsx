@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createPost } from "@/api/posts"
-import { getSocialAccounts, SocialAccount } from "@/api/socialAccounts"
+import { getSocialAccounts, SocialAccount, getDiscordChannels, DiscordChannel, DiscordChannelsResponse } from "@/api/socialAccounts"
 import { MediaUpload } from "@/components/MediaUpload"
 import { EmojiPickerComponent } from "@/components/EmojiPicker"
 import { useToast } from "@/hooks/useToast"
@@ -85,6 +85,10 @@ export function CreatePost() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [accountsLoading, setAccountsLoading] = useState(true)
+  // Discord channel selection state
+  const [discordChannels, setDiscordChannels] = useState<Record<string, DiscordChannel[]>>({}) // accountId -> channels
+  const [selectedDiscordChannels, setSelectedDiscordChannels] = useState<Record<string, string>>({}) // accountId -> channelId
+  const [channelsLoading, setChannelsLoading] = useState<Record<string, boolean>>({})
   const [scheduledDate, setScheduledDate] = useState<Date>()
   const [scheduledTime, setScheduledTime] = useState("")
   const [isScheduled, setIsScheduled] = useState(false)
@@ -149,6 +153,41 @@ export function CreatePost() {
     }, 0)
   }
 
+  // Fetch Discord channels for a specific account
+  const fetchDiscordChannels = async (accountId: string) => {
+    try {
+      setChannelsLoading(prev => ({ ...prev, [accountId]: true }))
+      console.log(`🎮 Fetching Discord channels for account: ${accountId}`)
+      
+      const channelsData = await getDiscordChannels(accountId)
+      
+      setDiscordChannels(prev => ({
+        ...prev,
+        [accountId]: channelsData.channels
+      }))
+      
+      // Auto-select the first channel if none is selected
+      if (!selectedDiscordChannels[accountId] && channelsData.channels.length > 0) {
+        setSelectedDiscordChannels(prev => ({
+          ...prev,
+          [accountId]: channelsData.channels[0].id
+        }))
+      }
+      
+      console.log(`✅ Loaded ${channelsData.channels.length} channels for ${channelsData.guildName}`)
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching Discord channels:', error)
+      toast({
+        title: "Discord Channels Error",
+        description: error.message || "Failed to load Discord channels",
+        variant: "destructive"
+      })
+    } finally {
+      setChannelsLoading(prev => ({ ...prev, [accountId]: false }))
+    }
+  }
+
   // Fetch social accounts on component mount
   useEffect(() => {
     const fetchSocialAccounts = async () => {
@@ -211,6 +250,11 @@ export function CreatePost() {
       const newSelection = prev.includes(accountId)
         ? prev.filter(id => id !== accountId)
         : [...prev, accountId]
+      
+      // If Discord account is being selected, fetch its channels
+      if (platform === 'discord' && newSelection.includes(accountId) && !discordChannels[accountId]) {
+        fetchDiscordChannels(accountId)
+      }
       
       // Update selected platforms based on selected accounts
       const accountsAfterToggle = socialAccounts.filter(acc => 
@@ -404,7 +448,8 @@ export function CreatePost() {
         platforms: selectedPlatforms,
         selectedAccounts,
         scheduledAt: scheduledAt?.toISOString(),
-        media: mediaData
+        media: mediaData,
+        discordChannels: selectedDiscordChannels // Add Discord channel selections
       })
 
       if (response.success) {
@@ -826,28 +871,77 @@ export function CreatePost() {
                         {connectedAccounts.map((account) => {
                           const isSelected = selectedAccounts.includes(account.id)
                           return (
-                            <div
-                              key={account.id}
-                              className={`ml-6 flex items-center space-x-3 p-2 rounded-lg border cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'border-blue-400 bg-blue-25 dark:bg-blue-950/50'
-                                  : 'border-gray-100 hover:border-gray-200'
-                              }`}
-                              onClick={() => handleAccountToggle(account.id, account.platform)}
-                            >
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => handleAccountToggle(account.id, account.platform)}
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-medium">{account.display_name}</p>
-                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                            <div key={account.id} className="space-y-2">
+                              <div
+                                className={`ml-6 flex items-center space-x-3 p-2 rounded-lg border cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'border-blue-400 bg-blue-25 dark:bg-blue-950/50'
+                                    : 'border-gray-100 hover:border-gray-200'
+                                }`}
+                                onClick={() => handleAccountToggle(account.id, account.platform)}
+                              >
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => handleAccountToggle(account.id, account.platform)}
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium">{account.display_name}</p>
+                                    <CheckCircle className="h-3 w-3 text-green-500" />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    @{account.username} • {account.followers?.toLocaleString() || 0} followers
+                                  </p>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                  @{account.username} • {account.followers?.toLocaleString() || 0} followers
-                                </p>
                               </div>
+
+                              {/* Discord Channel Selector */}
+                              {account.platform === 'discord' && isSelected && (
+                                <div className="ml-12 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                                  <Label className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-2 block">
+                                    Select Discord Channel
+                                  </Label>
+                                  {channelsLoading[account.id] ? (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                                      Loading channels...
+                                    </div>
+                                  ) : discordChannels[account.id]?.length > 0 ? (
+                                    <Select
+                                      value={selectedDiscordChannels[account.id] || ''}
+                                      onValueChange={(channelId) => {
+                                        setSelectedDiscordChannels(prev => ({
+                                          ...prev,
+                                          [account.id]: channelId
+                                        }))
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-full bg-white dark:bg-slate-900">
+                                        <SelectValue placeholder="Choose a channel..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {discordChannels[account.id].map((channel) => (
+                                          <SelectItem key={channel.id} value={channel.id}>
+                                            <div className="flex items-center gap-2">
+                                              <Hash className="h-3 w-3 text-muted-foreground" />
+                                              <span>{channel.name}</span>
+                                              {channel.topic && (
+                                                <span className="text-xs text-muted-foreground">
+                                                  - {channel.topic.substring(0, 30)}{channel.topic.length > 30 ? '...' : ''}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <div className="text-sm text-muted-foreground">
+                                      No channels available. Please ensure the bot has proper permissions.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )
                         })}

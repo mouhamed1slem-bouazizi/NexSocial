@@ -15,7 +15,7 @@ router.post('/', requireUser, async (req, res) => {
     console.log('📝 Creating new post for user:', req.user._id);
     console.log('📊 Post data:', JSON.stringify(req.body, null, 2));
 
-    const { content, platforms, selectedAccounts, scheduledAt, media } = req.body;
+    const { content, platforms, selectedAccounts, scheduledAt, media, discordChannels } = req.body;
 
     // Validate input
     if (!content || !selectedAccounts || selectedAccounts.length === 0) {
@@ -111,7 +111,7 @@ router.post('/', requireUser, async (req, res) => {
             result = await postToTelegram(account, content, processedMedia);
             break;
           case 'discord':
-            result = await postToDiscord(account, content, processedMedia);
+            result = await postToDiscord(account, content, processedMedia, discordChannels);
             break;
           default:
             result = {
@@ -1235,11 +1235,17 @@ async function sendTelegramMediaGroup(chatId, media, caption, botToken) {
 }
 
 // Discord posting function
-const postToDiscord = async (account, content, media = []) => {
+const postToDiscord = async (account, content, media = [], discordChannels = {}) => {
   try {
     console.log(`🎮 Posting to Discord for account ${account.username}`);
     console.log(`📝 Content: ${content}`);
     console.log(`📎 Media items: ${media.length}`);
+    
+    // Check if user selected a specific channel for this account
+    const selectedChannelId = discordChannels[account.id];
+    if (selectedChannelId) {
+      console.log(`🎯 User selected channel: ${selectedChannelId}`);
+    }
     
     // Parse metadata to get Discord-specific info
     console.log(`🔍 Discord account metadata:`, account.metadata);
@@ -1305,31 +1311,57 @@ const postToDiscord = async (account, content, media = []) => {
       throw new Error('No Discord server found for posting. Please ensure the Discord bot has been added to at least one server where you have posting permissions, or try reconnecting your Discord account.');
     }
     
-    // Get the first available text channel in the primary guild
-    let targetChannelId = null;
+    // Determine target channel - use user selection or fallback to auto-detection
+    let targetChannelId = selectedChannelId; // Start with user selection
+    let targetChannelName = 'user-selected';
     
-    try {
-      // Fetch guild channels using bot token
-      const channelsResponse = await fetch(`https://discord.com/api/guilds/${primaryGuild.id}/channels`, {
-        headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` }
-      });
+    // If user didn't select a channel, use the original auto-detection logic
+    if (!targetChannelId) {
+      console.log(`🔍 No channel selected by user, auto-detecting suitable channel...`);
       
-      if (channelsResponse.ok) {
-        const channels = await channelsResponse.json();
-        // Find the first text channel where bot has permission to send messages
-        const textChannel = channels.find(channel => 
-          channel.type === 0 && // Text channel
-          channel.name !== 'rules' && 
-          channel.name !== 'announcements'
-        );
+      try {
+        // Fetch guild channels using bot token
+        const channelsResponse = await fetch(`https://discord.com/api/guilds/${primaryGuild.id}/channels`, {
+          headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` }
+        });
         
-        if (textChannel) {
-          targetChannelId = textChannel.id;
-          console.log(`🎯 Target channel: #${textChannel.name} (${textChannel.id})`);
+        if (channelsResponse.ok) {
+          const channels = await channelsResponse.json();
+          // Find the first text channel where bot has permission to send messages
+          const textChannel = channels.find(channel => 
+            channel.type === 0 && // Text channel
+            channel.name !== 'rules' && 
+            channel.name !== 'announcements'
+          );
+          
+          if (textChannel) {
+            targetChannelId = textChannel.id;
+            targetChannelName = textChannel.name;
+            console.log(`🎯 Auto-detected channel: #${textChannel.name} (${textChannel.id})`);
+          }
         }
+      } catch (error) {
+        console.error('❌ Failed to fetch Discord channels:', error);
       }
-    } catch (error) {
-      console.error('❌ Failed to fetch Discord channels:', error);
+    } else {
+      console.log(`🎯 Using user-selected channel: ${targetChannelId}`);
+      
+      // Optionally verify the channel exists and bot has access (for better error messages)
+      try {
+        const channelResponse = await fetch(`https://discord.com/api/channels/${targetChannelId}`, {
+          headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` }
+        });
+        
+        if (channelResponse.ok) {
+          const channelData = await channelResponse.json();
+          targetChannelName = channelData.name;
+          console.log(`✅ Verified access to selected channel: #${channelData.name}`);
+        } else {
+          console.log(`⚠️ Could not verify selected channel, but proceeding with posting attempt`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Could not verify selected channel access:`, error.message);
+      }
     }
     
     if (!targetChannelId) {
@@ -1392,13 +1424,15 @@ const postToDiscord = async (account, content, media = []) => {
         success: true,
         postId: data.id,
         platform: 'discord',
-        message: `Posted to Discord successfully with ${mediaUploadResults.length} media file(s)`,
+        message: `Posted to Discord #${targetChannelName} successfully with ${mediaUploadResults.length} media file(s)`,
         details: {
           channelId: targetChannelId,
+          channelName: targetChannelName,
           guildId: primaryGuild.id,
           guildName: primaryGuild.name,
           mediaCount: mediaUploadResults.length,
-          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`
+          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`,
+          userSelected: !!selectedChannelId
         }
       };
       
@@ -1426,12 +1460,14 @@ const postToDiscord = async (account, content, media = []) => {
         success: true,
         postId: data.id,
         platform: 'discord',
-        message: 'Posted to Discord successfully',
+        message: `Posted to Discord #${targetChannelName} successfully`,
         details: {
           channelId: targetChannelId,
+          channelName: targetChannelName,
           guildId: primaryGuild.id,
           guildName: primaryGuild.name,
-          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`
+          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`,
+          userSelected: !!selectedChannelId
         }
       };
     }

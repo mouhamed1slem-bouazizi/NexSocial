@@ -448,4 +448,114 @@ router.post('/:id/sync-linkedin', requireUser, async (req, res) => {
   }
 });
 
+// Get Discord channels for a specific account
+router.get('/:id/discord-channels', requireUser, async (req, res) => {
+  try {
+    console.log(`🎮 Fetching Discord channels for account: ${req.params.id}`);
+    
+    // Get the Discord account
+    const account = await SocialAccountService.getById(req.params.id, req.user._id);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Discord account not found'
+      });
+    }
+    
+    if (account.platform !== 'discord') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account is not a Discord account'
+      });
+    }
+    
+    // Parse metadata to get guild information
+    let metadata = {};
+    try {
+      metadata = JSON.parse(account.metadata || '{}');
+    } catch (error) {
+      console.error('❌ Failed to parse Discord metadata:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid Discord account metadata'
+      });
+    }
+    
+    const primaryGuild = metadata.primaryGuild;
+    
+    if (!primaryGuild) {
+      return res.status(400).json({
+        success: false,
+        error: 'No Discord server configured for this account'
+      });
+    }
+    
+    // Fetch channels from Discord API using bot token
+    try {
+      const channelsResponse = await fetch(`https://discord.com/api/guilds/${primaryGuild.id}/channels`, {
+        headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` }
+      });
+      
+      if (!channelsResponse.ok) {
+        throw new Error('Failed to fetch channels from Discord API');
+      }
+      
+      const channelsData = await channelsResponse.json();
+      
+      // Filter and format channels
+      const textChannels = channelsData
+        .filter(channel => 
+          channel.type === 0 && // Text channels only
+          !channel.name.includes('rules') && // Skip rules channels
+          !channel.name.includes('announcements') // Skip announcement channels (unless they want to post there)
+        )
+        .map(channel => ({
+          id: channel.id,
+          name: channel.name,
+          position: channel.position,
+          parentId: channel.parent_id,
+          topic: channel.topic,
+          nsfw: channel.nsfw,
+          permissions: channel.permission_overwrites || []
+        }))
+        .sort((a, b) => a.position - b.position); // Sort by Discord position
+      
+      // Get channel categories for better organization
+      const categories = channelsData
+        .filter(channel => channel.type === 4) // Category channels
+        .map(category => ({
+          id: category.id,
+          name: category.name,
+          position: category.position
+        }))
+        .sort((a, b) => a.position - b.position);
+      
+      console.log(`✅ Found ${textChannels.length} text channels in ${primaryGuild.name}`);
+      
+      res.json({
+        success: true,
+        channels: textChannels,
+        categories: categories,
+        guildName: primaryGuild.name,
+        guildId: primaryGuild.id
+      });
+      
+    } catch (apiError) {
+      console.error('❌ Error fetching Discord channels:', apiError);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch Discord channels. Please ensure the bot has proper permissions.'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in Discord channels endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch Discord channels'
+    });
+  }
+});
+
 module.exports = router;

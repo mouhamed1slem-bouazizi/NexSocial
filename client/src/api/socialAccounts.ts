@@ -153,3 +153,43 @@ export const syncLinkedInConnections = async (accountId: string, connectionsCoun
     throw new Error(error.response?.data?.error || 'Failed to update LinkedIn connections');
   }
 };
+
+// Description: Get Discord channels for a specific account
+// Endpoint: GET /api/social-accounts/:id/discord-channels
+// Request: {}
+// Response: { success: boolean, channels: DiscordChannel[], categories: DiscordCategory[], guildName: string, guildId: string }
+export interface DiscordChannel {
+  id: string;
+  name: string;
+  position: number;
+  parentId?: string;
+  topic?: string;
+  nsfw: boolean;
+  permissions: any[];
+}
+
+export interface DiscordCategory {
+  id: string;
+  name: string;
+  position: number;
+}
+
+export interface DiscordChannelsResponse {
+  success: boolean;
+  channels: DiscordChannel[];
+  categories: DiscordCategory[];
+  guildName: string;
+  guildId: string;
+}
+
+export const getDiscordChannels = async (accountId: string): Promise<DiscordChannelsResponse> => {
+  try {
+    console.log(`🎮 Fetching Discord channels for account: ${accountId}`);
+    const response = await api.get(`/social-accounts/${accountId}/discord-channels`);
+    console.log('✅ Discord channels fetched successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching Discord channels:', error);
+    throw new Error(error.response?.data?.error || 'Failed to fetch Discord channels');
+  }
+};

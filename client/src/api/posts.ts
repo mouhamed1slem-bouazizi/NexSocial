@@ -23,6 +23,7 @@ export interface CreatePostData {
   scheduledAt?: string;
   media?: {name: string, type: string, data: string}[];
   selectedAccounts?: string[]; // Array of social account IDs
+  discordChannels?: Record<string, string>; // accountId -> channelId
 }
 
 export interface PostResponse {
