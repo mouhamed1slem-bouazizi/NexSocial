@@ -1027,4 +1027,167 @@ async function sendTelegramMediaGroup(chatId, media, caption, botToken) {
   }
 }
 
+// Discord posting function
+const postToDiscord = async (account, content, media = []) => {
+  try {
+    console.log(`🎮 Posting to Discord for account ${account.username}`);
+    console.log(`📝 Content: ${content}`);
+    console.log(`📎 Media items: ${media.length}`);
+    
+    // Parse metadata to get Discord-specific info
+    let metadata = {};
+    try {
+      metadata = JSON.parse(account.metadata || '{}');
+    } catch (error) {
+      console.error('❌ Failed to parse Discord metadata:', error);
+    }
+    
+    const guilds = metadata.guilds || [];
+    const primaryGuild = metadata.primaryGuild;
+    
+    if (!primaryGuild) {
+      throw new Error('No Discord server configured for posting. Please reconnect your Discord account.');
+    }
+    
+    // Get the first available text channel in the primary guild
+    let targetChannelId = null;
+    
+    try {
+      // Fetch guild channels using bot token
+      const channelsResponse = await fetch(`https://discord.com/api/guilds/${primaryGuild.id}/channels`, {
+        headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` }
+      });
+      
+      if (channelsResponse.ok) {
+        const channels = await channelsResponse.json();
+        // Find the first text channel where bot has permission to send messages
+        const textChannel = channels.find(channel => 
+          channel.type === 0 && // Text channel
+          channel.name !== 'rules' && 
+          channel.name !== 'announcements'
+        );
+        
+        if (textChannel) {
+          targetChannelId = textChannel.id;
+          console.log(`🎯 Target channel: #${textChannel.name} (${textChannel.id})`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch Discord channels:', error);
+    }
+    
+    if (!targetChannelId) {
+      throw new Error('No suitable Discord channel found for posting. Ensure bot has access to at least one text channel.');
+    }
+    
+    // Prepare the message payload
+    const messagePayload = {
+      content: content.length > 2000 ? content.substring(0, 1997) + '...' : content
+    };
+    
+    // Handle media files
+    let mediaUploadResults = [];
+    if (media.length > 0) {
+      console.log(`📤 Preparing to upload ${media.length} media file(s) to Discord`);
+      
+      // Discord allows up to 10 files per message, each up to 25MB (with Nitro)
+      const maxFiles = Math.min(media.length, 10);
+      const mediaToUpload = media.slice(0, maxFiles);
+      
+      // Create form data for the message with attachments
+      const FormData = require('form-data');
+      const formData = new FormData();
+      
+      // Add the message content
+      formData.append('payload_json', JSON.stringify(messagePayload));
+      
+      // Add each media file
+      mediaToUpload.forEach((mediaItem, index) => {
+        formData.append(`files[${index}]`, Buffer.from(mediaItem.buffer), {
+          filename: mediaItem.name,
+          contentType: mediaItem.type.includes('image') ? 'image/jpeg' : 
+                      mediaItem.type.includes('video') ? 'video/mp4' : 
+                      'application/octet-stream'
+        });
+      });
+      
+      // Send message with attachments
+      const response = await fetch(`https://discord.com/api/channels/${targetChannelId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          ...formData.getHeaders()
+        },
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('❌ Discord posting error:', data);
+        throw new Error(data.message || 'Failed to post to Discord');
+      }
+      
+      mediaUploadResults = data.attachments || [];
+      
+      console.log(`✅ Posted to Discord with ${mediaUploadResults.length} media file(s)`);
+      
+      return {
+        success: true,
+        postId: data.id,
+        platform: 'discord',
+        message: `Posted to Discord successfully with ${mediaUploadResults.length} media file(s)`,
+        details: {
+          channelId: targetChannelId,
+          guildId: primaryGuild.id,
+          guildName: primaryGuild.name,
+          mediaCount: mediaUploadResults.length,
+          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`
+        }
+      };
+      
+    } else {
+      // Send text-only message
+      const response = await fetch(`https://discord.com/api/channels/${targetChannelId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`
+        },
+        body: JSON.stringify(messagePayload)
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('❌ Discord posting error:', data);
+        throw new Error(data.message || 'Failed to post to Discord');
+      }
+      
+      console.log(`✅ Posted text message to Discord`);
+      
+      return {
+        success: true,
+        postId: data.id,
+        platform: 'discord',
+        message: 'Posted to Discord successfully',
+        details: {
+          channelId: targetChannelId,
+          guildId: primaryGuild.id,
+          guildName: primaryGuild.name,
+          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`
+        }
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error posting to Discord:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to post to Discord',
+      platform: 'discord'
+    };
+  }
+};
+
 module.exports = router;

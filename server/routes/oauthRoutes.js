@@ -275,6 +275,19 @@ router.post('/initiate', requireUser, async (req, res) => {
         authUrl = `https://www.tiktok.com/auth/authorize/?client_key=${clientId}&response_type=code&scope=${scope}&redirect_uri=${redirectUri}&state=${userId}`;
         break;
 
+      case 'discord':
+        clientId = process.env.DISCORD_CLIENT_ID;
+        redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/discord/callback`);
+        scope = encodeURIComponent('identify guilds bot');
+
+        if (!clientId) {
+          return res.status(500).json({ success: false, error: 'Discord OAuth not configured. Please add DISCORD_CLIENT_ID to your .env file' });
+        }
+
+        // Include bot permissions in the URL (2048 = Send Messages permission)
+        authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${userId}&permissions=2048`;
+        break;
+
       default:
         return res.status(400).json({ success: false, error: 'Unsupported platform' });
     }
@@ -924,6 +937,131 @@ router.get('/tiktok/callback', async (req, res) => {
     res.redirect(`${process.env.CLIENT_URL}?success=tiktok_connected`);
   } catch (error) {
     console.error('TikTok OAuth callback error:', error);
+    res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
+  }
+});
+
+// Discord OAuth callback
+router.get('/discord/callback', async (req, res) => {
+  console.log('🎮 Discord OAuth callback received');
+
+  try {
+    const { code, state: userId, guild_id } = req.query;
+
+    if (!code) {
+      console.error('No authorization code received from Discord');
+      return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
+    }
+
+    console.log('🔄 Exchanging code for Discord access token');
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID,
+        client_secret: process.env.DISCORD_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${process.env.BASE_URL}/api/oauth/discord/callback`
+      })
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Failed to get access token from Discord:', tokenData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    console.log('✅ Successfully obtained Discord access token');
+
+    // Get user info
+    const userResponse = await fetch('https://discord.com/api/users/@me', {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+    });
+
+    const userData = await userResponse.json();
+
+    if (!userData.id) {
+      console.error('Failed to get Discord user data:', userData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    console.log('✅ Successfully fetched Discord profile for user:', userData.username);
+
+    // Get user's guilds (servers) where they can manage or where our bot was added
+    const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+    });
+
+    const guildsData = await guildsResponse.json();
+    console.log(`📊 User has access to ${guildsData?.length || 0} Discord servers`);
+
+    // If specific guild was selected during OAuth, use that one
+    let primaryGuild = null;
+    if (guild_id && guildsData) {
+      primaryGuild = guildsData.find(guild => guild.id === guild_id);
+    }
+    
+    // If no specific guild or not found, use the first one they can manage
+    if (!primaryGuild && guildsData && guildsData.length > 0) {
+      primaryGuild = guildsData.find(guild => 
+        (guild.permissions & 0x20) || // MANAGE_MESSAGES
+        (guild.permissions & 0x8) ||  // ADMINISTRATOR  
+        guild.owner
+      ) || guildsData[0]; // Fallback to first guild
+    }
+
+    // Determine follower count (server member count if available)
+    let followerCount = 0;
+    if (primaryGuild) {
+      try {
+        // Try to get guild member count using bot token if available
+        if (process.env.DISCORD_BOT_TOKEN) {
+          const guildResponse = await fetch(`https://discord.com/api/guilds/${primaryGuild.id}?with_counts=true`, {
+            headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` }
+          });
+          
+          if (guildResponse.ok) {
+            const guildData = await guildResponse.json();
+            followerCount = guildData.approximate_member_count || 0;
+            console.log(`📊 Guild ${primaryGuild.name} has ${followerCount} members`);
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ Could not fetch guild member count:', error.message);
+      }
+    }
+
+    // Save to database
+    const accountData = {
+      platform: 'discord',
+      username: userData.username,
+      displayName: userData.global_name || userData.username,
+      platformUserId: userData.id,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      profileImage: userData.avatar ? 
+        `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png` : 
+        '',
+      followers: followerCount,
+      // Store additional Discord-specific data
+      metadata: JSON.stringify({
+        discriminator: userData.discriminator,
+        guilds: guildsData || [],
+        primaryGuild: primaryGuild,
+        bot_added: !!guild_id // Whether bot was added during OAuth
+      })
+    };
+
+    await SocialAccountService.create(userId, accountData);
+    console.log('✅ Discord account successfully saved to database');
+
+    res.redirect(`${process.env.CLIENT_URL}?success=discord_connected`);
+  } catch (error) {
+    console.error('❌ Discord OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });
