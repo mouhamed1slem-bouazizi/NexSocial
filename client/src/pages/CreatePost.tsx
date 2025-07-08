@@ -304,7 +304,7 @@ export function CreatePost() {
       })
 
       if (response.success) {
-        setContent(response.content)
+        setContent(response.content || "")
         toast({
           title: "Success",
           description: "AI content generated successfully!",
@@ -411,12 +411,32 @@ export function CreatePost() {
         const successCount = Object.values(response.results || {}).filter(r => r.success).length
         const totalCount = Object.keys(response.results || {}).length
         
+        // Check for platform-specific issues in results
+        const failedResults = Object.values(response.results || {}).filter(r => !r.success)
+        const twitterTokenIssues = failedResults.filter(r => 
+          r.platform === 'twitter' && (r.requiresTokenRefresh || r.requiresReconnect)
+        )
+        
+        // Show success notification
         toast({
           title: "🎉 Post Published Successfully!",
           description: isScheduled 
             ? `Post scheduled successfully! You can continue creating more posts.` 
             : `Post published to ${successCount} of ${totalCount} accounts! Your account selection has been saved for next time.`,
         })
+
+        // Show additional notification for Twitter token issues
+        if (twitterTokenIssues.length > 0) {
+          const issue = twitterTokenIssues[0]
+          toast({
+            title: "🔄 Twitter Authentication Issue",
+            description: issue.requiresTokenRefresh 
+              ? "Twitter token needs refresh. Go to Settings → Social Accounts to refresh your Twitter connection."
+              : "Twitter token expired. Please reconnect your Twitter account in Settings → Social Accounts.",
+            variant: "destructive"
+          })
+          return
+        }
 
         // Clear only content and media, keep account selections
         setContent("")
@@ -429,6 +449,29 @@ export function CreatePost() {
         // Don't navigate away - stay on the create post page!
         console.log('✅ Post successful - staying on create page with saved account selection')
       } else {
+        // Handle complete failure
+        const results = response.results || {}
+        const allFailed = Object.values(results).every(r => !r.success)
+        
+        if (allFailed) {
+          // Check for Twitter token issues
+          const twitterTokenIssues = Object.values(results).filter(r => 
+            r.platform === 'twitter' && (r.requiresTokenRefresh || r.requiresReconnect)
+          )
+          
+          if (twitterTokenIssues.length > 0) {
+            const issue = twitterTokenIssues[0]
+            toast({
+              title: "🔄 Twitter Authentication Issue",
+              description: issue.requiresTokenRefresh 
+                ? "Twitter token needs refresh. Go to Settings → Social Accounts to refresh your Twitter connection."
+                : "Twitter token expired. Please reconnect your Twitter account in Settings → Social Accounts.",
+              variant: "destructive"
+            })
+            return
+          }
+        }
+        
         throw new Error(response.message || 'Failed to create post')
       }
     } catch (error: any) {

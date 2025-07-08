@@ -215,6 +215,49 @@ class SocialAccountService {
     }
   }
 
+  static async updateTokens(id, userId, accessToken, refreshToken) {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
+
+      console.log(`🔄 Updating tokens for social account: ${id}`);
+
+      const updateData = {
+        access_token: accessToken,
+        last_sync: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Only update refresh token if provided
+      if (refreshToken) {
+        updateData.refresh_token = refreshToken;
+      }
+
+      const { data, error } = await supabase
+        .from('social_accounts')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') { // No rows returned
+          return null;
+        }
+        throw error;
+      }
+
+      console.log(`✅ Tokens updated successfully for social account: ${id}`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error updating tokens for social account ${id}:`, error);
+      throw new Error(`Database error while updating tokens: ${error.message}`);
+    }
+  }
+
   static async findByPlatformUserId(platform, platformUserId) {
     try {
       const supabase = getSupabase();

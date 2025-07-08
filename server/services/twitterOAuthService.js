@@ -517,6 +517,56 @@ class TwitterOAuthService {
       throw error;
     }
   }
+
+  // Refresh OAuth 2.0 access token
+  async refreshOAuth2Token(refreshToken) {
+    try {
+      console.log('🔄 Refreshing Twitter OAuth 2.0 token...');
+      
+      const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${Buffer.from(`${process.env.TWITTER_CLIENT_ID}:${process.env.TWITTER_CLIENT_SECRET}`).toString('base64')}`
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: process.env.TWITTER_CLIENT_ID
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Twitter token refresh failed:', response.status, errorText);
+        
+        // Check if refresh token is expired or invalid
+        if (response.status === 400 || response.status === 401) {
+          throw new Error('REFRESH_TOKEN_EXPIRED');
+        }
+        
+        throw new Error(`Token refresh failed: ${errorText}`);
+      }
+
+      const tokenData = await response.json();
+      
+      if (!tokenData.access_token) {
+        console.error('❌ No access token in refresh response:', tokenData);
+        throw new Error('Invalid refresh response');
+      }
+
+      console.log('✅ Twitter token refresh successful');
+      
+      return {
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token || refreshToken, // Use new refresh token if provided
+        expires_in: tokenData.expires_in || 7200 // Default 2 hours
+      };
+    } catch (error) {
+      console.error('❌ Twitter token refresh error:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = TwitterOAuthService; 

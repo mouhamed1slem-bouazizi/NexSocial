@@ -77,136 +77,216 @@ const postToTwitter = async (account, content, media = []) => {
     console.log(`Content: ${content}`);
     console.log(`Media items: ${media.length}`);
     
-    // Check if we have OAuth 1.0a credentials for media upload
-    const hasOAuth1Credentials = account.oauth1_access_token && account.oauth1_access_token_secret;
-    
-    if (!hasOAuth1Credentials && media.length > 0) {
-      console.log('No OAuth 1.0a credentials found for media upload. Falling back to text-only posting.');
-      
-      // Create a unique timestamp to avoid duplicate content
-      const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      
-      // Add media information to the tweet text with timestamp for uniqueness
-      let tweetText = content;
-      const mediaPreview = createMediaPreview(media);
-      const uniqueNote = `\n\n⏰ ${timestamp}`;
-      const totalLength = tweetText.length + mediaPreview.length + uniqueNote.length;
-      
-      if (totalLength <= 280) {
-        tweetText += mediaPreview + uniqueNote;
-      } else {
-        // Truncate content to make room for media info and timestamp
-        const availableSpace = 280 - mediaPreview.length - uniqueNote.length;
-        tweetText = tweetText.substring(0, Math.max(0, availableSpace)) + mediaPreview + uniqueNote;
-      }
-      
-      console.log(`Modified tweet to include media reference with timestamp`);
-      
-      const body = {
-        text: tweetText.substring(0, 280)
-      };
-
-      const response = await fetch('https://api.twitter.com/2/tweets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${account.access_token}`
-        },
-        body: JSON.stringify(body)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('Twitter post error:', data);
+    // Function to attempt Twitter posting with token refresh fallback
+    const attemptTwitterPost = async (currentAccount, retryCount = 0) => {
+      try {
+        // Check if we have OAuth 1.0a credentials for media upload
+        const hasOAuth1Credentials = currentAccount.oauth1_access_token && currentAccount.oauth1_access_token_secret;
         
-        // Handle duplicate content error specifically
-        if (data.detail && data.detail.includes('duplicate content')) {
-          throw new Error('Twitter rejected duplicate content. Please modify your message or reconnect your Twitter account for media upload.');
+        if (!hasOAuth1Credentials && media.length > 0) {
+          console.log('No OAuth 1.0a credentials found for media upload. Falling back to text-only posting.');
+          
+          // Create a unique timestamp to avoid duplicate content
+          const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          
+          // Add media information to the tweet text with timestamp for uniqueness
+          let tweetText = content;
+          const mediaPreview = createMediaPreview(media);
+          const uniqueNote = `\n\n⏰ ${timestamp}`;
+          const totalLength = tweetText.length + mediaPreview.length + uniqueNote.length;
+          
+          if (totalLength <= 280) {
+            tweetText += mediaPreview + uniqueNote;
+          } else {
+            // Truncate content to make room for media info and timestamp
+            const availableSpace = 280 - mediaPreview.length - uniqueNote.length;
+            tweetText = tweetText.substring(0, Math.max(0, availableSpace)) + mediaPreview + uniqueNote;
+          }
+          
+          console.log(`Modified tweet to include media reference with timestamp`);
+          
+          const body = {
+            text: tweetText.substring(0, 280)
+          };
+
+          const response = await fetch('https://api.twitter.com/2/tweets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentAccount.access_token}`
+            },
+            body: JSON.stringify(body)
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            console.error('Twitter post error:', data);
+            
+            // Handle unauthorized error with token refresh
+            if (response.status === 401) {
+              throw new Error('UNAUTHORIZED');
+            }
+            
+            // Handle duplicate content error specifically
+            if (data.detail && data.detail.includes('duplicate content')) {
+              throw new Error('Twitter rejected duplicate content. Please modify your message or reconnect your Twitter account for media upload.');
+            }
+            
+            throw new Error(data.errors?.[0]?.message || 'Failed to post to Twitter');
+          }
+
+          return {
+            success: true,
+            postId: data.data.id,
+            message: `Posted to Twitter successfully (${media.length} media item${media.length > 1 ? 's' : ''} referenced in text - reconnect account for direct upload)`,
+            mediaCount: 0,
+            mediaNote: `⚠️ Media files were referenced in the tweet text. To upload actual media to Twitter, please reconnect your Twitter account to enable dual authentication.`
+          };
+        }
+
+        // Use TwitterOAuthService for media upload and posting
+        const twitterService = new TwitterOAuthService();
+        let mediaIds = [];
+
+        // Upload media if provided and we have OAuth 1.0a credentials
+        if (media.length > 0 && hasOAuth1Credentials) {
+          console.log('Uploading media to Twitter...');
+          
+          const mediaUploadPromises = media.map(async (mediaItem) => {
+            try {
+              const mediaId = await twitterService.uploadMedia(
+                mediaItem, 
+                currentAccount.oauth1_access_token, 
+                currentAccount.oauth1_access_token_secret
+              );
+              return mediaId;
+            } catch (error) {
+              console.error(`Failed to upload media ${mediaItem.name}:`, error);
+              return null;
+            }
+          });
+
+          const uploadResults = await Promise.all(mediaUploadPromises);
+          mediaIds = uploadResults.filter(id => id !== null);
+          
+          console.log(`Successfully uploaded ${mediaIds.length} out of ${media.length} media items`);
+        }
+
+        // Post tweet with media (add timestamp to avoid duplicates)
+        let tweetContent = content;
+        if (mediaIds.length === 0) {
+          // Add timestamp to avoid duplicate content when no media is uploaded
+          const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          const uniqueNote = `\n\n⏰ ${timestamp}`;
+          if (tweetContent.length + uniqueNote.length <= 280) {
+            tweetContent += uniqueNote;
+          } else {
+            tweetContent = tweetContent.substring(0, 280 - uniqueNote.length) + uniqueNote;
+          }
         }
         
-        throw new Error(data.errors?.[0]?.message || 'Failed to post to Twitter');
-      }
+        const tweetData = await twitterService.postTweet(
+          tweetContent,
+          mediaIds,
+          currentAccount.access_token
+        );
 
-      return {
-        success: true,
-        postId: data.data.id,
-        message: `Posted to Twitter successfully (${media.length} media item${media.length > 1 ? 's' : ''} referenced in text - reconnect account for direct upload)`,
-        mediaCount: 0,
-        mediaNote: `⚠️ Media files were referenced in the tweet text. To upload actual media to Twitter, please reconnect your Twitter account to enable dual authentication.`
-      };
-    }
-
-    // Use TwitterOAuthService for media upload and posting
-    const twitterService = new TwitterOAuthService();
-    let mediaIds = [];
-
-    // Upload media if provided and we have OAuth 1.0a credentials
-    if (media.length > 0 && hasOAuth1Credentials) {
-      console.log('Uploading media to Twitter...');
-      
-      const mediaUploadPromises = media.map(async (mediaItem) => {
-        try {
-          const mediaId = await twitterService.uploadMedia(
-            mediaItem, 
-            account.oauth1_access_token, 
-            account.oauth1_access_token_secret
-          );
-          return mediaId;
-        } catch (error) {
-          console.error(`Failed to upload media ${mediaItem.name}:`, error);
-          return null;
+        let message = 'Posted to Twitter successfully';
+        if (media.length > 0) {
+          if (mediaIds.length === media.length) {
+            message += ` with ${media.length} media item${media.length > 1 ? 's' : ''}`;
+          } else if (mediaIds.length > 0) {
+            message += ` with ${mediaIds.length} of ${media.length} media items (some uploads failed)`;
+          } else {
+            message += ` (media upload failed - posted text only)`;
+          }
         }
-      });
 
-      const uploadResults = await Promise.all(mediaUploadPromises);
-      mediaIds = uploadResults.filter(id => id !== null);
-      
-      console.log(`Successfully uploaded ${mediaIds.length} out of ${media.length} media items`);
-    }
-
-    // Post tweet with media (add timestamp to avoid duplicates)
-    let tweetContent = content;
-    if (mediaIds.length === 0) {
-      // Add timestamp to avoid duplicate content when no media is uploaded
-      const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      const uniqueNote = `\n\n⏰ ${timestamp}`;
-      if (tweetContent.length + uniqueNote.length <= 280) {
-        tweetContent += uniqueNote;
-      } else {
-        tweetContent = tweetContent.substring(0, 280 - uniqueNote.length) + uniqueNote;
+        return {
+          success: true,
+          postId: tweetData.id,
+          message: message,
+          mediaCount: mediaIds.length,
+          mediaNote: media.length > 0 && mediaIds.length === 0 ? 'Media upload failed, but text was posted successfully' : undefined
+        };
+      } catch (error) {
+        console.error('Twitter posting attempt failed:', error);
+        
+        // Handle unauthorized error with token refresh
+        if (error.message === 'UNAUTHORIZED' || error.message.includes('Unauthorized')) {
+          if (retryCount === 0 && currentAccount.refresh_token) {
+            console.log('🔄 Attempting to refresh Twitter token...');
+            
+            try {
+              const twitterService = new TwitterOAuthService();
+              const refreshedTokens = await twitterService.refreshOAuth2Token(currentAccount.refresh_token);
+              
+              // Update tokens in database
+              await SocialAccountService.updateTokens(
+                currentAccount.id,
+                currentAccount.user_id,
+                refreshedTokens.access_token,
+                refreshedTokens.refresh_token
+              );
+              
+              console.log('✅ Twitter token refreshed successfully, retrying post...');
+              
+              // Update current account with new tokens
+              currentAccount.access_token = refreshedTokens.access_token;
+              if (refreshedTokens.refresh_token) {
+                currentAccount.refresh_token = refreshedTokens.refresh_token;
+              }
+              
+              // Retry posting with new token
+              return await attemptTwitterPost(currentAccount, retryCount + 1);
+            } catch (refreshError) {
+              console.error('❌ Token refresh failed:', refreshError);
+              
+              if (refreshError.message === 'REFRESH_TOKEN_EXPIRED') {
+                throw new Error('REFRESH_TOKEN_EXPIRED');
+              }
+              
+              throw new Error(`Token refresh failed: ${refreshError.message}`);
+            }
+          } else {
+            // No refresh token available or already tried once
+            throw new Error('UNAUTHORIZED');
+          }
+        }
+        
+        throw error;
       }
-    }
-    
-    const tweetData = await twitterService.postTweet(
-      tweetContent,
-      mediaIds,
-      account.access_token
-    );
-
-    let message = 'Posted to Twitter successfully';
-    if (media.length > 0) {
-      if (mediaIds.length === media.length) {
-        message += ` with ${media.length} media item${media.length > 1 ? 's' : ''}`;
-      } else if (mediaIds.length > 0) {
-        message += ` with ${mediaIds.length} of ${media.length} media items (some uploads failed)`;
-      } else {
-        message += ` (media upload failed - posted text only)`;
-      }
-    }
-
-    return {
-      success: true,
-      postId: tweetData.id,
-      message: message,
-      mediaCount: mediaIds.length,
-      mediaNote: media.length > 0 && mediaIds.length === 0 ? 'Media upload failed, but text was posted successfully' : undefined
     };
+
+    // Attempt posting with token refresh fallback
+    return await attemptTwitterPost(account);
   } catch (error) {
     console.error('Twitter posting error:', error);
+    
+    // Enhanced error handling with specific user guidance
+    if (error.message === 'UNAUTHORIZED') {
+      return {
+        success: false,
+        error: 'Twitter authentication expired. Please refresh your Twitter token from the Dashboard → Settings → Social Accounts.',
+        requiresTokenRefresh: true,
+        platform: 'twitter'
+      };
+    }
+    
+    if (error.message === 'REFRESH_TOKEN_EXPIRED') {
+      return {
+        success: false,
+        error: 'Twitter tokens have expired. Please reconnect your Twitter account from the Dashboard → Settings → Social Accounts.',
+        requiresReconnect: true,
+        platform: 'twitter'
+      };
+    }
+    
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      platform: 'twitter'
     };
   }
 };
