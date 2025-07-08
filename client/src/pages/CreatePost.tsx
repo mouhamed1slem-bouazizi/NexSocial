@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createPost } from "@/api/posts"
-import { getSocialAccounts, SocialAccount, getDiscordChannels, DiscordChannel, DiscordChannelsResponse } from "@/api/socialAccounts"
+import { getSocialAccounts, SocialAccount, getDiscordChannels, DiscordChannel, DiscordChannelsResponse, refreshDiscordMetadata } from "@/api/socialAccounts"
 import { MediaUpload } from "@/components/MediaUpload"
 import { EmojiPickerComponent } from "@/components/EmojiPicker"
 import { useToast } from "@/hooks/useToast"
@@ -151,6 +151,34 @@ export function CreatePost() {
       textarea.setSelectionRange(newPosition, newPosition)
       textarea.focus()
     }, 0)
+  }
+
+  // Refresh Discord metadata for an account
+  const refreshDiscordData = async (accountId: string) => {
+    try {
+      setChannelsLoading(prev => ({ ...prev, [accountId]: true }))
+      console.log(`🔄 Refreshing Discord metadata for account: ${accountId}`)
+      
+      const refreshResult = await refreshDiscordMetadata(accountId)
+      
+      toast({
+        title: "Discord Connection Fixed!",
+        description: `Found ${refreshResult.guildsFound} servers. Primary: ${refreshResult.primaryGuild || 'None'}`,
+      })
+      
+      // Now try to fetch channels again
+      await fetchDiscordChannels(accountId)
+      
+    } catch (error: any) {
+      console.error('❌ Error refreshing Discord metadata:', error)
+      toast({
+        title: "Discord Refresh Failed",
+        description: error.message || "Failed to refresh Discord connection. Try reconnecting your account.",
+        variant: "destructive"
+      })
+    } finally {
+      setChannelsLoading(prev => ({ ...prev, [accountId]: false }))
+    }
   }
 
   // Fetch Discord channels for a specific account
@@ -958,14 +986,23 @@ export function CreatePost() {
                                   ) : (
                                     <div className="text-sm space-y-2">
                                       <p className="text-muted-foreground">
-                                        No channels available. The bot needs to be invited to your Discord server.
+                                        No channels available. Discord connection needs to be fixed.
                                       </p>
-                                      <button 
-                                        onClick={() => fetchDiscordChannels(account.id)}
-                                        className="text-blue-600 underline hover:text-blue-800 text-xs"
-                                      >
-                                        Retry after bot invitation
-                                      </button>
+                                      <div className="flex gap-2">
+                                        <button 
+                                          onClick={() => refreshDiscordData(account.id)}
+                                          className="bg-purple-600 text-white px-3 py-1 rounded text-xs hover:bg-purple-700 disabled:opacity-50"
+                                          disabled={channelsLoading[account.id]}
+                                        >
+                                          {channelsLoading[account.id] ? 'Fixing...' : 'Fix Discord Connection'}
+                                        </button>
+                                        <button 
+                                          onClick={() => fetchDiscordChannels(account.id)}
+                                          className="text-blue-600 underline hover:text-blue-800 text-xs"
+                                        >
+                                          Retry
+                                        </button>
+                                      </div>
                                     </div>
                                   )}
                                 </div>

@@ -994,17 +994,25 @@ router.get('/discord/callback', async (req, res) => {
     console.log('✅ Successfully fetched Discord profile for user:', userData.username);
 
     // Get user's guilds (servers) where they can manage or where our bot was added
+    console.log('🔍 Fetching user guilds from Discord API...');
     const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
       headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
     });
 
+    console.log(`🔍 Guilds response status: ${guildsResponse.status}`);
     const guildsData = await guildsResponse.json();
+    
+    if (!guildsResponse.ok) {
+      console.error('❌ Failed to fetch guilds:', guildsData);
+    }
     console.log(`📊 User has access to ${guildsData?.length || 0} Discord servers`);
+    console.log(`🔍 Guilds data:`, JSON.stringify(guildsData, null, 2));
 
     // If specific guild was selected during OAuth, use that one
     let primaryGuild = null;
     if (guild_id && guildsData) {
       primaryGuild = guildsData.find(guild => guild.id === guild_id);
+      console.log(`🎯 Guild ID ${guild_id} provided, found:`, primaryGuild);
     }
     
     // If no specific guild or not found, use the first one they can manage
@@ -1014,6 +1022,7 @@ router.get('/discord/callback', async (req, res) => {
         (guild.permissions & 0x8) ||  // ADMINISTRATOR  
         guild.owner
       ) || guildsData[0]; // Fallback to first guild
+      console.log(`🔍 Selected primary guild:`, primaryGuild);
     }
 
     // Determine follower count (server member count if available)
@@ -1037,6 +1046,19 @@ router.get('/discord/callback', async (req, res) => {
       }
     }
 
+    // Prepare metadata
+    const metadataObject = {
+      discriminator: userData.discriminator,
+      guilds: guildsData || [],
+      primaryGuild: primaryGuild,
+      bot_added: !!guild_id // Whether bot was added during OAuth
+    };
+    
+    console.log(`🔍 Metadata object before stringify:`, JSON.stringify(metadataObject, null, 2));
+    
+    const metadataString = JSON.stringify(metadataObject);
+    console.log(`🔍 Metadata string:`, metadataString);
+
     // Save to database
     const accountData = {
       platform: 'discord',
@@ -1050,14 +1072,10 @@ router.get('/discord/callback', async (req, res) => {
         '',
       followers: followerCount,
       // Store additional Discord-specific data
-      metadata: JSON.stringify({
-        discriminator: userData.discriminator,
-        guilds: guildsData || [],
-        primaryGuild: primaryGuild,
-        bot_added: !!guild_id // Whether bot was added during OAuth
-      })
+      metadata: metadataString
     };
 
+    console.log(`🔍 Account data before save:`, JSON.stringify(accountData, null, 2));
     await SocialAccountService.create(userId, accountData);
     console.log('✅ Discord account successfully saved to database');
 

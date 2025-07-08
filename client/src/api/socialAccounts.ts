@@ -193,3 +193,26 @@ export const getDiscordChannels = async (accountId: string): Promise<DiscordChan
     throw new Error(error.response?.data?.error || 'Failed to fetch Discord channels');
   }
 };
+
+// Description: Refresh Discord account metadata to fix missing guild information
+// Endpoint: POST /api/social-accounts/:id/refresh-discord-metadata
+// Request: {}
+// Response: { success: boolean, message: string, guildsFound: number, primaryGuild: string }
+export interface RefreshDiscordMetadataResponse {
+  success: boolean;
+  message: string;
+  guildsFound: number;
+  primaryGuild: string | null;
+}
+
+export const refreshDiscordMetadata = async (accountId: string): Promise<RefreshDiscordMetadataResponse> => {
+  try {
+    console.log(`🔄 Refreshing Discord metadata for account: ${accountId}`);
+    const response = await api.post(`/social-accounts/${accountId}/refresh-discord-metadata`);
+    console.log('✅ Discord metadata refreshed successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error refreshing Discord metadata:', error);
+    throw new Error(error.response?.data?.error || 'Failed to refresh Discord metadata');
+  }
+};

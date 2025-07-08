@@ -577,4 +577,96 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
   }
 });
 
+// Refresh Discord account metadata (fix for missing guild info)
+router.post('/:id/refresh-discord-metadata', requireUser, async (req, res) => {
+  try {
+    console.log(`🔄 Refreshing Discord metadata for account: ${req.params.id}`);
+    
+    // Get the Discord account
+    const account = await SocialAccountService.getById(req.params.id, req.user._id);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Discord account not found'
+      });
+    }
+    
+    if (account.platform !== 'discord') {
+      return res.status(400).json({
+        success: false,
+        error: 'Account is not a Discord account'
+      });
+    }
+    
+    if (!account.access_token) {
+      return res.status(400).json({
+        success: false,
+        error: 'No access token available for this Discord account'
+      });
+    }
+    
+    // Fetch fresh guild data from Discord API
+    console.log('🔍 Fetching fresh guild data from Discord...');
+    const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+      headers: { 'Authorization': `Bearer ${account.access_token}` }
+    });
+    
+    if (!guildsResponse.ok) {
+      const errorData = await guildsResponse.json();
+      console.error('❌ Failed to fetch guilds from Discord:', errorData);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch guild data from Discord. Token may be expired.'
+      });
+    }
+    
+    const guildsData = await guildsResponse.json();
+    console.log(`✅ Fetched ${guildsData.length} guilds from Discord`);
+    
+    // Find primary guild (first one they can manage)
+    let primaryGuild = null;
+    if (guildsData && guildsData.length > 0) {
+      primaryGuild = guildsData.find(guild => 
+        (guild.permissions & 0x20) || // MANAGE_MESSAGES
+        (guild.permissions & 0x8) ||  // ADMINISTRATOR  
+        guild.owner
+      ) || guildsData[0]; // Fallback to first guild
+    }
+    
+    console.log(`🎯 Selected primary guild:`, primaryGuild);
+    
+    // Create new metadata
+    const metadataObject = {
+      guilds: guildsData || [],
+      primaryGuild: primaryGuild,
+      refreshed_at: new Date().toISOString()
+    };
+    
+    const metadataString = JSON.stringify(metadataObject);
+    console.log(`🔍 New metadata:`, metadataString);
+    
+    // Update the account
+    await SocialAccountService.update(account.id, {
+      metadata: metadataString
+    }, req.user._id);
+    
+    console.log('✅ Discord metadata refreshed successfully');
+    
+    res.json({
+      success: true,
+      message: 'Discord metadata refreshed successfully',
+      guildsFound: guildsData.length,
+      primaryGuild: primaryGuild ? primaryGuild.name : null
+    });
+    
+  } catch (error) {
+    console.error('❌ Error refreshing Discord metadata:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to refresh Discord metadata'
+    });
+  }
+});
+
 module.exports = router;
