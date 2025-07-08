@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { getSocialAccounts, disconnectSocialAccount, initiateOAuth } from "@/api/socialAccounts"
+import { getSocialAccounts, disconnectSocialAccount, initiateOAuth, syncTelegramSubscribers } from "@/api/socialAccounts"
 import {
   BarChart,
   Bar,
@@ -42,7 +42,8 @@ import {
   Circle,
   Hash,
   Tv,
-  Square
+  Square,
+  RefreshCw
 } from "lucide-react"
 import { SocialAccount } from "@/api/socialAccounts"
 import {
@@ -99,6 +100,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState<string | null>(null)
   const { toast } = useToast()
 
   // Mock data for charts
@@ -290,6 +292,32 @@ The bot will confirm when the connection is successful.`
         description: err.message || "Failed to disconnect account",
         variant: "destructive"
       })
+    }
+  }
+
+  const handleSyncTelegram = async (accountId: string, accountName: string) => {
+    try {
+      setSyncing(accountId)
+      console.log(`🔄 Syncing Telegram subscribers for ${accountName}...`)
+      
+      const response = await syncTelegramSubscribers(accountId)
+      
+      toast({
+        title: "✅ Telegram Sync Complete",
+        description: `${accountName}: ${response.newCount.toLocaleString()} subscribers (${response.difference >= 0 ? '+' : ''}${response.difference.toLocaleString()} change)`,
+      })
+      
+      // Refresh the accounts list to show updated counts
+      fetchSocialAccounts()
+    } catch (err: any) {
+      console.error('❌ Error syncing Telegram subscribers:', err)
+      toast({
+        title: "Sync Failed",
+        description: err.message || "Failed to sync Telegram subscribers",
+        variant: "destructive"
+      })
+    } finally {
+      setSyncing(null)
     }
   }
 
@@ -620,14 +648,31 @@ The bot will confirm when the connection is successful.`
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDisconnectAccount(account.id, account.platform)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {account.platform === 'telegram' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncTelegram(account.id, account.display_name)}
+                          disabled={syncing === account.id}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          {syncing === account.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDisconnectAccount(account.id, account.platform)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 )
               })}

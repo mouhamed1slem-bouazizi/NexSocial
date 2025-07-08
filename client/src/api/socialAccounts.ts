@@ -119,3 +119,19 @@ export const initiateOAuth = async (platform: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Sync Telegram subscribers count
+// Endpoint: POST /api/social-accounts/:id/sync-telegram
+// Request: {}
+// Response: { success: boolean, message: string, account: SocialAccount, previousCount: number, newCount: number, difference: number }
+export const syncTelegramSubscribers = async (accountId: string) => {
+  try {
+    console.log(`🔄 Syncing Telegram subscribers for account: ${accountId}`);
+    const response = await api.post(`/social-accounts/${accountId}/sync-telegram`);
+    console.log('✅ Telegram subscribers synced successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error syncing Telegram subscribers:', error);
+    throw new Error(error.response?.data?.error || 'Failed to sync Telegram subscribers');
+  }
+};

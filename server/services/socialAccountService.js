@@ -258,6 +258,42 @@ class SocialAccountService {
     }
   }
 
+  static async updateFollowers(id, userId, followers) {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
+
+      console.log(`🔄 Updating followers for social account: ${id} to ${followers}`);
+
+      const { data, error } = await supabase
+        .from('social_accounts')
+        .update({
+          followers: followers,
+          last_sync: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') { // No rows returned
+          return null;
+        }
+        throw error;
+      }
+
+      console.log(`✅ Followers updated successfully for social account: ${id} (${followers} followers)`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error updating followers for social account ${id}:`, error);
+      throw new Error(`Database error while updating followers: ${error.message}`);
+    }
+  }
+
   static async findByPlatformUserId(platform, platformUserId) {
     try {
       const supabase = getSupabase();
