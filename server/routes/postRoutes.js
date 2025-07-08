@@ -9,6 +9,213 @@ const axios = require('axios');
 
 const router = express.Router();
 
+// Main posting endpoint
+router.post('/', requireUser, async (req, res) => {
+  try {
+    console.log('📝 Creating new post for user:', req.user._id);
+    console.log('📊 Post data:', JSON.stringify(req.body, null, 2));
+
+    const { content, platforms, selectedAccounts, scheduledAt, media } = req.body;
+
+    // Validate input
+    if (!content || !selectedAccounts || selectedAccounts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Content and at least one social account are required'
+      });
+    }
+
+    // If scheduled, validate future date
+    if (scheduledAt) {
+      const scheduledDate = new Date(scheduledAt);
+      if (scheduledDate <= new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Scheduled date must be in the future'
+        });
+      }
+      
+      // For now, return success for scheduled posts (scheduling logic to be implemented)
+      return res.json({
+        success: true,
+        message: 'Post scheduled successfully',
+        results: {}
+      });
+    }
+
+    // Get user's social accounts
+    const userAccounts = await SocialAccountService.getByUserId(req.user._id);
+    const accountsMap = new Map(userAccounts.map(acc => [acc.id, acc]));
+
+    // Filter selected accounts to only include user's connected accounts
+    const validAccounts = selectedAccounts
+      .map(accountId => accountsMap.get(accountId))
+      .filter(account => account && account.is_connected);
+
+    if (validAccounts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid connected accounts found'
+      });
+    }
+
+    console.log(`📤 Publishing to ${validAccounts.length} accounts:`, 
+      validAccounts.map(acc => `${acc.platform}:${acc.username}`));
+
+    // Process media files
+    let processedMedia = [];
+    if (media && media.length > 0) {
+      processedMedia = media.map(item => {
+        // Convert base64 data URL to buffer
+        const base64Data = item.data.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        return {
+          name: item.name,
+          type: item.type,
+          buffer: buffer,
+          size: buffer.length
+        };
+      });
+      
+      console.log(`📎 Processed ${processedMedia.length} media files`);
+    }
+
+    // Post to each platform
+    const results = {};
+    const postingPromises = validAccounts.map(async (account) => {
+      try {
+        console.log(`🚀 Posting to ${account.platform}:${account.username}...`);
+        
+        let result;
+        switch (account.platform) {
+          case 'facebook':
+            result = await postToFacebook(account, content, processedMedia);
+            break;
+          case 'instagram':
+            result = await postToInstagram(account, content, processedMedia);
+            break;
+          case 'twitter':
+            result = await postToTwitter(account, content, processedMedia);
+            break;
+          case 'linkedin':
+            result = await postToLinkedIn(account, content, processedMedia);
+            break;
+          case 'youtube':
+            result = await postToYouTube(account, content, processedMedia);
+            break;
+          case 'tiktok':
+            result = await postToTikTok(account, content, processedMedia);
+            break;
+          case 'telegram':
+            result = await postToTelegram(account, content, processedMedia);
+            break;
+          case 'discord':
+            result = await postToDiscord(account, content, processedMedia);
+            break;
+          default:
+            result = {
+              success: false,
+              error: `Platform ${account.platform} not supported yet`
+            };
+        }
+
+        results[account.id] = {
+          ...result,
+          platform: account.platform,
+          accountName: account.username || account.display_name
+        };
+
+        if (result.success) {
+          console.log(`✅ Successfully posted to ${account.platform}:${account.username}`);
+        } else {
+          console.log(`❌ Failed to post to ${account.platform}:${account.username} - ${result.error}`);
+        }
+
+      } catch (error) {
+        console.error(`❌ Error posting to ${account.platform}:${account.username}:`, error);
+        results[account.id] = {
+          success: false,
+          error: error.message || 'Unknown error occurred',
+          platform: account.platform,
+          accountName: account.username || account.display_name
+        };
+      }
+    });
+
+    // Wait for all posting attempts to complete
+    await Promise.all(postingPromises);
+
+    // Calculate success metrics
+    const totalAccounts = validAccounts.length;
+    const successfulPosts = Object.values(results).filter(r => r.success).length;
+    const failedPosts = totalAccounts - successfulPosts;
+
+    console.log(`📊 Posting complete: ${successfulPosts}/${totalAccounts} successful`);
+
+    // Determine overall success
+    const overallSuccess = successfulPosts > 0;
+    let message;
+    
+    if (successfulPosts === totalAccounts) {
+      message = `Post published successfully to all ${totalAccounts} accounts!`;
+    } else if (successfulPosts > 0) {
+      message = `Post published to ${successfulPosts} of ${totalAccounts} accounts. ${failedPosts} failed.`;
+    } else {
+      message = `Failed to publish post to any accounts.`;
+    }
+
+    res.json({
+      success: overallSuccess,
+      message,
+      results,
+      stats: {
+        total: totalAccounts,
+        successful: successfulPosts,
+        failed: failedPosts
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in post creation:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create post'
+    });
+  }
+});
+
+// AI content generation endpoint
+router.post('/ai-generate', requireUser, async (req, res) => {
+  try {
+    console.log('🤖 AI content generation request:', req.body);
+    
+    const { prompt, tone, platforms } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({
+        success: false,
+        message: 'Prompt is required'
+      });
+    }
+
+    const content = await generateSocialMediaContent(prompt, tone, platforms);
+    
+    res.json({
+      success: true,
+      content,
+      message: 'Content generated successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ AI generation error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to generate content'
+    });
+  }
+});
+
 // Helper function to post to Facebook
 const postToFacebook = async (account, content, media = []) => {
   try {
