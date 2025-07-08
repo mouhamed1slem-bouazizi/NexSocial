@@ -5,6 +5,7 @@ const TwitterOAuthService = require('../services/twitterOAuthService.js');
 const YouTubeService = require('../services/youtubeService.js');
 const { generateSocialMediaContent } = require('../services/llmService.js');
 const FormData = require('form-data');
+const axios = require('axios');
 
 const router = express.Router();
 
@@ -891,41 +892,34 @@ async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
       formData.append('parse_mode', 'HTML');
     }
     
-    console.log('📤 FormData prepared, sending to Telegram...');
+    console.log('📤 FormData prepared, using axios for upload...');
     
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-      method: 'POST',
-      body: formData,
-      headers: formData.getHeaders()
-    });
-    
-    // Check if response is ok and has content
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Telegram API error (${response.status}):`, errorText);
-      throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
-    }
-    
-    const responseText = await response.text();
-    if (!responseText) {
-      throw new Error('Empty response from Telegram API');
-    }
-    
-    let result;
     try {
-      result = JSON.parse(responseText);
-    } catch (jsonError) {
-      console.error('❌ Invalid JSON response from Telegram:', responseText);
-      throw new Error(`Invalid JSON response from Telegram: ${responseText.substring(0, 200)}`);
-    }
-    
-    if (!result.ok) {
-      console.error('❌ Telegram photo upload failed:', result);
-      throw new Error(result.description || 'Failed to upload photo to Telegram');
-    }
-    
-    console.log('✅ Photo uploaded to Telegram successfully');
-    return result;
+      const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendPhoto`, formData, {
+        headers: formData.getHeaders(),
+        timeout: 30000 // 30 second timeout
+      });
+      
+      const result = response.data;
+      console.log('📤 Axios response received:', response.status);
+      
+      if (!result.ok) {
+        console.error('❌ Telegram photo upload failed:', result);
+        throw new Error(result.description || 'Failed to upload photo to Telegram');
+      }
+      
+      console.log('✅ Photo uploaded to Telegram successfully');
+      return result;
+         } catch (axiosError) {
+       console.error('❌ Axios request failed:', axiosError.message);
+       if (axiosError.response) {
+         console.error('❌ Response status:', axiosError.response.status);
+         console.error('❌ Response data:', axiosError.response.data);
+         throw new Error(`Telegram API error: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
+       } else {
+         throw new Error(`Network error: ${axiosError.message}`);
+       }
+     }
   } catch (error) {
     console.error('❌ Telegram send photo error:', error);
     throw error;
@@ -978,39 +972,32 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
     
     console.log('📤 Video FormData prepared, sending to Telegram...');
     
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
-      method: 'POST',
-      body: formData,
-      headers: formData.getHeaders()
-    });
-    
-    // Check if response is ok and has content
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Telegram API error (${response.status}):`, errorText);
-      throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
-    }
-    
-    const responseText = await response.text();
-    if (!responseText) {
-      throw new Error('Empty response from Telegram API');
-    }
-    
-    let result;
     try {
-      result = JSON.parse(responseText);
-    } catch (jsonError) {
-      console.error('❌ Invalid JSON response from Telegram:', responseText);
-      throw new Error(`Invalid JSON response from Telegram: ${responseText.substring(0, 200)}`);
+      const response = await axios.post(`https://api.telegram.org/bot${botToken}/sendVideo`, formData, {
+        headers: formData.getHeaders(),
+        timeout: 60000 // 60 second timeout for videos
+      });
+      
+      const result = response.data;
+      console.log('📤 Axios video response received:', response.status);
+      
+      if (!result.ok) {
+        console.error('❌ Telegram video upload failed:', result);
+        throw new Error(result.description || 'Failed to upload video to Telegram');
+      }
+      
+      console.log('✅ Video uploaded to Telegram successfully');
+      return result;
+    } catch (axiosError) {
+      console.error('❌ Axios video request failed:', axiosError.message);
+      if (axiosError.response) {
+        console.error('❌ Response status:', axiosError.response.status);
+        console.error('❌ Response data:', axiosError.response.data);
+        throw new Error(`Telegram API error: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
+      } else {
+        throw new Error(`Network error: ${axiosError.message}`);
+      }
     }
-    
-    if (!result.ok) {
-      console.error('❌ Telegram video upload failed:', result);
-      throw new Error(result.description || 'Failed to upload video to Telegram');
-    }
-    
-    console.log('✅ Video uploaded to Telegram successfully');
-    return result;
   } catch (error) {
     console.error('❌ Telegram send video error:', error);
     throw error;
