@@ -178,11 +178,31 @@ export function CreatePost() {
       
     } catch (error: any) {
       console.error('❌ Error fetching Discord channels:', error)
-      toast({
-        title: "Discord Channels Error",
-        description: error.message || "Failed to load Discord channels",
-        variant: "destructive"
-      })
+      
+      // Check if this is a bot permission error with invite URL
+      if (error.message.includes('bot needs to be invited') && error.response?.data?.botInviteUrl) {
+        toast({
+          title: "Discord Bot Needs Permissions",
+          description: (
+            <div className="space-y-2">
+              <p>The bot needs to be invited to your Discord server with proper permissions.</p>
+              <button 
+                onClick={() => window.open(error.response.data.botInviteUrl, '_blank')}
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                Click here to invite the bot
+              </button>
+            </div>
+          ),
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Discord Channels Error",
+          description: error.message || "Failed to load Discord channels",
+          variant: "destructive"
+        })
+      }
     } finally {
       setChannelsLoading(prev => ({ ...prev, [accountId]: false }))
     }
@@ -936,8 +956,16 @@ export function CreatePost() {
                                       </SelectContent>
                                     </Select>
                                   ) : (
-                                    <div className="text-sm text-muted-foreground">
-                                      No channels available. Please ensure the bot has proper permissions.
+                                    <div className="text-sm space-y-2">
+                                      <p className="text-muted-foreground">
+                                        No channels available. The bot needs to be invited to your Discord server.
+                                      </p>
+                                      <button 
+                                        onClick={() => fetchDiscordChannels(account.id)}
+                                        className="text-blue-600 underline hover:text-blue-800 text-xs"
+                                      >
+                                        Retry after bot invitation
+                                      </button>
                                     </div>
                                   )}
                                 </div>

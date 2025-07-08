@@ -474,8 +474,10 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
     let metadata = {};
     try {
       metadata = JSON.parse(account.metadata || '{}');
+      console.log('🔍 Parsed Discord metadata:', JSON.stringify(metadata, null, 2));
     } catch (error) {
       console.error('❌ Failed to parse Discord metadata:', error);
+      console.log('🔍 Raw metadata value:', account.metadata);
       return res.status(500).json({
         success: false,
         error: 'Invalid Discord account metadata'
@@ -483,8 +485,25 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
     }
     
     const primaryGuild = metadata.primaryGuild;
+    console.log('🔍 Primary guild from metadata:', primaryGuild);
     
     if (!primaryGuild) {
+      console.log('❌ No primary guild found in metadata, available keys:', Object.keys(metadata));
+      console.log('🔍 Guilds array:', metadata.guilds);
+      
+      // Try to provide helpful error message with guild IDs
+      if (metadata.guilds && metadata.guilds.length > 0) {
+        const guildList = metadata.guilds.map(g => `${g.name} (${g.id})`).join(', ');
+        console.log('🔍 Available guilds:', guildList);
+        
+        return res.status(400).json({
+          success: false,
+          error: 'Discord bot needs to be invited to server with proper permissions',
+          availableGuilds: metadata.guilds.map(g => ({ id: g.id, name: g.name })),
+          botInviteUrl: `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&permissions=68608&scope=bot&guild_id=${metadata.guilds[0].id}`
+        });
+      }
+      
       return res.status(400).json({
         success: false,
         error: 'No Discord server configured for this account'
