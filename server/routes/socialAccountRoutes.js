@@ -192,24 +192,104 @@ router.post('/:id/sync-telegram', requireUser, async (req, res) => {
     
     console.log(`🔄 Syncing Telegram subscribers for: ${account.display_name}`);
     
-    // Function to get chat member count
-    const getTelegramMemberCount = async (chatId) => {
+    // Enhanced function to get chat member count with multiple methods
+    const getTelegramMemberCount = async (chatId, chatType = 'unknown') => {
       try {
-        const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chat_id: chatId
-          })
-        });
+        console.log(`🔍 Getting member count for chat ${chatId} (type: ${chatType})`);
         
-        const result = await response.json();
-        if (result.ok && result.result) {
-          return result.result.member_count || 0;
+        // Method 1: Try getChat API (works for most public channels and some groups)
+        try {
+          const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: chatId
+            })
+          });
+          
+          const result = await response.json();
+          console.log(`📊 getChat API response for ${chatId}:`, {
+            ok: result.ok,
+            hasResult: !!result.result,
+            memberCount: result.result?.member_count,
+            chatType: result.result?.type,
+            title: result.result?.title,
+            error: result.description
+          });
+          
+          if (result.ok && result.result && typeof result.result.member_count === 'number') {
+            console.log(`✅ Successfully got member count via getChat: ${result.result.member_count}`);
+            return result.result.member_count;
+          }
+          
+          if (!result.ok) {
+            console.log(`⚠️  getChat API failed: ${result.description}`);
+          }
+        } catch (getChatError) {
+          console.log(`⚠️  getChat API error:`, getChatError.message);
         }
+        
+        // Method 2: Try getChatMemberCount API (works for channels/supergroups where bot is admin)
+        try {
+          const countResponse = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChatMemberCount`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: chatId
+            })
+          });
+          
+          const countResult = await countResponse.json();
+          console.log(`📊 getChatMemberCount API response for ${chatId}:`, {
+            ok: countResult.ok,
+            result: countResult.result,
+            error: countResult.description
+          });
+          
+          if (countResult.ok && typeof countResult.result === 'number') {
+            console.log(`✅ Successfully got member count via getChatMemberCount: ${countResult.result}`);
+            return countResult.result;
+          }
+          
+          if (!countResult.ok) {
+            console.log(`⚠️  getChatMemberCount API failed: ${countResult.description}`);
+          }
+        } catch (getMemberCountError) {
+          console.log(`⚠️  getChatMemberCount API error:`, getMemberCountError.message);
+        }
+        
+        // Method 3: Check bot permissions and status
+        try {
+          const botResponse = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getChatMember`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: chatId,
+              user_id: (await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`).then(r => r.json())).result.id
+            })
+          });
+          
+          const botResult = await botResponse.json();
+          if (botResult.ok) {
+            console.log(`🤖 Bot status in chat ${chatId}:`, {
+              status: botResult.result.status,
+              canPostMessages: botResult.result.can_post_messages,
+              canReadAllGroupMessages: botResult.result.can_read_all_group_messages
+            });
+          }
+        } catch (botError) {
+          console.log(`⚠️  Could not check bot status:`, botError.message);
+        }
+        
+        console.log(`❌ Could not get member count for chat ${chatId} - all methods failed`);
         return 0;
+        
       } catch (error) {
         console.error(`❌ Error getting member count for chat ${chatId}:`, error);
         return 0;
@@ -255,13 +335,41 @@ router.post('/:id/sync-telegram', requireUser, async (req, res) => {
     
     console.log(`✅ Successfully synced Telegram subscribers: ${totalSubscribers}`);
     
+    // Provide helpful feedback based on the result
+    let message = `Telegram subscribers synced successfully`;
+    let recommendations = [];
+    
+    if (totalSubscribers === 0) {
+      message = `Sync completed, but member count shows 0`;
+      recommendations = [
+        'Ensure the bot has admin permissions in your group/channel',
+        'Make sure the bot can read messages and access member information',
+        'For private groups, the bot needs "Access to Messages" permission',
+        'For channels, the bot should be added as an admin with posting rights'
+      ];
+    } else if (totalSubscribers < (account.followers || 0)) {
+      message = `Subscriber count decreased from ${account.followers || 0} to ${totalSubscribers}`;
+    } else if (totalSubscribers > (account.followers || 0)) {
+      message = `Subscriber count increased from ${account.followers || 0} to ${totalSubscribers} (+${totalSubscribers - (account.followers || 0)})`;
+    }
+    
     res.status(200).json({
       success: true,
-      message: `Telegram subscribers synced successfully`,
+      message,
       account: updatedAccount,
       previousCount: account.followers || 0,
       newCount: totalSubscribers,
-      difference: totalSubscribers - (account.followers || 0)
+      difference: totalSubscribers - (account.followers || 0),
+      recommendations: recommendations.length > 0 ? recommendations : undefined,
+      troubleshooting: totalSubscribers === 0 ? {
+        chatId: account.platform_user_id,
+        chatType: 'Check server logs for detailed API responses',
+        nextSteps: [
+          'Try the bot permission setup steps below',
+          'Check if your group/channel is public or private',
+          'Verify the bot token is correct and active'
+        ]
+      } : undefined
     });
   } catch (error) {
     console.error('Error syncing Telegram subscribers:', error);

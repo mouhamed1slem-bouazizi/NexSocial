@@ -302,10 +302,44 @@ The bot will confirm when the connection is successful.`
       
       const response = await syncTelegramSubscribers(accountId)
       
-      toast({
-        title: "✅ Telegram Sync Complete",
-        description: `${accountName}: ${response.newCount.toLocaleString()} subscribers (${response.difference >= 0 ? '+' : ''}${response.difference.toLocaleString()} change)`,
-      })
+      // Enhanced feedback based on sync results
+      if (response.newCount === 0 && response.recommendations) {
+        toast({
+          title: "⚠️ Sync Complete - Setup Required",
+          description: `${response.message}. Check the console for setup recommendations.`,
+          variant: "destructive",
+          duration: 10000
+        })
+        
+        // Log detailed recommendations to console
+        console.log('📋 Telegram Setup Recommendations:', response.recommendations)
+        console.log('🔧 Troubleshooting Info:', response.troubleshooting)
+        
+        // Show detailed alert with recommendations
+        alert(`🔧 Telegram Bot Setup Required for ${accountName}
+
+Current Status: ${response.message}
+
+Required Steps:
+${response.recommendations.map((rec: string, index: number) => `${index + 1}. ${rec}`).join('\n')}
+
+🔍 Troubleshooting:
+- Chat ID: ${response.troubleshooting?.chatId}
+- Check server logs for detailed API responses
+- Ensure your bot token is correct and active
+
+Next Steps:
+${response.troubleshooting?.nextSteps?.map((step: string, index: number) => `${index + 1}. ${step}`).join('\n')}
+
+Visit the bot setup guide for detailed instructions.`)
+        
+      } else {
+        toast({
+          title: "✅ Telegram Sync Complete",
+          description: `${accountName}: ${response.newCount.toLocaleString()} subscribers (${response.difference >= 0 ? '+' : ''}${response.difference.toLocaleString()} change)`,
+          duration: 5000
+        })
+      }
       
       // Refresh the accounts list to show updated counts
       fetchSocialAccounts()
