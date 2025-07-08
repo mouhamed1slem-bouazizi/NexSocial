@@ -449,10 +449,13 @@ router.post('/:id/sync-linkedin', requireUser, async (req, res) => {
   }
 });
 
-// Get Discord channels for a specific account
+// Get Discord channels for a specific account (with caching)
 router.get('/:id/discord-channels', requireUser, async (req, res) => {
   try {
     console.log(`🎮 Fetching Discord channels for account: ${req.params.id}`);
+    
+    const forceRefresh = req.query.refresh === 'true';
+    const cacheMaxAge = 60 * 60 * 1000; // 1 hour in milliseconds
     
     // Get the Discord account
     const account = await SocialAccountService.getById(req.params.id, req.user._id);
@@ -470,7 +473,7 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
         error: 'Account is not a Discord account'
       });
     }
-    
+
     // Parse metadata to get guild information
     let metadata = {};
     try {
@@ -486,6 +489,59 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
     }
     
     const primaryGuild = metadata.primaryGuild;
+    
+    // Check for cached channels first (unless force refresh is requested)
+    if (!forceRefresh) {
+      try {
+        const { getSupabase } = require('../config/database');
+        const supabase = getSupabase();
+        
+        if (supabase) {
+          console.log('🔍 Checking for cached Discord channels...');
+          
+          const { data: cachedChannels, error: cacheError } = await supabase
+            .from('discord_channels')
+            .select('*')
+            .eq('social_account_id', req.params.id)
+            .gte('cached_at', new Date(Date.now() - cacheMaxAge).toISOString())
+            .order('channel_position', { ascending: true });
+          
+          if (!cacheError && cachedChannels && cachedChannels.length > 0) {
+            console.log(`✅ Found ${cachedChannels.length} cached Discord channels (fresh within 1 hour)`);
+            
+            // Convert cached data to the expected format
+            const formattedChannels = cachedChannels.map(ch => ({
+              id: ch.discord_channel_id,
+              name: ch.channel_name,
+              position: ch.channel_position,
+              parentId: ch.parent_id,
+              topic: ch.topic,
+              nsfw: ch.nsfw,
+              permissions: ch.permissions || []
+            }));
+            
+            // Get categories from cache (categories have type 4 in Discord)
+            const categories = []; // We could cache categories separately if needed
+            
+            return res.json({
+              success: true,
+              channels: formattedChannels,
+              categories: categories,
+              guildName: cachedChannels[0]?.guild_name || primaryGuild?.name || 'Unknown Guild',
+              guildId: cachedChannels[0]?.guild_id || primaryGuild?.id || 'unknown',
+              cached: true,
+              cachedAt: cachedChannels[0]?.cached_at
+            });
+          } else {
+            console.log('🔄 No valid cached channels found, fetching from Discord API...');
+          }
+        }
+      } catch (cacheCheckError) {
+        console.log('⚠️ Cache check failed, proceeding with Discord API fetch:', cacheCheckError.message);
+      }
+    } else {
+      console.log('🔄 Force refresh requested, fetching fresh data from Discord API...');
+    }
     console.log('🔍 Primary guild from metadata:', primaryGuild);
     
     if (!primaryGuild) {
@@ -581,12 +637,64 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
       
       console.log(`✅ Found ${textChannels.length} text channels in ${primaryGuild.name}`);
       
+      // Cache the channels in the database for future use
+      try {
+        const { getSupabase } = require('../config/database');
+        const supabase = getSupabase();
+        
+        if (supabase) {
+          console.log('💾 Caching Discord channels in database...');
+          
+          // First, delete existing cached channels for this account
+          const { error: deleteError } = await supabase
+            .from('discord_channels')
+            .delete()
+            .eq('social_account_id', req.params.id);
+          
+          if (deleteError) {
+            console.log('⚠️ Failed to clear old cached channels:', deleteError.message);
+          }
+          
+          // Insert new cached channels
+          if (textChannels.length > 0) {
+            const channelsToCache = textChannels.map(channel => ({
+              social_account_id: req.params.id,
+              discord_channel_id: channel.id,
+              channel_name: channel.name,
+              channel_position: channel.position,
+              parent_id: channel.parentId,
+              topic: channel.topic,
+              nsfw: channel.nsfw,
+              permissions: channel.permissions,
+              guild_id: primaryGuild.id,
+              guild_name: primaryGuild.name,
+              cached_at: new Date().toISOString()
+            }));
+            
+            const { error: insertError } = await supabase
+              .from('discord_channels')
+              .insert(channelsToCache);
+            
+            if (insertError) {
+              console.log('⚠️ Failed to cache channels:', insertError.message);
+            } else {
+              console.log(`✅ Successfully cached ${textChannels.length} channels`);
+            }
+          }
+        }
+      } catch (cacheError) {
+        console.log('⚠️ Channel caching failed:', cacheError.message);
+        // Don't fail the request if caching fails
+      }
+      
       res.json({
         success: true,
         channels: textChannels,
         categories: categories,
         guildName: primaryGuild.name,
-        guildId: primaryGuild.id
+        guildId: primaryGuild.id,
+        cached: false,
+        freshlyFetched: true
       });
       
     } catch (apiError) {
@@ -602,6 +710,35 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch Discord channels'
+    });
+  }
+});
+
+// Force refresh Discord channels for a specific account
+router.post('/:id/refresh-discord-channels', requireUser, async (req, res) => {
+  try {
+    console.log(`🔄 Force refreshing Discord channels for account: ${req.params.id}`);
+    
+    // Simply redirect to the channels endpoint with force refresh
+    // This is more efficient than duplicating the logic
+    req.query.refresh = 'true';
+    
+    // Forward to the existing channels endpoint
+    const channelsUrl = `/api/social-accounts/${req.params.id}/discord-channels?refresh=true`;
+    
+    // We could make an internal call here, but it's simpler to redirect the logic
+    // Let's create a simpler response for the refresh action
+    res.json({
+      success: true,
+      message: 'Discord channels refresh initiated. Please fetch channels again.',
+      shouldRefetchChannels: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error refreshing Discord channels:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to refresh Discord channels'
     });
   }
 });

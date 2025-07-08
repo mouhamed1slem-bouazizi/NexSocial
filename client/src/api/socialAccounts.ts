@@ -180,17 +180,37 @@ export interface DiscordChannelsResponse {
   categories: DiscordCategory[];
   guildName: string;
   guildId: string;
+  cached?: boolean;
+  cachedAt?: string;
+  freshlyFetched?: boolean;
 }
 
-export const getDiscordChannels = async (accountId: string): Promise<DiscordChannelsResponse> => {
+export const getDiscordChannels = async (accountId: string, forceRefresh: boolean = false): Promise<DiscordChannelsResponse> => {
   try {
-    console.log(`🎮 Fetching Discord channels for account: ${accountId}`);
-    const response = await api.get(`/social-accounts/${accountId}/discord-channels`);
+    console.log(`🎮 Fetching Discord channels for account: ${accountId}${forceRefresh ? ' (force refresh)' : ''}`);
+    const url = `/social-accounts/${accountId}/discord-channels${forceRefresh ? '?refresh=true' : ''}`;
+    const response = await api.get(url);
     console.log('✅ Discord channels fetched successfully:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('❌ Error fetching Discord channels:', error);
     throw new Error(error.response?.data?.error || 'Failed to fetch Discord channels');
+  }
+};
+
+// Description: Force refresh Discord channels for a specific account
+// Endpoint: POST /api/social-accounts/:id/refresh-discord-channels
+// Request: {}
+// Response: { success: boolean, message: string, shouldRefetchChannels: boolean }
+export const refreshDiscordChannels = async (accountId: string): Promise<{ success: boolean; message: string; shouldRefetchChannels: boolean }> => {
+  try {
+    console.log(`🔄 Refreshing Discord channels for account: ${accountId}`);
+    const response = await api.post(`/social-accounts/${accountId}/refresh-discord-channels`);
+    console.log('✅ Discord channels refresh initiated:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error refreshing Discord channels:', error);
+    throw new Error(error.response?.data?.error || 'Failed to refresh Discord channels');
   }
 };
 

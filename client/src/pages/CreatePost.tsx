@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createPost } from "@/api/posts"
-import { getSocialAccounts, SocialAccount, getDiscordChannels, DiscordChannel, DiscordChannelsResponse, refreshDiscordMetadata } from "@/api/socialAccounts"
+import { getSocialAccounts, SocialAccount, getDiscordChannels, refreshDiscordChannels, DiscordChannel, DiscordChannelsResponse, refreshDiscordMetadata } from "@/api/socialAccounts"
 import { MediaUpload } from "@/components/MediaUpload"
 import { EmojiPickerComponent } from "@/components/EmojiPicker"
 import { useToast } from "@/hooks/useToast"
@@ -182,12 +182,12 @@ export function CreatePost() {
   }
 
   // Fetch Discord channels for a specific account
-  const fetchDiscordChannels = async (accountId: string) => {
+  const fetchDiscordChannels = async (accountId: string, forceRefresh: boolean = false) => {
     try {
       setChannelsLoading(prev => ({ ...prev, [accountId]: true }))
-      console.log(`🎮 Fetching Discord channels for account: ${accountId}`)
+      console.log(`🎮 Fetching Discord channels for account: ${accountId}${forceRefresh ? ' (force refresh)' : ''}`)
       
-      const channelsData = await getDiscordChannels(accountId)
+      const channelsData = await getDiscordChannels(accountId, forceRefresh)
       
       setDiscordChannels(prev => ({
         ...prev,
@@ -202,7 +202,21 @@ export function CreatePost() {
         }))
       }
       
-      console.log(`✅ Loaded ${channelsData.channels.length} channels for ${channelsData.guildName}`)
+      const cacheStatus = channelsData.cached ? '(cached)' : '(fresh from Discord API)'
+      console.log(`✅ Loaded ${channelsData.channels.length} channels for ${channelsData.guildName} ${cacheStatus}`)
+      
+      if (channelsData.cached && channelsData.cachedAt) {
+        const cacheAge = Math.round((Date.now() - new Date(channelsData.cachedAt).getTime()) / (1000 * 60))
+        toast({
+          title: "Discord Channels Loaded",
+          description: `Loaded ${channelsData.channels.length} cached channels (${cacheAge}m old)`,
+        })
+      } else if (channelsData.freshlyFetched) {
+        toast({
+          title: "Discord Channels Refreshed",
+          description: `Loaded ${channelsData.channels.length} fresh channels from Discord`,
+        })
+      }
       
     } catch (error: any) {
       console.error('❌ Error fetching Discord channels:', error)
@@ -233,6 +247,24 @@ export function CreatePost() {
       }
     } finally {
       setChannelsLoading(prev => ({ ...prev, [accountId]: false }))
+    }
+  }
+
+  // Force refresh Discord channels for a specific account
+  const forceRefreshDiscordChannels = async (accountId: string) => {
+    try {
+      setChannelsLoading(prev => ({ ...prev, [accountId]: true }))
+      console.log(`🔄 Force refreshing Discord channels for account: ${accountId}`)
+      
+      await fetchDiscordChannels(accountId, true)
+      
+    } catch (error: any) {
+      console.error('❌ Error force refreshing Discord channels:', error)
+      toast({
+        title: "Discord Refresh Failed",
+        description: error.message || "Failed to refresh Discord channels",
+        variant: "destructive"
+      })
     }
   }
 
@@ -955,34 +987,57 @@ export function CreatePost() {
                                       Loading channels...
                                     </div>
                                   ) : discordChannels[account.id]?.length > 0 ? (
-                                    <Select
-                                      value={selectedDiscordChannels[account.id] || ''}
-                                      onValueChange={(channelId) => {
-                                        setSelectedDiscordChannels(prev => ({
-                                          ...prev,
-                                          [account.id]: channelId
-                                        }))
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-full bg-white dark:bg-slate-900">
-                                        <SelectValue placeholder="Choose a channel..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {discordChannels[account.id].map((channel) => (
-                                          <SelectItem key={channel.id} value={channel.id}>
-                                            <div className="flex items-center gap-2">
-                                              <Hash className="h-3 w-3 text-muted-foreground" />
-                                              <span>{channel.name}</span>
-                                              {channel.topic && (
-                                                <span className="text-xs text-muted-foreground">
-                                                  - {channel.topic.substring(0, 30)}{channel.topic.length > 30 ? '...' : ''}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                    <div className="space-y-2">
+                                      <div className="flex gap-2">
+                                        <Select
+                                          value={selectedDiscordChannels[account.id] || ''}
+                                          onValueChange={(channelId) => {
+                                            setSelectedDiscordChannels(prev => ({
+                                              ...prev,
+                                              [account.id]: channelId
+                                            }))
+                                          }}
+                                        >
+                                          <SelectTrigger className="flex-1 bg-white dark:bg-slate-900">
+                                            <SelectValue placeholder="Choose a channel..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {discordChannels[account.id].map((channel) => (
+                                              <SelectItem key={channel.id} value={channel.id}>
+                                                <div className="flex items-center gap-2">
+                                                  <Hash className="h-3 w-3 text-muted-foreground" />
+                                                  <span>{channel.name}</span>
+                                                  {channel.topic && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                      - {channel.topic.substring(0, 30)}{channel.topic.length > 30 ? '...' : ''}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => forceRefreshDiscordChannels(account.id)}
+                                          disabled={channelsLoading[account.id]}
+                                          className="px-3 border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950"
+                                          title="Refresh channels from Discord"
+                                        >
+                                          {channelsLoading[account.id] ? (
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-purple-600"></div>
+                                          ) : (
+                                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                          )}
+                                        </Button>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        {discordChannels[account.id].length} channels available
+                                      </p>
+                                    </div>
                                   ) : (
                                     <div className="text-sm space-y-2">
                                       <p className="text-muted-foreground">
