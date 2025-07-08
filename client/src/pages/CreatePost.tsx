@@ -97,6 +97,36 @@ export function CreatePost() {
   const navigate = useNavigate()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // LocalStorage keys
+  const SELECTED_ACCOUNTS_KEY = 'nexsocial_selected_accounts'
+  const SELECTED_PLATFORMS_KEY = 'nexsocial_selected_platforms'
+
+  // Save selected accounts to localStorage
+  const saveSelectedAccounts = (accounts: string[], platforms: string[]) => {
+    try {
+      localStorage.setItem(SELECTED_ACCOUNTS_KEY, JSON.stringify(accounts))
+      localStorage.setItem(SELECTED_PLATFORMS_KEY, JSON.stringify(platforms))
+    } catch (error) {
+      console.warn('Failed to save selected accounts to localStorage:', error)
+    }
+  }
+
+  // Load selected accounts from localStorage
+  const loadSelectedAccounts = (): { accounts: string[], platforms: string[] } => {
+    try {
+      const savedAccounts = localStorage.getItem(SELECTED_ACCOUNTS_KEY)
+      const savedPlatforms = localStorage.getItem(SELECTED_PLATFORMS_KEY)
+      
+      return {
+        accounts: savedAccounts ? JSON.parse(savedAccounts) : [],
+        platforms: savedPlatforms ? JSON.parse(savedPlatforms) : []
+      }
+    } catch (error) {
+      console.warn('Failed to load selected accounts from localStorage:', error)
+      return { accounts: [], platforms: [] }
+    }
+  }
+
   // Handle emoji insertion
   const handleEmojiSelect = (emoji: string) => {
     const textarea = textareaRef.current
@@ -129,11 +159,38 @@ export function CreatePost() {
         console.log('✅ Social accounts response:', response)
         setSocialAccounts(response || [])
         
-        // Auto-select connected accounts
-        const connectedAccounts = response?.filter((acc: SocialAccount) => acc.is_connected) || []
-        setSelectedAccounts(connectedAccounts.map((acc: SocialAccount) => acc.id))
-        setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
-        console.log('🎯 Auto-selected accounts:', connectedAccounts.length)
+        // Load previously selected accounts from localStorage
+        const { accounts: savedAccounts, platforms: savedPlatforms } = loadSelectedAccounts()
+        
+        if (savedAccounts.length > 0) {
+          // Filter out accounts that are no longer connected or don't exist
+          const availableAccounts = response?.filter((acc: SocialAccount) => acc.is_connected) || []
+          const validSavedAccounts = savedAccounts.filter(accountId => 
+            availableAccounts.some(acc => acc.id === accountId)
+          )
+          
+          if (validSavedAccounts.length > 0) {
+            setSelectedAccounts(validSavedAccounts)
+            // Update platforms based on valid accounts
+            const validPlatforms = availableAccounts
+              .filter(acc => validSavedAccounts.includes(acc.id))
+              .map(acc => acc.platform)
+            setSelectedPlatforms(validPlatforms)
+            console.log('🔄 Restored saved account selection:', validSavedAccounts.length, 'accounts')
+          } else {
+            // If no valid saved accounts, auto-select all connected accounts (first-time user)
+            const connectedAccounts = availableAccounts || []
+            setSelectedAccounts(connectedAccounts.map((acc: SocialAccount) => acc.id))
+            setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
+            console.log('🎯 Auto-selected all connected accounts:', connectedAccounts.length)
+          }
+        } else {
+          // If no saved selection, auto-select all connected accounts (first-time user)
+          const connectedAccounts = response?.filter((acc: SocialAccount) => acc.is_connected) || []
+          setSelectedAccounts(connectedAccounts.map((acc: SocialAccount) => acc.id))
+          setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
+          console.log('🎯 Auto-selected all connected accounts:', connectedAccounts.length)
+        }
       } catch (error: any) {
         console.error('Error fetching social accounts:', error)
         toast({
@@ -159,7 +216,11 @@ export function CreatePost() {
       const accountsAfterToggle = socialAccounts.filter(acc => 
         newSelection.includes(acc.id)
       )
-      setSelectedPlatforms(accountsAfterToggle.map(acc => acc.platform))
+      const newPlatforms = accountsAfterToggle.map(acc => acc.platform)
+      setSelectedPlatforms(newPlatforms)
+      
+      // Save to localStorage
+      saveSelectedAccounts(newSelection, newPlatforms)
       
       return newSelection
     })
@@ -183,15 +244,24 @@ export function CreatePost() {
     const platformAccountIds = connectedAccounts.map(acc => acc.id)
     const allSelected = platformAccountIds.every(id => selectedAccounts.includes(id))
     
+    let newSelectedAccounts: string[]
+    let newSelectedPlatforms: string[]
+    
     if (allSelected) {
       // Remove all platform accounts
-      setSelectedAccounts(prev => prev.filter(id => !platformAccountIds.includes(id)))
-      setSelectedPlatforms(prev => prev.filter(p => p !== platformId))
+      newSelectedAccounts = selectedAccounts.filter(id => !platformAccountIds.includes(id))
+      newSelectedPlatforms = selectedPlatforms.filter(p => p !== platformId)
     } else {
       // Add all platform accounts
-      setSelectedAccounts(prev => [...new Set([...prev, ...platformAccountIds])])
-      setSelectedPlatforms(prev => [...new Set([...prev, platformId])])
+      newSelectedAccounts = [...new Set([...selectedAccounts, ...platformAccountIds])]
+      newSelectedPlatforms = [...new Set([...selectedPlatforms, platformId])]
     }
+    
+    setSelectedAccounts(newSelectedAccounts)
+    setSelectedPlatforms(newSelectedPlatforms)
+    
+    // Save to localStorage
+    saveSelectedAccounts(newSelectedAccounts, newSelectedPlatforms)
   }
 
   const getCharacterLimit = () => {
@@ -342,13 +412,22 @@ export function CreatePost() {
         const totalCount = Object.keys(response.results || {}).length
         
         toast({
-          title: "Success",
+          title: "🎉 Post Published Successfully!",
           description: isScheduled 
-            ? "Post scheduled successfully!" 
-            : `Post published to ${successCount} of ${totalCount} accounts!`,
+            ? `Post scheduled successfully! You can continue creating more posts.` 
+            : `Post published to ${successCount} of ${totalCount} accounts! Your account selection has been saved for next time.`,
         })
 
-        navigate('/')
+        // Clear only content and media, keep account selections
+        setContent("")
+        setMedia([])
+        setAiPrompt("")
+        setScheduledDate(undefined)
+        setScheduledTime("")
+        setIsScheduled(false)
+        
+        // Don't navigate away - stay on the create post page!
+        console.log('✅ Post successful - staying on create page with saved account selection')
       } else {
         throw new Error(response.message || 'Failed to create post')
       }
