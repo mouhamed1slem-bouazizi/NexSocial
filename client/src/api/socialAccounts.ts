@@ -135,3 +135,21 @@ export const syncTelegramSubscribers = async (accountId: string) => {
     throw new Error(error.response?.data?.error || 'Failed to sync Telegram subscribers');
   }
 };
+
+// Description: Manual sync for LinkedIn connections count
+// Endpoint: POST /api/social-accounts/:id/sync-linkedin
+// Request: { connectionsCount: number }
+// Response: { success: boolean, message: string, account: SocialAccount, previousCount: number, newCount: number, difference: number, isManualUpdate: boolean }
+export const syncLinkedInConnections = async (accountId: string, connectionsCount: number) => {
+  try {
+    console.log(`🔗 Manually updating LinkedIn connections for account: ${accountId} to ${connectionsCount}`);
+    const response = await api.post(`/social-accounts/${accountId}/sync-linkedin`, {
+      connectionsCount: connectionsCount
+    });
+    console.log('✅ LinkedIn connections updated successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error updating LinkedIn connections:', error);
+    throw new Error(error.response?.data?.error || 'Failed to update LinkedIn connections');
+  }
+};

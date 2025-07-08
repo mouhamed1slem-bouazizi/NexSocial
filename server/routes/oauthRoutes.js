@@ -728,13 +728,14 @@ router.get('/linkedin/callback', async (req, res) => {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       profileImage: profileImage,
-      followers: followers
+      followers: followers // Note: Set to 0 due to LinkedIn API privacy restrictions - users will need to manually update this
     };
 
     await SocialAccountService.create(userId, accountData);
     console.log('LinkedIn account successfully saved to database with posting permissions');
+    console.log('📝 Note: LinkedIn connection count set to 0 due to API privacy restrictions - user can manually update via dashboard');
 
-    res.redirect(`${process.env.CLIENT_URL}?success=linkedin_connected`);
+    res.redirect(`${process.env.CLIENT_URL}?success=linkedin_connected&manual_sync_required=true`);
   } catch (error) {
     console.error('LinkedIn OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);

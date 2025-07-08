@@ -380,4 +380,72 @@ router.post('/:id/sync-telegram', requireUser, async (req, res) => {
   }
 });
 
+// Manual sync for LinkedIn connections count
+router.post('/:id/sync-linkedin', requireUser, async (req, res) => {
+  try {
+    console.log(`POST /api/social-accounts/${req.params.id}/sync-linkedin - User: ${req.user._id}`);
+    
+    const { connectionsCount } = req.body;
+    
+    // Validate input
+    if (typeof connectionsCount !== 'number' || connectionsCount < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid connections count (number >= 0)'
+      });
+    }
+    
+    // Get the account
+    const account = await SocialAccountService.getById(req.params.id, req.user._id);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Social account not found'
+      });
+    }
+    
+    if (account.platform !== 'linkedin') {
+      return res.status(400).json({
+        success: false,
+        error: 'This endpoint is only for LinkedIn accounts'
+      });
+    }
+    
+    console.log(`🔗 Manually updating LinkedIn connections for: ${account.display_name} to ${connectionsCount}`);
+    
+    // Update the followers count in database
+    const updatedAccount = await SocialAccountService.updateFollowers(
+      req.params.id, 
+      req.user._id, 
+      connectionsCount
+    );
+    
+    if (!updatedAccount) {
+      return res.status(404).json({
+        success: false,
+        error: 'Failed to update account'
+      });
+    }
+    
+    console.log(`✅ Successfully updated LinkedIn connections: ${connectionsCount}`);
+    
+    res.status(200).json({
+      success: true,
+      message: `LinkedIn connections updated successfully`,
+      account: updatedAccount,
+      previousCount: account.followers || 0,
+      newCount: connectionsCount,
+      difference: connectionsCount - (account.followers || 0),
+      isManualUpdate: true
+    });
+  } catch (error) {
+    console.error('Error updating LinkedIn connections:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

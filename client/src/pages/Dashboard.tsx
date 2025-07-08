@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { getSocialAccounts, disconnectSocialAccount, initiateOAuth, syncTelegramSubscribers } from "@/api/socialAccounts"
+import { getSocialAccounts, disconnectSocialAccount, initiateOAuth, syncTelegramSubscribers, syncLinkedInConnections } from "@/api/socialAccounts"
 import {
   BarChart,
   Bar,
@@ -52,6 +52,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 const platformIcons = {
   facebook: Facebook,
@@ -101,6 +111,11 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<string | null>(null)
+  
+  // LinkedIn manual sync state
+  const [linkedinModalOpen, setLinkedinModalOpen] = useState(false)
+  const [linkedinAccount, setLinkedinAccount] = useState<SocialAccount | null>(null)
+  const [linkedinConnectionsInput, setLinkedinConnectionsInput] = useState('')
   const { toast } = useToast()
 
   // Mock data for charts
@@ -140,10 +155,21 @@ export function Dashboard() {
     
     if (success) {
       const platform = success.replace('_connected', '')
-      toast({
-        title: "Success",
-        description: `${platform.charAt(0).toUpperCase() + platform.slice(1)} account connected successfully!`
-      })
+      const manualSyncRequired = urlParams.get('manual_sync_required') === 'true'
+      
+      if (platform === 'linkedin' && manualSyncRequired) {
+        toast({
+          title: "✅ LinkedIn Connected Successfully",
+          description: "Note: You can manually update your connection count using the sync button next to your LinkedIn account.",
+          duration: 8000,
+        })
+      } else {
+        toast({
+          title: "Success",
+          description: `${platform.charAt(0).toUpperCase() + platform.slice(1)} account connected successfully!`
+        })
+      }
+      
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname)
       // Refresh accounts
@@ -353,6 +379,61 @@ Visit the bot setup guide for detailed instructions.`)
     } finally {
       setSyncing(null)
     }
+  }
+
+  const handleSyncLinkedIn = async (account: SocialAccount) => {
+    setLinkedinAccount(account)
+    setLinkedinConnectionsInput(account.followers?.toString() || '')
+    setLinkedinModalOpen(true)
+  }
+
+  const handleLinkedInSubmit = async () => {
+    if (!linkedinAccount) return
+    
+    const connectionsCount = parseInt(linkedinConnectionsInput)
+    
+    if (isNaN(connectionsCount) || connectionsCount < 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a valid number of connections (0 or more)",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    try {
+      setSyncing(linkedinAccount.id)
+      setLinkedinModalOpen(false)
+      
+      console.log(`🔗 Updating LinkedIn connections for ${linkedinAccount.display_name} to ${connectionsCount}...`)
+      
+      const response = await syncLinkedInConnections(linkedinAccount.id, connectionsCount)
+      
+      toast({
+        title: "✅ LinkedIn Connections Updated",
+        description: `${linkedinAccount.display_name}: ${response.newCount.toLocaleString()} connections (${response.difference >= 0 ? '+' : ''}${response.difference.toLocaleString()} change)`,
+        duration: 5000
+      })
+      
+      // Refresh the accounts list to show updated counts
+      fetchSocialAccounts()
+    } catch (err: any) {
+      console.error('❌ Error updating LinkedIn connections:', err)
+      toast({
+        title: "Update Failed",
+        description: err.message || "Failed to update LinkedIn connections",
+        variant: "destructive"
+      })
+    } finally {
+      setSyncing(null)
+      closeLinkedInModal()
+    }
+  }
+
+  const closeLinkedInModal = () => {
+    setLinkedinModalOpen(false)
+    setLinkedinAccount(null)
+    setLinkedinConnectionsInput('')
   }
 
   const totalFollowers = socialAccounts.reduce((sum, account) => sum + (account.followers || 0), 0)
@@ -698,6 +779,22 @@ Visit the bot setup guide for detailed instructions.`)
                           )}
                         </Button>
                       )}
+                      {account.platform === 'linkedin' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncLinkedIn(account)}
+                          disabled={syncing === account.id}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="Update LinkedIn connections count manually"
+                        >
+                          {syncing === account.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -765,6 +862,71 @@ Visit the bot setup guide for detailed instructions.`)
           </CardContent>
         </Card>
       </div>
+
+      {/* LinkedIn Manual Sync Modal */}
+      <Dialog open={linkedinModalOpen} onOpenChange={closeLinkedInModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Linkedin className="h-5 w-5 text-blue-600" />
+              Update LinkedIn Connections
+            </DialogTitle>
+            <DialogDescription className="space-y-3">
+              <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>ℹ️ LinkedIn API Limitation:</strong> Due to LinkedIn's privacy policies, connection counts cannot be imported automatically. 
+                  Please manually enter your current number of LinkedIn connections.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  To find your connection count:
+                </p>
+                <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
+                  <li>Go to your LinkedIn profile</li>
+                  <li>Look at your connections number (e.g., "400+ connections")</li>
+                  <li>Enter that number below</li>
+                </ol>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="connections-count">Number of LinkedIn Connections</Label>
+              <Input
+                id="connections-count"
+                type="number"
+                min="0"
+                placeholder="e.g., 400"
+                value={linkedinConnectionsInput}
+                onChange={(e) => setLinkedinConnectionsInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLinkedInSubmit()
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Current: {linkedinAccount?.followers?.toLocaleString() || 0} connections
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={closeLinkedInModal}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleLinkedInSubmit}
+              disabled={!linkedinConnectionsInput || isNaN(parseInt(linkedinConnectionsInput))}
+            >
+              Update Connections
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
