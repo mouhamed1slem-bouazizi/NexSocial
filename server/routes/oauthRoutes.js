@@ -284,8 +284,10 @@ router.post('/initiate', requireUser, async (req, res) => {
           return res.status(500).json({ success: false, error: 'Discord OAuth not configured. Please add DISCORD_CLIENT_ID to your .env file' });
         }
 
-        // Include bot permissions in the URL (2048 = Send Messages permission)
-        authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${userId}&permissions=2048`;
+        // Include bot permissions in the URL 
+        // 1024 = View Channels, 2048 = Send Messages, 65536 = Read Message History
+        // Total: 68608 for proper channel access and posting
+        authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${userId}&permissions=68608`;
         break;
 
       default:
