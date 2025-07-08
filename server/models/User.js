@@ -13,6 +13,16 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     minlength: 6
+  },
+  preferences: {
+    type: Object,
+    default: {
+      discord: {
+        showChannelsWithRules: false,
+        showChannelsWithAnnouncements: false,
+        customChannelFilters: []
+      }
+    }
   }
 }, {
   timestamps: true,

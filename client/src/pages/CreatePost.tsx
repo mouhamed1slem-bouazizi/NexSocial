@@ -273,9 +273,9 @@ export function CreatePost() {
           }
         } else {
           // If no saved selection, auto-select all connected accounts (first-time user)
-          const connectedAccounts = response?.filter((acc: SocialAccount) => acc.is_connected) || []
-          setSelectedAccounts(connectedAccounts.map((acc: SocialAccount) => acc.id))
-          setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
+        const connectedAccounts = response?.filter((acc: SocialAccount) => acc.is_connected) || []
+        setSelectedAccounts(connectedAccounts.map((acc: SocialAccount) => acc.id))
+        setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
           console.log('🎯 Auto-selected all connected accounts:', connectedAccounts.length)
         }
       } catch (error: any) {
@@ -920,27 +920,27 @@ export function CreatePost() {
                           const isSelected = selectedAccounts.includes(account.id)
                           return (
                             <div key={account.id} className="space-y-2">
-                              <div
-                                className={`ml-6 flex items-center space-x-3 p-2 rounded-lg border cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'border-blue-400 bg-blue-25 dark:bg-blue-950/50'
-                                    : 'border-gray-100 hover:border-gray-200'
-                                }`}
-                                onClick={() => handleAccountToggle(account.id, account.platform)}
-                              >
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={() => handleAccountToggle(account.id, account.platform)}
-                                />
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium">{account.display_name}</p>
-                                    <CheckCircle className="h-3 w-3 text-green-500" />
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    @{account.username} • {account.followers?.toLocaleString() || 0} followers
-                                  </p>
+                            <div
+                              className={`ml-6 flex items-center space-x-3 p-2 rounded-lg border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-blue-400 bg-blue-25 dark:bg-blue-950/50'
+                                  : 'border-gray-100 hover:border-gray-200'
+                              }`}
+                              onClick={() => handleAccountToggle(account.id, account.platform)}
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => handleAccountToggle(account.id, account.platform)}
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium">{account.display_name}</p>
+                                  <CheckCircle className="h-3 w-3 text-green-500" />
                                 </div>
+                                <p className="text-xs text-muted-foreground">
+                                  @{account.username} • {account.followers?.toLocaleString() || 0} followers
+                                </p>
+                              </div>
                               </div>
 
                               {/* Discord Channel Selector */}

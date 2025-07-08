@@ -287,120 +287,120 @@ const postToTwitter = async (account, content, media = []) => {
     // Function to attempt Twitter posting with token refresh fallback
     const attemptTwitterPost = async (currentAccount, retryCount = 0) => {
       try {
-        // Check if we have OAuth 1.0a credentials for media upload
+    // Check if we have OAuth 1.0a credentials for media upload
         const hasOAuth1Credentials = currentAccount.oauth1_access_token && currentAccount.oauth1_access_token_secret;
-        
-        if (!hasOAuth1Credentials && media.length > 0) {
-          console.log('No OAuth 1.0a credentials found for media upload. Falling back to text-only posting.');
-          
+    
+    if (!hasOAuth1Credentials && media.length > 0) {
+      console.log('No OAuth 1.0a credentials found for media upload. Falling back to text-only posting.');
+      
           // Add media information to the tweet text
-          let tweetText = content;
-          const mediaPreview = createMediaPreview(media);
+      let tweetText = content;
+      const mediaPreview = createMediaPreview(media);
           const totalLength = tweetText.length + mediaPreview.length;
-          
-          if (totalLength <= 280) {
+      
+      if (totalLength <= 280) {
             tweetText += mediaPreview;
-          } else {
+      } else {
             // Truncate content to make room for media info
             const availableSpace = 280 - mediaPreview.length;
             tweetText = tweetText.substring(0, Math.max(0, availableSpace)) + mediaPreview;
           }
           
           console.log(`Modified tweet to include media reference`);
-          
-          const body = {
-            text: tweetText.substring(0, 280)
-          };
+      
+      const body = {
+        text: tweetText.substring(0, 280)
+      };
 
-          const response = await fetch('https://api.twitter.com/2/tweets', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
+      const response = await fetch('https://api.twitter.com/2/tweets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
               'Authorization': `Bearer ${currentAccount.access_token}`
-            },
-            body: JSON.stringify(body)
-          });
+        },
+        body: JSON.stringify(body)
+      });
 
-          const data = await response.json();
+      const data = await response.json();
 
-          if (!response.ok) {
-            console.error('Twitter post error:', data);
+      if (!response.ok) {
+        console.error('Twitter post error:', data);
             
             // Handle unauthorized error with token refresh
             if (response.status === 401) {
               throw new Error('UNAUTHORIZED');
             }
-            
-            // Handle duplicate content error specifically
-            if (data.detail && data.detail.includes('duplicate content')) {
-              throw new Error('Twitter rejected duplicate content. Please modify your message or reconnect your Twitter account for media upload.');
-            }
-            
-            throw new Error(data.errors?.[0]?.message || 'Failed to post to Twitter');
-          }
-
-          return {
-            success: true,
-            postId: data.data.id,
-            message: `Posted to Twitter successfully (${media.length} media item${media.length > 1 ? 's' : ''} referenced in text - reconnect account for direct upload)`,
-            mediaCount: 0,
-            mediaNote: `⚠️ Media files were referenced in the tweet text. To upload actual media to Twitter, please reconnect your Twitter account to enable dual authentication.`
-          };
+        
+        // Handle duplicate content error specifically
+        if (data.detail && data.detail.includes('duplicate content')) {
+          throw new Error('Twitter rejected duplicate content. Please modify your message or reconnect your Twitter account for media upload.');
         }
+        
+        throw new Error(data.errors?.[0]?.message || 'Failed to post to Twitter');
+      }
 
-        // Use TwitterOAuthService for media upload and posting
-        const twitterService = new TwitterOAuthService();
-        let mediaIds = [];
+      return {
+        success: true,
+        postId: data.data.id,
+        message: `Posted to Twitter successfully (${media.length} media item${media.length > 1 ? 's' : ''} referenced in text - reconnect account for direct upload)`,
+        mediaCount: 0,
+        mediaNote: `⚠️ Media files were referenced in the tweet text. To upload actual media to Twitter, please reconnect your Twitter account to enable dual authentication.`
+      };
+    }
 
-        // Upload media if provided and we have OAuth 1.0a credentials
-        if (media.length > 0 && hasOAuth1Credentials) {
-          console.log('Uploading media to Twitter...');
-          
-          const mediaUploadPromises = media.map(async (mediaItem) => {
-            try {
-              const mediaId = await twitterService.uploadMedia(
-                mediaItem, 
+    // Use TwitterOAuthService for media upload and posting
+    const twitterService = new TwitterOAuthService();
+    let mediaIds = [];
+
+    // Upload media if provided and we have OAuth 1.0a credentials
+    if (media.length > 0 && hasOAuth1Credentials) {
+      console.log('Uploading media to Twitter...');
+      
+      const mediaUploadPromises = media.map(async (mediaItem) => {
+        try {
+          const mediaId = await twitterService.uploadMedia(
+            mediaItem, 
                 currentAccount.oauth1_access_token, 
                 currentAccount.oauth1_access_token_secret
-              );
-              return mediaId;
-            } catch (error) {
-              console.error(`Failed to upload media ${mediaItem.name}:`, error);
-              return null;
-            }
-          });
-
-          const uploadResults = await Promise.all(mediaUploadPromises);
-          mediaIds = uploadResults.filter(id => id !== null);
-          
-          console.log(`Successfully uploaded ${mediaIds.length} out of ${media.length} media items`);
+          );
+          return mediaId;
+        } catch (error) {
+          console.error(`Failed to upload media ${mediaItem.name}:`, error);
+          return null;
         }
+      });
+
+      const uploadResults = await Promise.all(mediaUploadPromises);
+      mediaIds = uploadResults.filter(id => id !== null);
+      
+      console.log(`Successfully uploaded ${mediaIds.length} out of ${media.length} media items`);
+    }
 
         // Post tweet with original content (no timestamp modification)
-        const tweetData = await twitterService.postTweet(
+    const tweetData = await twitterService.postTweet(
           content,
-          mediaIds,
+      mediaIds,
           currentAccount.access_token
-        );
+    );
 
-        let message = 'Posted to Twitter successfully';
-        if (media.length > 0) {
-          if (mediaIds.length === media.length) {
-            message += ` with ${media.length} media item${media.length > 1 ? 's' : ''}`;
-          } else if (mediaIds.length > 0) {
-            message += ` with ${mediaIds.length} of ${media.length} media items (some uploads failed)`;
-          } else {
-            message += ` (media upload failed - posted text only)`;
-          }
-        }
+    let message = 'Posted to Twitter successfully';
+    if (media.length > 0) {
+      if (mediaIds.length === media.length) {
+        message += ` with ${media.length} media item${media.length > 1 ? 's' : ''}`;
+      } else if (mediaIds.length > 0) {
+        message += ` with ${mediaIds.length} of ${media.length} media items (some uploads failed)`;
+      } else {
+        message += ` (media upload failed - posted text only)`;
+      }
+    }
 
-        return {
-          success: true,
-          postId: tweetData.id,
-          message: message,
-          mediaCount: mediaIds.length,
-          mediaNote: media.length > 0 && mediaIds.length === 0 ? 'Media upload failed, but text was posted successfully' : undefined
-        };
+    return {
+      success: true,
+      postId: tweetData.id,
+      message: message,
+      mediaCount: mediaIds.length,
+      mediaNote: media.length > 0 && mediaIds.length === 0 ? 'Media upload failed, but text was posted successfully' : undefined
+    };
       } catch (error) {
         console.error('Twitter posting attempt failed:', error);
         
@@ -457,8 +457,8 @@ const postToTwitter = async (account, content, media = []) => {
     
     // Enhanced error handling with specific user guidance
     if (error.message === 'UNAUTHORIZED') {
-      return {
-        success: false,
+    return {
+      success: false,
         error: 'Twitter authentication expired. Please refresh your Twitter token from the Dashboard → Settings → Social Accounts.',
         requiresTokenRefresh: true,
         platform: 'twitter'
@@ -1136,7 +1136,7 @@ async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
       formData.append('caption', caption);
       formData.append('parse_mode', 'HTML');
     }
-
+    
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
       method: 'POST',
       body: formData
@@ -1164,7 +1164,7 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
       formData.append('caption', caption);
       formData.append('parse_mode', 'HTML');
     }
-
+    
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
       method: 'POST',
       body: formData
@@ -1189,7 +1189,7 @@ async function sendTelegramDocument(chatId, mediaItem, caption, botToken) {
       formData.append('caption', caption);
       formData.append('parse_mode', 'HTML');
     }
-
+    
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
       method: 'POST',
       body: formData
@@ -1213,7 +1213,7 @@ async function sendTelegramMediaGroup(chatId, media, caption, botToken) {
       caption: index === 0 ? caption : undefined,
       parse_mode: index === 0 ? 'HTML' : undefined
     }));
-
+    
     const formData = new FormData();
     formData.append('chat_id', chatId);
     formData.append('media', JSON.stringify(mediaArray));
@@ -1221,7 +1221,7 @@ async function sendTelegramMediaGroup(chatId, media, caption, botToken) {
     media.forEach((item, index) => {
       formData.append(`file${index}`, Buffer.from(item.buffer), { filename: item.name });
     });
-
+    
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMediaGroup`, {
       method: 'POST',
       body: formData
@@ -1359,7 +1359,7 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
         } else {
           console.log(`⚠️ Could not verify selected channel, but proceeding with posting attempt`);
         }
-      } catch (error) {
+  } catch (error) {
         console.log(`⚠️ Could not verify selected channel access:`, error.message);
       }
     }
@@ -1421,7 +1421,7 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       console.log(`✅ Posted to Discord with ${mediaUploadResults.length} media file(s)`);
       
       return {
-        success: true,
+      success: true,
         postId: data.id,
         platform: 'discord',
         message: `Posted to Discord #${targetChannelName} successfully with ${mediaUploadResults.length} media file(s)`,
@@ -1482,4 +1482,4 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
   }
 };
 
-module.exports = router;
+module.exports = router; 

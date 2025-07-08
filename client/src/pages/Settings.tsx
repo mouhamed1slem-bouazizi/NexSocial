@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
+import { getUserPreferences, updateUserPreferences, UserPreferences } from "@/api/auth"
 import api from "@/api/api"
 import {
   User,
@@ -23,7 +24,9 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  MessageSquare
+  MessageSquare,
+  Hash,
+  X
 } from "lucide-react"
 
 export function Settings() {
@@ -53,6 +56,14 @@ export function Settings() {
     dataExport: true
   })
 
+  const [userPreferences, setUserPreferences] = useState<UserPreferences>({
+    discord: {
+      showChannelsWithRules: false,
+      showChannelsWithAnnouncements: false,
+      customChannelFilters: []
+    }
+  })
+
   const [showPassword, setShowPassword] = useState(false)
   const [telegramWebhook, setTelegramWebhook] = useState({
     url: '',
@@ -63,7 +74,70 @@ export function Settings() {
     isFixed: false,
     isLoading: false
   })
+  const [newCustomFilter, setNewCustomFilter] = useState('')
   const { toast } = useToast()
+
+  // Load user preferences on component mount
+  const loadUserPreferences = async () => {
+    try {
+      const response = await getUserPreferences()
+      if (response.success) {
+        setUserPreferences(response.data.preferences)
+      }
+    } catch (error: any) {
+      console.error('Failed to load user preferences:', error)
+      // Use default preferences if loading fails
+    }
+  }
+
+  // Save Discord preferences
+  const handleSaveDiscordPreferences = async () => {
+    try {
+      const response = await updateUserPreferences(userPreferences)
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Discord preferences updated successfully!",
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update Discord preferences",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Add custom channel filter
+  const addCustomChannelFilter = () => {
+    if (newCustomFilter.trim() && !userPreferences.discord.customChannelFilters.includes(newCustomFilter.trim())) {
+      setUserPreferences(prev => ({
+        ...prev,
+        discord: {
+          ...prev.discord,
+          customChannelFilters: [...prev.discord.customChannelFilters, newCustomFilter.trim()]
+        }
+      }))
+      setNewCustomFilter('')
+    }
+  }
+
+  // Remove custom channel filter
+  const removeCustomChannelFilter = (filter: string) => {
+    setUserPreferences(prev => ({
+      ...prev,
+      discord: {
+        ...prev.discord,
+        customChannelFilters: prev.discord.customChannelFilters.filter(f => f !== filter)
+      }
+    }))
+  }
+
+  // Load preferences on component mount
+  useEffect(() => {
+    loadUserPreferences()
+  }, [])
 
   const handleSaveProfile = async () => {
     try {
@@ -746,6 +820,105 @@ export function Settings() {
                           {telegramWebhook.isLoading ? "Setting up..." : "Setup Webhook"}
                         </Button>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-purple-600" />
+                  Discord Channel Filtering
+                </h4>
+                
+                <div className="p-4 border rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-medium text-purple-800 dark:text-purple-200 mb-2">
+                        Channel Visibility Settings
+                      </p>
+                      <p className="text-sm text-purple-600 dark:text-purple-300 mb-4">
+                        Control which Discord channels are shown in the channel selector when creating posts.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label htmlFor="show-rules-channels">Show channels with "rules" in name</Label>
+                          <p className="text-sm text-muted-foreground">Include channels containing "rules" in the channel list</p>
+                        </div>
+                        <Switch
+                          id="show-rules-channels"
+                          checked={userPreferences.discord.showChannelsWithRules}
+                          onCheckedChange={(checked) => setUserPreferences(prev => ({
+                            ...prev,
+                            discord: { ...prev.discord, showChannelsWithRules: checked }
+                          }))}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label htmlFor="show-announcements-channels">Show channels with "announcements" in name</Label>
+                          <p className="text-sm text-muted-foreground">Include channels containing "announcements" in the channel list</p>
+                        </div>
+                        <Switch
+                          id="show-announcements-channels"
+                          checked={userPreferences.discord.showChannelsWithAnnouncements}
+                          onCheckedChange={(checked) => setUserPreferences(prev => ({
+                            ...prev,
+                            discord: { ...prev.discord, showChannelsWithAnnouncements: checked }
+                          }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <Label htmlFor="custom-filters">Custom Channel Filters</Label>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Add keywords to hide channels containing these terms (case-insensitive)
+                      </p>
+                      
+                      <div className="flex gap-2 mb-3">
+                        <Input
+                          id="custom-filters"
+                          placeholder="Enter channel keyword to filter"
+                          value={newCustomFilter}
+                          onChange={(e) => setNewCustomFilter(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addCustomChannelFilter()}
+                        />
+                        <Button onClick={addCustomChannelFilter} size="sm" disabled={!newCustomFilter.trim()}>
+                          Add
+                        </Button>
+                      </div>
+
+                      {userPreferences.discord.customChannelFilters.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Active Filters:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {userPreferences.discord.customChannelFilters.map((filter, index) => (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="flex items-center gap-1"
+                              >
+                                {filter}
+                                <X 
+                                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                                  onClick={() => removeCustomChannelFilter(filter)}
+                                />
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end pt-3 border-t">
+                      <Button onClick={handleSaveDiscordPreferences} size="sm">
+                        Save Discord Settings
+                      </Button>
                     </div>
                   </div>
                 </div>

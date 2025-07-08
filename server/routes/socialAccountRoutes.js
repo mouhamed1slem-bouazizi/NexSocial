@@ -1,5 +1,6 @@
 const express = require('express');
 const SocialAccountService = require('../services/socialAccountService.js');
+const UserService = require('../services/userService.js');
 const { requireUser } = require('./middleware/auth.js');
 
 const router = express.Router();
@@ -510,6 +511,15 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
       });
     }
     
+    // Fetch user preferences for channel filtering
+    const user = await UserService.get(req.user._id);
+    const preferences = user?.preferences || {};
+    const discordPrefs = preferences.discord || {
+      showChannelsWithRules: false,
+      showChannelsWithAnnouncements: false,
+      customChannelFilters: []
+    };
+
     // Fetch channels from Discord API using bot token
     try {
       const channelsResponse = await fetch(`https://discord.com/api/guilds/${primaryGuild.id}/channels`, {
@@ -522,13 +532,32 @@ router.get('/:id/discord-channels', requireUser, async (req, res) => {
       
       const channelsData = await channelsResponse.json();
       
-      // Filter and format channels
+      // Filter and format channels based on user preferences
       const textChannels = channelsData
-        .filter(channel => 
-          channel.type === 0 && // Text channels only
-          !channel.name.includes('rules') && // Skip rules channels
-          !channel.name.includes('announcements') // Skip announcement channels (unless they want to post there)
-        )
+        .filter(channel => {
+          // Only include text channels
+          if (channel.type !== 0) return false;
+          
+          // Apply user preference filters
+          if (!discordPrefs.showChannelsWithRules && channel.name.includes('rules')) {
+            return false;
+          }
+          
+          if (!discordPrefs.showChannelsWithAnnouncements && channel.name.includes('announcements')) {
+            return false;
+          }
+          
+          // Apply custom channel filters if any
+          if (discordPrefs.customChannelFilters && discordPrefs.customChannelFilters.length > 0) {
+            for (const filter of discordPrefs.customChannelFilters) {
+              if (channel.name.toLowerCase().includes(filter.toLowerCase())) {
+                return false;
+              }
+            }
+          }
+          
+          return true;
+        })
         .map(channel => ({
           id: channel.id,
           name: channel.name,

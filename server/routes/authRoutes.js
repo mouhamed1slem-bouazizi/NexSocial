@@ -233,4 +233,81 @@ router.post('/logout', requireUser, async (req, res) => {
   }
 });
 
+// Get user preferences endpoint
+router.get('/preferences', requireUser, async (req, res) => {
+  try {
+    console.log('⚙️ Get user preferences:', req.user.id);
+    
+    const user = await UserService.get(req.user.id);
+    if (!user) {
+      console.log('❌ User not found:', req.user.id);
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        preferences: user.preferences || {
+          discord: {
+            showChannelsWithRules: false,
+            showChannelsWithAnnouncements: false,
+            customChannelFilters: []
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user preferences'
+    });
+  }
+});
+
+// Update user preferences endpoint
+router.put('/preferences', requireUser, async (req, res) => {
+  try {
+    console.log('⚙️ Update user preferences:', req.user.id);
+    
+    const { preferences } = req.body;
+    
+    if (!preferences) {
+      return res.status(400).json({
+        success: false,
+        error: 'Preferences are required'
+      });
+    }
+
+    const updatedUser = await UserService.updatePreferences(req.user.id, preferences);
+    
+    if (!updatedUser) {
+      console.log('❌ User not found:', req.user.id);
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    console.log('✅ Preferences updated successfully for user:', req.user.id);
+
+    res.json({
+      success: true,
+      message: 'Preferences updated successfully',
+      data: {
+        preferences: updatedUser.preferences
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update user preferences'
+    });
+  }
+});
+
 module.exports = router;

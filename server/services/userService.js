@@ -109,7 +109,7 @@ class UserService {
 
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, created_at, updated_at')
+        .select('id, email, preferences, created_at, updated_at')
         .eq('id', id)
         .single();
 
@@ -124,6 +124,37 @@ class UserService {
       return data;
     } catch (error) {
       console.error('Error fetching user by ID:', error);
+      throw error;
+    }
+  }
+
+  static async updatePreferences(id, preferences) {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
+
+      console.log('Updating user preferences:', id);
+
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          preferences: preferences,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select('id, email, preferences, created_at, updated_at')
+        .single();
+
+      if (error) {
+        console.error('Supabase error updating user preferences:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error updating user preferences:', error);
       throw error;
     }
   }

@@ -66,3 +66,45 @@ export const logout = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Get user preferences
+// Endpoint: GET /api/auth/preferences
+// Request: {}
+// Response: { success: boolean, data: { preferences: object } }
+export interface UserPreferences {
+  discord: {
+    showChannelsWithRules: boolean;
+    showChannelsWithAnnouncements: boolean;
+    customChannelFilters: string[];
+  };
+}
+
+export const getUserPreferences = async (): Promise<{ success: boolean; data: { preferences: UserPreferences } }> => {
+  console.log('🔄 API Get user preferences request starting');
+  
+  try {
+    const response = await api.get('/auth/preferences');
+    console.log('✅ API Get preferences response received:', response.status);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ API Get preferences error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update user preferences
+// Endpoint: PUT /api/auth/preferences
+// Request: { preferences: object }
+// Response: { success: boolean, data: { preferences: object } }
+export const updateUserPreferences = async (preferences: UserPreferences): Promise<{ success: boolean; data: { preferences: UserPreferences } }> => {
+  console.log('🔄 API Update user preferences request starting');
+  
+  try {
+    const response = await api.put('/auth/preferences', { preferences });
+    console.log('✅ API Update preferences response received:', response.status);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ API Update preferences error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

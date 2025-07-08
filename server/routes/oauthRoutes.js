@@ -1509,7 +1509,7 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
             '2. Give it permission to post messages\n' +
             '3. Try connecting again'
           );
-          return;
+      return;
         }
         
         console.log('✅ Bot has admin permissions in group');
@@ -1577,7 +1577,7 @@ async function handleTelegramConnection(connectionCode, chatId, chat, userId) {
         `\n🎯 Smart Posting: Posts will be sent to the CHANNEL and automatically forwarded to the group!\n` +
         `This prevents duplicate messages in your group.\n\n` +
         `You can now manage both from your NexSocial dashboard.\n\n` +
-        `Visit: ${process.env.CLIENT_URL}/dashboard`
+      `Visit: ${process.env.CLIENT_URL}/dashboard`
       : `✅ Successfully connected to NexSocial!\n\n` +
         `${isGroup ? 'Group/Channel' : 'Chat'}: ${chat.title || chat.first_name || 'Private Chat'}\n` +
         `Type: ${chatType}\n` +
