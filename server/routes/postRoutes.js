@@ -841,16 +841,49 @@ async function sendTelegramTextMessage(chatId, text, botToken) {
 async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
   try {
     console.log(`📸 Uploading photo to Telegram: ${mediaItem.name}`);
+    console.log(`🎯 Target chat ID: ${chatId}`);
+    console.log(`🤖 Bot token length: ${botToken ? botToken.length : 'undefined'}`);
+    
+    // Quick test to ensure basic API access works
+    try {
+      const testResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+      const testResult = await testResponse.json();
+      if (!testResult.ok) {
+        throw new Error(`Bot token invalid: ${testResult.description}`);
+      }
+      console.log(`✅ Bot verified: ${testResult.result.first_name} (@${testResult.result.username})`);
+    } catch (botError) {
+      console.error('❌ Bot verification failed:', botError);
+      throw new Error(`Bot verification failed: ${botError.message}`);
+    }
     
     // Convert base64 to buffer
-    const base64Data = mediaItem.data.split(',')[1] || mediaItem.data; // Remove data:image/jpeg;base64, prefix if present
+    console.log('📊 Media item structure:', {
+      name: mediaItem.name,
+      type: mediaItem.type,
+      hasData: !!mediaItem.data,
+      dataLength: mediaItem.data ? mediaItem.data.length : 0,
+      dataPrefix: mediaItem.data ? mediaItem.data.substring(0, 50) : 'no data'
+    });
+    
+    if (!mediaItem.data) {
+      throw new Error('No media data provided');
+    }
+    
+    const base64Data = mediaItem.data.includes(',') ? mediaItem.data.split(',')[1] : mediaItem.data;
     const mediaBuffer = Buffer.from(base64Data, 'base64');
     
+    console.log(`📊 Buffer created: ${mediaBuffer.length} bytes (${(mediaBuffer.length / 1024).toFixed(2)} KB)`);
+    
+    if (mediaBuffer.length === 0) {
+      throw new Error('Invalid media data - buffer is empty');
+    }
+    
     const formData = new FormData();
-    formData.append('chat_id', chatId);
+    formData.append('chat_id', chatId.toString());
     formData.append('photo', mediaBuffer, {
       filename: mediaItem.name,
-      contentType: mediaItem.type === 'image' ? 'image/jpeg' : 'image/png'
+      contentType: mediaItem.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'
     });
     
     if (caption) {
@@ -858,13 +891,33 @@ async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
       formData.append('parse_mode', 'HTML');
     }
     
+    console.log('📤 FormData prepared, sending to Telegram...');
+    
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
       method: 'POST',
       body: formData,
       headers: formData.getHeaders()
     });
     
-    const result = await response.json();
+    // Check if response is ok and has content
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Telegram API error (${response.status}):`, errorText);
+      throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
+    }
+    
+    const responseText = await response.text();
+    if (!responseText) {
+      throw new Error('Empty response from Telegram API');
+    }
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (jsonError) {
+      console.error('❌ Invalid JSON response from Telegram:', responseText);
+      throw new Error(`Invalid JSON response from Telegram: ${responseText.substring(0, 200)}`);
+    }
     
     if (!result.ok) {
       console.error('❌ Telegram photo upload failed:', result);
@@ -885,10 +938,26 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
     console.log(`🎬 Uploading video to Telegram: ${mediaItem.name}`);
     
     // Convert base64 to buffer
-    const base64Data = mediaItem.data.split(',')[1] || mediaItem.data; // Remove data:video/mp4;base64, prefix if present
+    console.log('📊 Video item structure:', {
+      name: mediaItem.name,
+      type: mediaItem.type,
+      hasData: !!mediaItem.data,
+      dataLength: mediaItem.data ? mediaItem.data.length : 0,
+      dataPrefix: mediaItem.data ? mediaItem.data.substring(0, 50) : 'no data'
+    });
+    
+    if (!mediaItem.data) {
+      throw new Error('No video data provided');
+    }
+    
+    const base64Data = mediaItem.data.includes(',') ? mediaItem.data.split(',')[1] : mediaItem.data;
     const mediaBuffer = Buffer.from(base64Data, 'base64');
     
-    console.log(`📊 Video size: ${(mediaBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`📊 Video buffer created: ${mediaBuffer.length} bytes (${(mediaBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    
+    if (mediaBuffer.length === 0) {
+      throw new Error('Invalid video data - buffer is empty');
+    }
     
     // Telegram video size limit is 50MB
     if (mediaBuffer.length > 50 * 1024 * 1024) {
@@ -896,7 +965,7 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
     }
     
     const formData = new FormData();
-    formData.append('chat_id', chatId);
+    formData.append('chat_id', chatId.toString());
     formData.append('video', mediaBuffer, {
       filename: mediaItem.name,
       contentType: 'video/mp4'
@@ -907,13 +976,33 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
       formData.append('parse_mode', 'HTML');
     }
     
+    console.log('📤 Video FormData prepared, sending to Telegram...');
+    
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
       method: 'POST',
       body: formData,
       headers: formData.getHeaders()
     });
     
-    const result = await response.json();
+    // Check if response is ok and has content
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Telegram API error (${response.status}):`, errorText);
+      throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
+    }
+    
+    const responseText = await response.text();
+    if (!responseText) {
+      throw new Error('Empty response from Telegram API');
+    }
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (jsonError) {
+      console.error('❌ Invalid JSON response from Telegram:', responseText);
+      throw new Error(`Invalid JSON response from Telegram: ${responseText.substring(0, 200)}`);
+    }
     
     if (!result.ok) {
       console.error('❌ Telegram video upload failed:', result);
