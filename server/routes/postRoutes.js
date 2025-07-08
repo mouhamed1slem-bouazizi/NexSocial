@@ -4,6 +4,7 @@ const SocialAccountService = require('../services/socialAccountService.js');
 const TwitterOAuthService = require('../services/twitterOAuthService.js');
 const YouTubeService = require('../services/youtubeService.js');
 const { generateSocialMediaContent } = require('../services/llmService.js');
+const FormData = require('form-data');
 
 const router = express.Router();
 
@@ -768,20 +769,35 @@ const postToTelegram = async (account, content, media = []) => {
     }
     
     if (result.ok) {
-      const message = channelInfo 
-        ? `Posted to channel (auto-forwarding to linked group): ${channelInfo.channelTitle}`
-        : 'Posted to group successfully';
+      let message;
+      if (media.length === 0) {
+        message = channelInfo 
+          ? `Text posted to channel (auto-forwarding to linked group): ${channelInfo.channelTitle}`
+          : 'Text posted to group successfully';
+      } else if (media.length === 1) {
+        const mediaType = media[0].type === 'image' ? 'Image' : media[0].type === 'video' ? 'Video' : 'Document';
+        message = channelInfo 
+          ? `${mediaType} posted to channel (auto-forwarding to linked group): ${channelInfo.channelTitle}`
+          : `${mediaType} posted to group successfully`;
+      } else {
+        message = channelInfo 
+          ? `Media group (${media.length} items) posted to channel (auto-forwarding to linked group): ${channelInfo.channelTitle}`
+          : `Media group (${media.length} items) posted to group successfully`;
+      }
         
       console.log(`✅ Telegram posting completed: ${message}`);
       return {
         success: true,
-        postId: result.result.message_id.toString(),
+        postId: Array.isArray(result.result) ? result.result[0].message_id.toString() : result.result.message_id.toString(),
         platform: 'telegram',
+        message: message,
         details: {
           targetType: targetType,
           targetId: targetId,
           channelTitle: channelInfo?.channelTitle,
-          autoForwarding: !!channelInfo
+          autoForwarding: !!channelInfo,
+          mediaCount: media.length,
+          mediaTypes: media.map(m => m.type)
         }
       };
     } else {
@@ -824,9 +840,19 @@ async function sendTelegramTextMessage(chatId, text, botToken) {
 // Send photo to Telegram
 async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
   try {
+    console.log(`📸 Uploading photo to Telegram: ${mediaItem.name}`);
+    
+    // Convert base64 to buffer
+    const base64Data = mediaItem.data.split(',')[1] || mediaItem.data; // Remove data:image/jpeg;base64, prefix if present
+    const mediaBuffer = Buffer.from(base64Data, 'base64');
+    
     const formData = new FormData();
     formData.append('chat_id', chatId);
-    formData.append('photo', mediaItem.file, mediaItem.name);
+    formData.append('photo', mediaBuffer, {
+      filename: mediaItem.name,
+      contentType: mediaItem.type === 'image' ? 'image/jpeg' : 'image/png'
+    });
+    
     if (caption) {
       formData.append('caption', caption);
       formData.append('parse_mode', 'HTML');
@@ -834,10 +860,19 @@ async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
     
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      headers: formData.getHeaders()
     });
     
-    return await response.json();
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('❌ Telegram photo upload failed:', result);
+      throw new Error(result.description || 'Failed to upload photo to Telegram');
+    }
+    
+    console.log('✅ Photo uploaded to Telegram successfully');
+    return result;
   } catch (error) {
     console.error('❌ Telegram send photo error:', error);
     throw error;
@@ -847,9 +882,26 @@ async function sendTelegramPhoto(chatId, mediaItem, caption, botToken) {
 // Send video to Telegram
 async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
   try {
+    console.log(`🎬 Uploading video to Telegram: ${mediaItem.name}`);
+    
+    // Convert base64 to buffer
+    const base64Data = mediaItem.data.split(',')[1] || mediaItem.data; // Remove data:video/mp4;base64, prefix if present
+    const mediaBuffer = Buffer.from(base64Data, 'base64');
+    
+    console.log(`📊 Video size: ${(mediaBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    
+    // Telegram video size limit is 50MB
+    if (mediaBuffer.length > 50 * 1024 * 1024) {
+      throw new Error('Video file too large. Telegram limit is 50MB.');
+    }
+    
     const formData = new FormData();
     formData.append('chat_id', chatId);
-    formData.append('video', mediaItem.file, mediaItem.name);
+    formData.append('video', mediaBuffer, {
+      filename: mediaItem.name,
+      contentType: 'video/mp4'
+    });
+    
     if (caption) {
       formData.append('caption', caption);
       formData.append('parse_mode', 'HTML');
@@ -857,10 +909,19 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
     
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      headers: formData.getHeaders()
     });
     
-    return await response.json();
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('❌ Telegram video upload failed:', result);
+      throw new Error(result.description || 'Failed to upload video to Telegram');
+    }
+    
+    console.log('✅ Video uploaded to Telegram successfully');
+    return result;
   } catch (error) {
     console.error('❌ Telegram send video error:', error);
     throw error;
@@ -870,9 +931,26 @@ async function sendTelegramVideo(chatId, mediaItem, caption, botToken) {
 // Send document to Telegram
 async function sendTelegramDocument(chatId, mediaItem, caption, botToken) {
   try {
+    console.log(`📎 Uploading document to Telegram: ${mediaItem.name}`);
+    
+    // Convert base64 to buffer
+    const base64Data = mediaItem.data.split(',')[1] || mediaItem.data; // Remove data URI prefix if present
+    const mediaBuffer = Buffer.from(base64Data, 'base64');
+    
+    console.log(`📊 Document size: ${(mediaBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    
+    // Telegram document size limit is 50MB
+    if (mediaBuffer.length > 50 * 1024 * 1024) {
+      throw new Error('Document file too large. Telegram limit is 50MB.');
+    }
+    
     const formData = new FormData();
     formData.append('chat_id', chatId);
-    formData.append('document', mediaItem.file, mediaItem.name);
+    formData.append('document', mediaBuffer, {
+      filename: mediaItem.name,
+      contentType: 'application/octet-stream'
+    });
+    
     if (caption) {
       formData.append('caption', caption);
       formData.append('parse_mode', 'HTML');
@@ -880,10 +958,19 @@ async function sendTelegramDocument(chatId, mediaItem, caption, botToken) {
     
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      headers: formData.getHeaders()
     });
     
-    return await response.json();
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('❌ Telegram document upload failed:', result);
+      throw new Error(result.description || 'Failed to upload document to Telegram');
+    }
+    
+    console.log('✅ Document uploaded to Telegram successfully');
+    return result;
   } catch (error) {
     console.error('❌ Telegram send document error:', error);
     throw error;
@@ -893,28 +980,75 @@ async function sendTelegramDocument(chatId, mediaItem, caption, botToken) {
 // Send media group to Telegram
 async function sendTelegramMediaGroup(chatId, mediaItems, caption, botToken) {
   try {
-    const media = mediaItems.map((item, index) => ({
-      type: item.type === 'image' ? 'photo' : 'video',
-      media: `attach://${item.name}`,
-      caption: index === 0 ? caption : undefined, // Only add caption to first item
-      parse_mode: index === 0 ? 'HTML' : undefined
-    }));
+    console.log(`📸🎬 Uploading media group to Telegram: ${mediaItems.length} items`);
+    
+    // Telegram media group limits: 2-10 items, max 50MB per item
+    if (mediaItems.length < 2 || mediaItems.length > 10) {
+      throw new Error('Media group must contain 2-10 items');
+    }
     
     const formData = new FormData();
+    const media = [];
+    
+    // Process each media item
+    for (let index = 0; index < mediaItems.length; index++) {
+      const item = mediaItems[index];
+      const attachmentName = `media_${index}`;
+      
+      // Convert base64 to buffer
+      const base64Data = item.data.split(',')[1] || item.data;
+      const mediaBuffer = Buffer.from(base64Data, 'base64');
+      
+      console.log(`📊 Item ${index + 1} (${item.name}): ${(mediaBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+      
+      // Check size limit
+      if (mediaBuffer.length > 50 * 1024 * 1024) {
+        throw new Error(`File ${item.name} too large. Telegram limit is 50MB per file.`);
+      }
+      
+      // Determine content type
+      let contentType = 'application/octet-stream';
+      if (item.type === 'image') {
+        contentType = item.name.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
+      } else if (item.type === 'video') {
+        contentType = 'video/mp4';
+      }
+      
+      // Add to form data
+      formData.append(attachmentName, mediaBuffer, {
+        filename: item.name,
+        contentType: contentType
+      });
+      
+      // Add to media array
+      media.push({
+        type: item.type === 'image' ? 'photo' : 'video',
+        media: `attach://${attachmentName}`,
+        caption: index === 0 ? caption : undefined, // Only add caption to first item
+        parse_mode: index === 0 ? 'HTML' : undefined
+      });
+    }
+    
     formData.append('chat_id', chatId);
     formData.append('media', JSON.stringify(media));
     
-    // Add media files
-    mediaItems.forEach(item => {
-      formData.append(item.name, item.file, item.name);
-    });
+    console.log('📤 Sending media group to Telegram...');
     
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMediaGroup`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      headers: formData.getHeaders()
     });
     
-    return await response.json();
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('❌ Telegram media group upload failed:', result);
+      throw new Error(result.description || 'Failed to upload media group to Telegram');
+    }
+    
+    console.log('✅ Media group uploaded to Telegram successfully');
+    return result;
   } catch (error) {
     console.error('❌ Telegram send media group error:', error);
     throw error;
