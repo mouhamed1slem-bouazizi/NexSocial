@@ -1242,18 +1242,67 @@ const postToDiscord = async (account, content, media = []) => {
     console.log(`📎 Media items: ${media.length}`);
     
     // Parse metadata to get Discord-specific info
+    console.log(`🔍 Discord account metadata:`, account.metadata);
     let metadata = {};
     try {
       metadata = JSON.parse(account.metadata || '{}');
+      console.log(`🔍 Parsed metadata:`, metadata);
     } catch (error) {
       console.error('❌ Failed to parse Discord metadata:', error);
+      console.log(`🔍 Raw metadata value:`, account.metadata);
     }
     
     const guilds = metadata.guilds || [];
-    const primaryGuild = metadata.primaryGuild;
+    let primaryGuild = metadata.primaryGuild;
+    
+    console.log(`🔍 Primary guild from metadata:`, primaryGuild);
+    console.log(`🔍 Available guilds:`, guilds.length);
+    
+    // Fallback: If no primaryGuild in metadata, try to get user's guilds using access token
+    if (!primaryGuild && account.access_token) {
+      console.log(`🔄 No primary guild found, attempting to fetch guilds using access token...`);
+      try {
+        const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+          headers: { 'Authorization': `Bearer ${account.access_token}` }
+        });
+        
+        if (guildsResponse.ok) {
+          const freshGuildsData = await guildsResponse.json();
+          console.log(`🔄 Fetched ${freshGuildsData.length} guilds from Discord API`);
+          
+          // Find a suitable guild (prioritize ones where user has management permissions)
+          primaryGuild = freshGuildsData.find(guild => 
+            (guild.permissions & 0x20) || // MANAGE_MESSAGES
+            (guild.permissions & 0x8) ||  // ADMINISTRATOR  
+            guild.owner
+          ) || freshGuildsData[0]; // Fallback to first guild
+          
+          if (primaryGuild) {
+            console.log(`✅ Found fallback primary guild: ${primaryGuild.name} (${primaryGuild.id})`);
+            
+            // Update account metadata with the correct information
+            try {
+              await SocialAccountService.update(account.id, {
+                metadata: JSON.stringify({
+                  ...metadata,
+                  guilds: freshGuildsData,
+                  primaryGuild: primaryGuild,
+                  updated_at: new Date().toISOString()
+                })
+              }, account.user_id);
+              console.log(`✅ Updated account metadata with primary guild information`);
+            } catch (updateError) {
+              console.log(`⚠️ Could not update account metadata:`, updateError.message);
+            }
+          }
+        }
+      } catch (apiError) {
+        console.log(`⚠️ Could not fetch guilds from Discord API:`, apiError.message);
+      }
+    }
     
     if (!primaryGuild) {
-      throw new Error('No Discord server configured for posting. Please reconnect your Discord account.');
+      throw new Error('No Discord server found for posting. Please ensure the Discord bot has been added to at least one server where you have posting permissions, or try reconnecting your Discord account.');
     }
     
     // Get the first available text channel in the primary guild

@@ -294,6 +294,48 @@ class SocialAccountService {
     }
   }
 
+  static async update(id, updateData, userId = null) {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
+
+      console.log(`🔄 Updating social account: ${id} with data:`, Object.keys(updateData));
+
+      // Always include updated_at timestamp
+      const finalUpdateData = {
+        ...updateData,
+        updated_at: new Date().toISOString()
+      };
+
+      let query = supabase
+        .from('social_accounts')
+        .update(finalUpdateData)
+        .eq('id', id);
+
+      // If userId is provided, add it as a condition for security
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.select().single();
+
+      if (error) {
+        if (error.code === 'PGRST116') { // No rows returned
+          return null;
+        }
+        throw error;
+      }
+
+      console.log(`✅ Social account updated successfully: ${id}`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error updating social account ${id}:`, error);
+      throw new Error(`Database error while updating social account: ${error.message}`);
+    }
+  }
+
   static async findByPlatformUserId(platform, platformUserId) {
     try {
       const supabase = getSupabase();
