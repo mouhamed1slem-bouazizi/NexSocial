@@ -1564,12 +1564,11 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
       const base64Data = mediaItem.data.split(',')[1];
       imageBuffer = Buffer.from(base64Data, 'base64');
       
-      // Extract mime type from data URL if not provided
-      if (!mediaItem.mimeType) {
-        const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
-        if (mimeMatch) {
-          mimeType = mimeMatch[1];
-        }
+      // Extract mime type from data URL (this is more reliable than the type field)
+      const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
+      if (mimeMatch) {
+        mimeType = mimeMatch[1];
+        console.log(`📷 Using MIME type from data URL: ${mimeType}`);
       }
     } else {
       throw new Error('Invalid media data format');
@@ -1694,8 +1693,38 @@ const postToReddit = async (account, content, media = []) => {
       
       // Filter supported media types
       const supportedMedia = media.filter(m => {
-        const isImage = m.type?.startsWith('image/') || m.mimeType?.startsWith('image/');
-        const isVideo = m.type?.startsWith('video/') || m.mimeType?.startsWith('video/');
+        // Check both the type field and mimeType field, and also check data URL for MIME type
+        const type = m.type || '';
+        const mimeType = m.mimeType || '';
+        
+        // Extract MIME type from data URL if available
+        let dataMimeType = '';
+        if (m.data && m.data.startsWith('data:')) {
+          const mimeMatch = m.data.match(/data:([^;]+);/);
+          if (mimeMatch) {
+            dataMimeType = mimeMatch[1];
+          }
+        }
+        
+        console.log(`🔍 Checking media: ${m.name}`);
+        console.log(`   type: "${type}"`);
+        console.log(`   mimeType: "${mimeType}"`);
+        console.log(`   dataMimeType: "${dataMimeType}"`);
+        
+        // Check if it's an image (multiple ways to detect)
+        const isImage = type === 'image' || 
+                       type.startsWith('image/') || 
+                       mimeType.startsWith('image/') || 
+                       dataMimeType.startsWith('image/');
+        
+        // Check if it's a video (multiple ways to detect)
+        const isVideo = type === 'video' || 
+                       type.startsWith('video/') || 
+                       mimeType.startsWith('video/') || 
+                       dataMimeType.startsWith('video/');
+        
+        console.log(`   isImage: ${isImage}, isVideo: ${isVideo}`);
+        
         return isImage || isVideo;
       });
       
@@ -1715,7 +1744,22 @@ const postToReddit = async (account, content, media = []) => {
       } else if (supportedMedia.length === 1) {
         // Single image/video post
         const mediaItem = supportedMedia[0];
-        const isImage = mediaItem.type?.startsWith('image/') || mediaItem.mimeType?.startsWith('image/');
+        
+        // Use the same robust detection logic
+        const type = mediaItem.type || '';
+        const mimeType = mediaItem.mimeType || '';
+        let dataMimeType = '';
+        if (mediaItem.data && mediaItem.data.startsWith('data:')) {
+          const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
+          if (mimeMatch) {
+            dataMimeType = mimeMatch[1];
+          }
+        }
+        
+        const isImage = type === 'image' || 
+                       type.startsWith('image/') || 
+                       mimeType.startsWith('image/') || 
+                       dataMimeType.startsWith('image/');
         
         if (isImage) {
           console.log(`📷 Creating image post for Reddit`);
