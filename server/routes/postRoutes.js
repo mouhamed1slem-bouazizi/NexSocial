@@ -1550,6 +1550,101 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
   }
 };
 
+// Helper function to upload image to Reddit using proper API
+const uploadImageToReddit = async (mediaItem, accessToken) => {
+  try {
+    console.log(`📤 Uploading image to Reddit: ${mediaItem.name}`);
+    
+    // Convert base64 to buffer
+    let imageBuffer;
+    let mimeType = mediaItem.mimeType || 'image/jpeg';
+    
+    if (mediaItem.data && mediaItem.data.startsWith('data:')) {
+      // Remove data URL prefix and convert base64 to buffer
+      const base64Data = mediaItem.data.split(',')[1];
+      imageBuffer = Buffer.from(base64Data, 'base64');
+      
+      // Extract mime type from data URL if not provided
+      if (!mediaItem.mimeType) {
+        const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
+        if (mimeMatch) {
+          mimeType = mimeMatch[1];
+        }
+      }
+    } else {
+      throw new Error('Invalid media data format');
+    }
+    
+    // Step 1: Request upload lease from Reddit
+    const leaseResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'NexSocial/1.0'
+      },
+      body: new URLSearchParams({
+        filepath: mediaItem.name,
+        mimetype: mimeType
+      })
+    });
+    
+    if (!leaseResponse.ok) {
+      throw new Error(`Failed to get upload lease: ${leaseResponse.status}`);
+    }
+    
+    const leaseData = await leaseResponse.json();
+    console.log(`✅ Got upload lease from Reddit`);
+    
+    // Step 2: Upload to Reddit's media servers
+    const { asset, upload_url } = leaseData;
+    
+    if (!upload_url || !asset) {
+      throw new Error('Invalid upload lease response from Reddit');
+    }
+    
+    // Prepare multipart form data for upload
+    const FormData = require('form-data');
+    const form = new FormData();
+    
+    // Add all required fields from upload_url
+    Object.entries(upload_url.fields).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+    
+    // Add the file
+    form.append('file', imageBuffer, {
+      filename: mediaItem.name,
+      contentType: mimeType
+    });
+    
+    // Upload to Reddit's servers
+    const uploadResponse = await fetch(upload_url.action, {
+      method: 'POST',
+      body: form,
+      headers: form.getHeaders()
+    });
+    
+    if (!uploadResponse.ok) {
+      const responseText = await uploadResponse.text();
+      console.error('❌ Upload failed:', responseText);
+      throw new Error(`Upload failed: ${uploadResponse.status}`);
+    }
+    
+    console.log(`✅ Successfully uploaded image to Reddit`);
+    
+    return {
+      media_id: asset.media_id,
+      asset_id: asset.asset_id,
+      websocket_url: asset.websocket_url
+    };
+    
+  } catch (error) {
+    console.error('❌ Error uploading image to Reddit:', error);
+    throw error;
+  }
+};
+
 // Reddit posting function
 const postToReddit = async (account, content, media = []) => {
   try {
@@ -1595,23 +1690,103 @@ const postToReddit = async (account, content, media = []) => {
     let postType;
     
     if (media.length > 0) {
-      // For media posts, create a text post and mention media in content
-      // Reddit's OAuth API has limited media upload capabilities
-      postType = 'self';
-      const mediaText = media.map(m => `📎 ${m.name} (${m.type})`).join('\n');
-      const fullContent = `${content}\n\n**Media Attachments:**\n${mediaText}`;
+      console.log(`📤 Processing ${media.length} media items for Reddit`);
       
-      postData = {
-        api_type: 'json',
-        kind: 'self',
-        sr: targetSubreddit,
-        title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-        text: fullContent,
-        sendreplies: true,
-        validate_on_submit: true
-      };
+      // Filter supported media types
+      const supportedMedia = media.filter(m => {
+        const isImage = m.type?.startsWith('image/') || m.mimeType?.startsWith('image/');
+        const isVideo = m.type?.startsWith('video/') || m.mimeType?.startsWith('video/');
+        return isImage || isVideo;
+      });
       
-      console.log(`📤 Creating text post with media references (${media.length} files)`);
+      if (supportedMedia.length === 0) {
+        console.log(`⚠️ No supported media found, creating text post instead`);
+        // Fall back to text post
+        postType = 'self';
+        postData = {
+          api_type: 'json',
+          kind: 'self',
+          sr: targetSubreddit,
+          title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+          text: content,
+          sendreplies: true,
+          validate_on_submit: true
+        };
+      } else if (supportedMedia.length === 1) {
+        // Single image/video post
+        const mediaItem = supportedMedia[0];
+        const isImage = mediaItem.type?.startsWith('image/') || mediaItem.mimeType?.startsWith('image/');
+        
+        if (isImage) {
+          console.log(`📷 Creating image post for Reddit`);
+          
+          try {
+            // Upload image to Reddit first
+            const uploadResult = await uploadImageToReddit(mediaItem, account.access_token);
+            
+            // Create an image post using the uploaded media
+            postType = 'image';
+            postData = {
+              api_type: 'json',
+              kind: 'image',
+              sr: targetSubreddit,
+              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+              url: uploadResult.media_id, // Use Reddit's media ID
+              sendreplies: true,
+              validate_on_submit: true
+            };
+            
+            // If there's additional text content, add it as a comment
+            if (content && content.trim() !== (content.length > 300 ? content.substring(0, 297) + '...' : content)) {
+              postData.text = content;
+            }
+            
+            console.log(`✅ Created Reddit image post with media ID: ${uploadResult.media_id}`);
+            
+          } catch (uploadError) {
+            console.error('❌ Failed to upload image to Reddit, falling back to text post:', uploadError);
+            
+            // Fall back to text post with image mention
+            postType = 'self';
+            postData = {
+              api_type: 'json',
+              kind: 'self',
+              sr: targetSubreddit,
+              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+              text: `${content}\n\n📷 *Image: ${mediaItem.name}*\n\n*(Image upload failed: ${uploadError.message})*`,
+              sendreplies: true,
+              validate_on_submit: true
+            };
+          }
+        } else {
+          // Video post - Reddit's video API is more complex, fall back to text for now
+          console.log(`🎥 Video detected - creating text post with video mention`);
+          postType = 'self';
+          postData = {
+            api_type: 'json',
+            kind: 'self',
+            sr: targetSubreddit,
+            title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+            text: `${content}\n\n*[Video: ${mediaItem.name}]*`,
+            sendreplies: true,
+            validate_on_submit: true
+          };
+        }
+      } else {
+        // Multiple media items - create text post with media mentions
+        console.log(`📎 Multiple media items detected, creating text post with references`);
+        const mediaList = supportedMedia.map(m => `• ${m.name}`).join('\n');
+        postType = 'self';
+        postData = {
+          api_type: 'json',
+          kind: 'self',
+          sr: targetSubreddit,
+          title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+          text: `${content}\n\n**Attached Media:**\n${mediaList}`,
+          sendreplies: true,
+          validate_on_submit: true
+        };
+      }
     } else {
       // Text post
       postType = 'self';
@@ -1694,11 +1869,21 @@ const postToReddit = async (account, content, media = []) => {
     console.log(`✅ Posted to Reddit successfully`);
     console.log(`📊 Post details: ID=${postInfo.id}, URL=${redditUrl}`);
     
+    // Determine success message based on post type and media
+    let successMessage = `Posted to Reddit r/${targetSubreddit} successfully`;
+    if (media.length > 0) {
+      if (postType === 'image') {
+        successMessage += ` with image upload`;
+      } else if (postType === 'self' && media.length > 0) {
+        successMessage += ` with ${media.length} media reference(s)`;
+      }
+    }
+    
     return {
       success: true,
       postId: postInfo.id,
       platform: 'reddit',
-      message: `Posted to Reddit r/${targetSubreddit} successfully${media.length > 0 ? ` with ${media.length} media reference(s)` : ''}`,
+      message: successMessage,
       details: {
         subreddit: targetSubreddit,
         postType: postType,
@@ -1706,6 +1891,7 @@ const postToReddit = async (account, content, media = []) => {
         permalink: postInfo.url,
         fullname: postInfo.name,
         mediaCount: media.length,
+        mediaUploaded: postType === 'image',
         postedToProfile: postToProfile,
         userKarma: karmaInfo.total || 0
       }
