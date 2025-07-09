@@ -1398,7 +1398,8 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
         console.log(`📎 Media ${index + 1}: ${item.name} (${item.type}, ${(item.size / 1024 / 1024).toFixed(2)}MB)`);
       });
       
-      // Create form data for the message with attachments
+      // Use axios for better form-data handling
+      const axios = require('axios');
       const FormData = require('form-data');
       const formData = new FormData();
       
@@ -1407,23 +1408,10 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       const truncatedContent = finalContent.length > 2000 ? finalContent.substring(0, 1997) + '...' : finalContent;
       console.log(`📝 Final content being sent: "${truncatedContent}" (${truncatedContent.length} chars)`);
       
-      // Add the message content with proper payload structure
-      const payload = {
-        content: truncatedContent,
-        attachments: mediaToUpload.map((_, index) => ({
-          id: index,
-          filename: mediaToUpload[index].name
-        }))
-      };
-      
-      // Validate that we're not sending empty content
-      if (!payload.content || payload.content.trim() === '') {
-        console.log(`⚠️  Warning: Content is empty, using fallback message`);
-        payload.content = 'Media attachment';
-      }
-      
-      console.log(`📤 Payload JSON: ${JSON.stringify(payload)}`);
-      formData.append('payload_json', JSON.stringify(payload));
+      // Add the message content as JSON
+      formData.append('payload_json', JSON.stringify({
+        content: truncatedContent
+      }));
       
       // Add each media file
       mediaToUpload.forEach((mediaItem, index) => {
@@ -1436,57 +1424,56 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       
       console.log(`📤 Sending Discord message with ${mediaToUpload.length} attachments to channel ${targetChannelId}`);
       
-      // Send message with attachments
-      const response = await fetch(`https://discord.com/api/channels/${targetChannelId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-          ...formData.getHeaders()
-        },
-        body: formData
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
+      try {
+        // Send message with attachments using axios
+        const response = await axios.post(`https://discord.com/api/channels/${targetChannelId}/messages`, formData, {
+          headers: {
+            'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+            ...formData.getHeaders()
+          }
+        });
+        
+        const data = response.data;
+        
+        mediaUploadResults = data.attachments || [];
+        
+        console.log(`✅ Posted to Discord with ${mediaUploadResults.length} media file(s)`);
+        console.log(`📊 Message details: ID=${data.id}, Channel=${targetChannelId}, Guild=${primaryGuild.id}`);
+        
+        return {
+          success: true,
+          postId: data.id,
+          platform: 'discord',
+          message: `Posted to Discord #${targetChannelName} successfully with ${mediaUploadResults.length} media file(s)`,
+          details: {
+            channelId: targetChannelId,
+            channelName: targetChannelName,
+            guildId: primaryGuild.id,
+            guildName: primaryGuild.name,
+            mediaCount: mediaUploadResults.length,
+            messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`,
+            userSelected: !!selectedChannelId
+          }
+        };
+        
+      } catch (error) {
         console.error('❌ Discord posting error:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData: data
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          errorData: error.response?.data
         });
         
         // Provide more specific error messages
-        if (response.status === 413) {
+        if (error.response?.status === 413) {
           throw new Error('File too large for Discord (max 25MB per file)');
-        } else if (response.status === 403) {
+        } else if (error.response?.status === 403) {
           throw new Error('Bot lacks permissions to post in this Discord channel');
-        } else if (response.status === 400 && data.message) {
-          throw new Error(`Discord API error: ${data.message}`);
+        } else if (error.response?.status === 400 && error.response?.data?.message) {
+          throw new Error(`Discord API error: ${error.response.data.message}`);
         } else {
-          throw new Error(`Discord posting failed (${response.status}): ${data.message || 'Unknown error'}`);
+          throw new Error(`Discord posting failed (${error.response?.status || 'Unknown'}): ${error.response?.data?.message || error.message}`);
         }
       }
-      
-      mediaUploadResults = data.attachments || [];
-      
-      console.log(`✅ Posted to Discord with ${mediaUploadResults.length} media file(s)`);
-      console.log(`📊 Message details: ID=${data.id}, Channel=${targetChannelId}, Guild=${primaryGuild.id}`);
-      
-      return {
-        success: true,
-        postId: data.id,
-        platform: 'discord',
-        message: `Posted to Discord #${targetChannelName} successfully with ${mediaUploadResults.length} media file(s)`,
-        details: {
-          channelId: targetChannelId,
-          channelName: targetChannelName,
-          guildId: primaryGuild.id,
-          guildName: primaryGuild.name,
-          mediaCount: mediaUploadResults.length,
-          messageUrl: `https://discord.com/channels/${primaryGuild.id}/${targetChannelId}/${data.id}`,
-          userSelected: !!selectedChannelId
-        }
-      };
       
     } else {
       // Send text-only message
