@@ -6,6 +6,7 @@ const authRoutes = require("./routes/authRoutes");
 const socialAccountRoutes = require("./routes/socialAccountRoutes");
 const oauthRoutes = require("./routes/oauthRoutes");
 const postRoutes = require("./routes/postRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
 const path = require('path');
@@ -151,6 +152,8 @@ app.use('/api/social-accounts', checkDatabaseConnection, socialAccountRoutes);
 app.use('/api/oauth', checkDatabaseConnection, oauthRoutes);
 // Post Routes - require database
 app.use('/api/posts', checkDatabaseConnection, postRoutes);
+// Analytics Routes - require database
+app.use('/api/analytics', checkDatabaseConnection, analyticsRoutes);
 
 // Serve React app for all non-API routes in production
 if (process.env.NODE_ENV === 'production') {

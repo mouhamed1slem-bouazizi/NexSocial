@@ -4,6 +4,7 @@ const SocialAccountService = require('../services/socialAccountService.js');
 const TwitterOAuthService = require('../services/twitterOAuthService.js');
 const YouTubeService = require('../services/youtubeService.js');
 const { generateSocialMediaContent } = require('../services/llmService.js');
+const PostTrackingService = require('../services/postTrackingService.js');
 const FormData = require('form-data');
 const axios = require('axios');
 
@@ -155,6 +156,19 @@ router.post('/', requireUser, async (req, res) => {
     const failedPosts = totalAccounts - successfulPosts;
 
     console.log(`📊 Posting complete: ${successfulPosts}/${totalAccounts} successful`);
+
+    // Save post to tracking database for analytics
+    try {
+      await PostTrackingService.createPost(req.user._id, {
+        content: content,
+        mediaCount: processedMedia.length,
+        results: results
+      });
+      console.log(`📊 Post tracking record saved successfully`);
+    } catch (trackingError) {
+      console.error('❌ Failed to save post tracking record:', trackingError);
+      // Don't fail the main request if tracking fails
+    }
 
     // Determine overall success
     const overallSuccess = successfulPosts > 0;

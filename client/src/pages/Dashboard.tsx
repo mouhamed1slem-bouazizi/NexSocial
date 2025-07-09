@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getSocialAccounts, disconnectSocialAccount, initiateOAuth, syncTelegramSubscribers, syncLinkedInConnections } from "@/api/socialAccounts"
+import { getDashboardAnalytics, type DashboardAnalytics } from "@/api/analytics"
 import {
   BarChart,
   Bar,
@@ -113,41 +114,43 @@ export function Dashboard() {
   const [connecting, setConnecting] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<string | null>(null)
   
+  // Analytics data state
+  const [analyticsData, setAnalyticsData] = useState<DashboardAnalytics | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  
   // LinkedIn manual sync state
   const [linkedinModalOpen, setLinkedinModalOpen] = useState(false)
   const [linkedinAccount, setLinkedinAccount] = useState<SocialAccount | null>(null)
   const [linkedinConnectionsInput, setLinkedinConnectionsInput] = useState('')
   const { toast } = useToast()
 
-  // Mock data for charts
-  const engagementData = [
-    { name: 'Mon', likes: 45, comments: 12, shares: 8 },
-    { name: 'Tue', likes: 52, comments: 18, shares: 12 },
-    { name: 'Wed', likes: 38, comments: 15, shares: 6 },
-    { name: 'Thu', likes: 61, comments: 22, shares: 14 },
-    { name: 'Fri', likes: 55, comments: 19, shares: 11 },
-    { name: 'Sat', likes: 67, comments: 25, shares: 16 },
-    { name: 'Sun', likes: 48, comments: 16, shares: 9 }
-  ]
-
-  const followerGrowth = [
-    { name: 'Jan', followers: 1200 },
-    { name: 'Feb', followers: 1350 },
-    { name: 'Mar', followers: 1580 },
-    { name: 'Apr', followers: 1720 },
-    { name: 'May', followers: 1890 },
-    { name: 'Jun', followers: 2100 }
-  ]
-
-  const platformDistribution = [
-    { name: 'Facebook', value: 35, color: '#1877F2' },
-    { name: 'Instagram', value: 28, color: '#E4405F' },
-    { name: 'Twitter', value: 22, color: '#1DA1F2' },
-    { name: 'LinkedIn', value: 15, color: '#0A66C2' }
-  ]
+  // Fetch analytics data
+  const fetchAnalytics = async () => {
+    try {
+      setAnalyticsLoading(true)
+      setAnalyticsError(null)
+      console.log('📊 Fetching dashboard analytics...')
+      const data = await getDashboardAnalytics()
+      console.log('✅ Analytics data received:', data)
+      setAnalyticsData(data)
+    } catch (err: any) {
+      console.error('❌ Error fetching analytics:', err)
+      setAnalyticsError(err.message)
+      // Set fallback data if analytics fail
+      setAnalyticsData({
+        postsStats: { currentMonth: 0, lastMonth: 0, difference: 0, posts: [] },
+        engagementData: [],
+        platformDistribution: []
+      })
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchSocialAccounts()
+    fetchAnalytics()
     
     // Check for OAuth callback results
     const urlParams = new URLSearchParams(window.location.search)
@@ -572,9 +575,15 @@ Visit the bot setup guide for detailed instructions.`)
             <Calendar className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">24</div>
+            <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+              {analyticsLoading ? '...' : analyticsData?.postsStats.currentMonth || 0}
+            </div>
             <p className="text-xs text-purple-600 dark:text-purple-400">
-              +4 from last month
+              {analyticsLoading ? 'Loading...' : (
+                (analyticsData?.postsStats?.difference || 0) >= 0 
+                  ? `+${analyticsData?.postsStats?.difference || 0} from last month`
+                  : `${analyticsData?.postsStats?.difference || 0} from last month`
+              )}
             </p>
           </CardContent>
         </Card>
@@ -827,15 +836,21 @@ Visit the bot setup guide for detailed instructions.`)
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={engagementData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="likes" fill="#3b82f6" />
-                <Bar dataKey="comments" fill="#10b981" />
-                <Bar dataKey="shares" fill="#f59e0b" />
-              </BarChart>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <BarChart data={analyticsData?.engagementData || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="likes" fill="#3b82f6" />
+                  <Bar dataKey="comments" fill="#10b981" />
+                  <Bar dataKey="shares" fill="#f59e0b" />
+                </BarChart>
+              )}
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -843,22 +858,46 @@ Visit the bot setup guide for detailed instructions.`)
         <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Follower Growth
+              <Share2 className="h-5 w-5" />
+              Platform Distribution
             </CardTitle>
             <CardDescription>
-              Your audience growth over the past 6 months
+              Your posting activity across platforms (last 30 days)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={followerGrowth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="followers" stroke="#3b82f6" strokeWidth={2} />
-              </LineChart>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : analyticsData?.platformDistribution && analyticsData.platformDistribution.length > 0 ? (
+                <PieChart>
+                  <Pie
+                    data={analyticsData.platformDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {analyticsData.platformDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <div className="text-center">
+                    <Share2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No posting data yet</p>
+                    <p className="text-sm">Start posting to see platform distribution</p>
+                  </div>
+                </div>
+              )}
             </ResponsiveContainer>
           </CardContent>
         </Card>
