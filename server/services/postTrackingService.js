@@ -48,9 +48,9 @@ class PostTrackingService {
         platforms: JSON.stringify(platforms),
         successful_platforms: JSON.stringify(successfulPlatforms),
         failed_platforms: JSON.stringify(failedPlatforms),
-        total_count: platforms.length,
-        successful_count: successfulAccounts,
-        failed_count: failedAccounts,
+        total_accounts: platforms.length,
+        successful_accounts: successfulAccounts,
+        failed_accounts: failedAccounts,
         post_results: JSON.stringify(postData.results || {})
       };
 
@@ -177,7 +177,7 @@ class PostTrackingService {
 
         // Calculate metrics (simplified - in real app you'd have actual engagement data)
         const postsCount = dayPosts.length;
-        const successfulPosts = dayPosts.filter(p => p.successful_count > 0).length;
+        const successfulPosts = dayPosts.filter(p => p.successful_accounts > 0).length;
         
         engagementData.push({
           name: dayName,

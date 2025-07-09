@@ -16,9 +16,9 @@ CREATE TABLE public.comments (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT comments_pkey PRIMARY KEY (id),
-  CONSTRAINT comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id),
-  CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(id)
+  CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(id),
+  CONSTRAINT comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.content_approvals (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -34,9 +34,27 @@ CREATE TABLE public.content_approvals (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT content_approvals_pkey PRIMARY KEY (id),
-  CONSTRAINT content_approvals_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.posts(id),
+  CONSTRAINT content_approvals_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES public.users(id),
   CONSTRAINT content_approvals_workflow_id_fkey FOREIGN KEY (workflow_id) REFERENCES public.workflows(id),
-  CONSTRAINT content_approvals_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES public.users(id)
+  CONSTRAINT content_approvals_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.posts(id)
+);
+CREATE TABLE public.discord_channels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  social_account_id uuid NOT NULL,
+  discord_channel_id character varying NOT NULL,
+  channel_name character varying NOT NULL,
+  channel_position integer DEFAULT 0,
+  parent_id character varying,
+  topic text,
+  nsfw boolean DEFAULT false,
+  permissions jsonb DEFAULT '[]'::jsonb,
+  guild_id character varying NOT NULL,
+  guild_name character varying NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT discord_channels_pkey PRIMARY KEY (id),
+  CONSTRAINT discord_channels_social_account_id_fkey FOREIGN KEY (social_account_id) REFERENCES public.social_accounts(id)
 );
 CREATE TABLE public.media_files (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -132,7 +150,36 @@ CREATE TABLE public.social_accounts (
   connected_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  oauth1_access_token text,
+  oauth1_access_token_secret text,
+  metadata text,
   CONSTRAINT social_accounts_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.telegram_connection_codes (
+  id integer NOT NULL DEFAULT nextval('telegram_connection_codes_id_seq'::regclass),
+  code character varying NOT NULL UNIQUE,
+  user_id uuid NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT telegram_connection_codes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_posts (
+  id integer NOT NULL DEFAULT nextval('user_posts_id_seq'::regclass),
+  user_id uuid NOT NULL,
+  content text NOT NULL,
+  content_type character varying DEFAULT 'text'::character varying CHECK (content_type::text = ANY (ARRAY['text'::character varying, 'image'::character varying, 'video'::character varying, 'mixed'::character varying]::text[])),
+  media_count integer DEFAULT 0,
+  platforms jsonb NOT NULL,
+  successful_platforms jsonb NOT NULL DEFAULT '[]'::jsonb,
+  failed_platforms jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total_accounts integer NOT NULL DEFAULT 0,
+  successful_accounts integer NOT NULL DEFAULT 0,
+  failed_accounts integer NOT NULL DEFAULT 0,
+  post_results jsonb,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT user_posts_pkey PRIMARY KEY (id),
+  CONSTRAINT user_posts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_roles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -141,9 +188,9 @@ CREATE TABLE public.user_roles (
   assigned_by uuid,
   assigned_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_roles_pkey PRIMARY KEY (id),
-  CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
-  CONSTRAINT user_roles_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id)
+  CONSTRAINT user_roles_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id),
+  CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -151,6 +198,7 @@ CREATE TABLE public.users (
   password character varying NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  preferences jsonb DEFAULT '{"discord": {"customChannelFilters": [], "showChannelsWithRules": false, "showChannelsWithAnnouncements": false}}'::jsonb,
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.workflows (
