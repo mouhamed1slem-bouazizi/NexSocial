@@ -1125,55 +1125,6 @@ export function CreatePost() {
             </CardContent>
           </Card>
 
-          {/* Twitter Reconnection Warning */}
-          {media.length > 0 && (() => {
-            const selectedTwitterAccounts = socialAccounts.filter(acc => 
-              acc.platform === 'twitter' && 
-              selectedAccounts.includes(acc.id) &&
-              (!acc.oauth1_access_token || !acc.oauth1_access_token_secret)
-            )
-            
-            if (selectedTwitterAccounts.length === 0) return null
-            
-            return (
-              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
-                    Twitter Media Upload Issue
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="text-sm text-amber-700 dark:text-amber-300">
-                    <p className="font-medium mb-2">The following Twitter accounts need to be reconnected for media upload:</p>
-                    <ul className="space-y-1 mb-3">
-                      {selectedTwitterAccounts.map(acc => (
-                        <li key={acc.id} className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-amber-600 rounded-full"></span>
-                          @{acc.username}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-xs">
-                      <strong>Current behavior:</strong> Media will be referenced in tweet text with a timestamp.
-                      <br />
-                      <strong>To fix:</strong> Reconnect these accounts to enable direct media upload.
-                    </p>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900"
-                    onClick={() => navigate('/settings')}
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Go to Settings to Reconnect
-                  </Button>
-                </CardContent>
-              </Card>
-            )
-          })()}
-
           {/* Preview */}
           {(content || media.length > 0) && selectedAccounts.length > 0 && (
             <Card>
@@ -1282,6 +1233,55 @@ export function CreatePost() {
               Save as Draft
             </Button>
           </div>
+
+          {/* Twitter Reconnection Warning */}
+          {media.length > 0 && (() => {
+            const selectedTwitterAccounts = socialAccounts.filter(acc => 
+              acc.platform === 'twitter' && 
+              selectedAccounts.includes(acc.id) &&
+              (!acc.oauth1_access_token || !acc.oauth1_access_token_secret)
+            )
+            
+            if (selectedTwitterAccounts.length === 0) return null
+            
+            return (
+              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Twitter Media Upload Issue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm text-amber-700 dark:text-amber-300">
+                    <p className="font-medium mb-2">The following Twitter accounts need to be reconnected for media upload:</p>
+                    <ul className="space-y-1 mb-3">
+                      {selectedTwitterAccounts.map(acc => (
+                        <li key={acc.id} className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-amber-600 rounded-full"></span>
+                          @{acc.username}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs">
+                      <strong>Current behavior:</strong> Media will be referenced in tweet text with a timestamp.
+                      <br />
+                      <strong>To fix:</strong> Reconnect these accounts to enable direct media upload.
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900"
+                    onClick={() => navigate('/settings')}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Go to Settings to Reconnect
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })()}
         </div>
       </div>
     </div>
