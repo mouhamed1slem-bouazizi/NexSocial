@@ -15,10 +15,15 @@ router.use((req, res, next) => {
 // Simple test route to verify analytics routes are working
 router.get('/test', (req, res) => {
   console.log('🧪 Analytics test route hit!');
+  console.log('🧪 Environment:', process.env.NODE_ENV);
+  console.log('🧪 Request path:', req.path);
+  console.log('🧪 Request original URL:', req.originalUrl);
   res.json({
     success: true,
     message: 'Analytics routes are working!',
-    timestamp: new Date().toISOString()
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+    route: req.originalUrl
   });
 });
 

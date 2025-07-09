@@ -49,11 +49,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from client build in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
-}
-
 // Database connection with retry mechanism
 let dbConnection = null;
 let connectionAttempts = 0;
@@ -168,6 +163,11 @@ app.use('/api/analytics', checkDatabaseConnection, (req, res, next) => {
   console.log(`🔍 User agent: ${req.headers['user-agent']}`);
   next();
 }, analyticsRoutes);
+
+// Serve static files from client build in production (AFTER API routes)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+}
 
 // Serve React app for all non-API routes in production
 if (process.env.NODE_ENV === 'production') {
