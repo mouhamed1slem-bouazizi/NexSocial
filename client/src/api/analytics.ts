@@ -66,7 +66,7 @@ export interface AnalyticsData {
 // Get all dashboard analytics data
 export const getDashboardAnalytics = async (): Promise<DashboardAnalytics> => {
   try {
-    const response = await api.get('/api/analytics/dashboard');
+    const response = await api.get('/analytics/dashboard');
     return response.data.data;
   } catch (error: any) {
     console.error('Failed to fetch dashboard analytics:', error);
@@ -77,7 +77,7 @@ export const getDashboardAnalytics = async (): Promise<DashboardAnalytics> => {
 // Get posts statistics only
 export const getPostsStats = async (): Promise<PostsStats> => {
   try {
-    const response = await api.get('/api/analytics/posts-stats');
+    const response = await api.get('/analytics/posts-stats');
     return response.data.data;
   } catch (error: any) {
     console.error('Failed to fetch posts stats:', error);
@@ -88,7 +88,7 @@ export const getPostsStats = async (): Promise<PostsStats> => {
 // Get engagement data only
 export const getEngagementData = async (): Promise<EngagementData[]> => {
   try {
-    const response = await api.get('/api/analytics/engagement');
+    const response = await api.get('/analytics/engagement');
     return response.data.data;
   } catch (error: any) {
     console.error('Failed to fetch engagement data:', error);
@@ -99,7 +99,7 @@ export const getEngagementData = async (): Promise<EngagementData[]> => {
 // Get platform distribution only
 export const getPlatformDistribution = async (): Promise<PlatformDistribution[]> => {
   try {
-    const response = await api.get('/api/analytics/platform-distribution');
+    const response = await api.get('/analytics/platform-distribution');
     return response.data.data;
   } catch (error: any) {
     console.error('Failed to fetch platform distribution:', error);
