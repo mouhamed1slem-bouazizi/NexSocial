@@ -1368,9 +1368,13 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       throw new Error('No suitable Discord channel found for posting. Ensure bot has access to at least one text channel.');
     }
     
-    // Prepare the message payload
+    // Prepare the base content (will be refined later for media posts)
+    const baseContent = content?.trim() || '';
+    console.log(`📝 Base content: "${baseContent}" (${baseContent.length} chars)`);
+    
+    // Prepare the message payload for text-only messages
     const messagePayload = {
-      content: content.length > 2000 ? content.substring(0, 1997) + '...' : content
+      content: baseContent.length > 2000 ? baseContent.substring(0, 1997) + '...' : baseContent
     };
     
     // Handle media files
@@ -1398,11 +1402,32 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       const FormData = require('form-data');
       const formData = new FormData();
       
-      // Add the message content
-      formData.append('payload_json', JSON.stringify(messagePayload));
+      // Ensure content is not empty and properly formatted
+      const finalContent = baseContent || 'Media attachment';
+      const truncatedContent = finalContent.length > 2000 ? finalContent.substring(0, 1997) + '...' : finalContent;
+      console.log(`📝 Final content being sent: "${truncatedContent}" (${truncatedContent.length} chars)`);
+      
+      // Add the message content with proper payload structure
+      const payload = {
+        content: truncatedContent,
+        attachments: mediaToUpload.map((_, index) => ({
+          id: index,
+          filename: mediaToUpload[index].name
+        }))
+      };
+      
+      // Validate that we're not sending empty content
+      if (!payload.content || payload.content.trim() === '') {
+        console.log(`⚠️  Warning: Content is empty, using fallback message`);
+        payload.content = 'Media attachment';
+      }
+      
+      console.log(`📤 Payload JSON: ${JSON.stringify(payload)}`);
+      formData.append('payload_json', JSON.stringify(payload));
       
       // Add each media file
       mediaToUpload.forEach((mediaItem, index) => {
+        console.log(`📎 Adding file ${index}: ${mediaItem.name} (${mediaItem.type}, ${mediaItem.size} bytes)`);
         formData.append(`files[${index}]`, mediaItem.buffer, {
           filename: mediaItem.name,
           contentType: mediaItem.type
@@ -1465,6 +1490,14 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       
     } else {
       // Send text-only message
+      console.log(`📤 Sending text-only message to Discord`);
+      console.log(`📝 Message payload: ${JSON.stringify(messagePayload)}`);
+      
+      // Ensure text-only message has content
+      if (!messagePayload.content || messagePayload.content.trim() === '') {
+        throw new Error('Cannot send empty message to Discord');
+      }
+      
       const response = await fetch(`https://discord.com/api/channels/${targetChannelId}/messages`, {
         method: 'POST',
         headers: {
@@ -1477,7 +1510,11 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       const data = await response.json();
       
       if (!response.ok) {
-        console.error('❌ Discord posting error:', data);
+        console.error('❌ Discord posting error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: data
+        });
         throw new Error(data.message || 'Failed to post to Discord');
       }
       
