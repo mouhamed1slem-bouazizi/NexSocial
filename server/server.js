@@ -152,8 +152,11 @@ app.use('/api/social-accounts', checkDatabaseConnection, socialAccountRoutes);
 app.use('/api/oauth', checkDatabaseConnection, oauthRoutes);
 // Post Routes - require database
 app.use('/api/posts', checkDatabaseConnection, postRoutes);
-// Analytics Routes - require database
-app.use('/api/analytics', checkDatabaseConnection, analyticsRoutes);
+// Analytics Routes - temporarily bypass database check for debugging
+app.use('/api/analytics', (req, res, next) => {
+  console.log(`🔍 Analytics middleware hit: ${req.method} ${req.url}`);
+  next();
+}, analyticsRoutes);
 
 // Serve React app for all non-API routes in production
 if (process.env.NODE_ENV === 'production') {

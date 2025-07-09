@@ -4,6 +4,24 @@ const PostTrackingService = require('../services/postTrackingService.js');
 
 const router = express.Router();
 
+// Add debugging middleware to catch all analytics requests
+router.use((req, res, next) => {
+  console.log(`🔍 Analytics route hit: ${req.method} ${req.path}`);
+  console.log(`🔍 Full URL: ${req.originalUrl}`);
+  console.log(`🔍 Headers: ${JSON.stringify(req.headers.authorization ? 'AUTH_PRESENT' : 'NO_AUTH')}`);
+  next();
+});
+
+// Simple test route to verify analytics routes are working
+router.get('/test', (req, res) => {
+  console.log('🧪 Analytics test route hit!');
+  res.json({
+    success: true,
+    message: 'Analytics routes are working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Get dashboard analytics data
 router.get('/dashboard', requireUser, async (req, res) => {
   try {
