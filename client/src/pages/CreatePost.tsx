@@ -104,6 +104,7 @@ export function CreatePost() {
   // LocalStorage keys
   const SELECTED_ACCOUNTS_KEY = 'nexsocial_selected_accounts'
   const SELECTED_PLATFORMS_KEY = 'nexsocial_selected_platforms'
+  const DISCORD_CHANNELS_KEY = 'nexsocial_discord_channels'
 
   // Save selected accounts to localStorage
   const saveSelectedAccounts = (accounts: string[], platforms: string[]) => {
@@ -128,6 +129,26 @@ export function CreatePost() {
     } catch (error) {
       console.warn('Failed to load selected accounts from localStorage:', error)
       return { accounts: [], platforms: [] }
+    }
+  }
+
+  // Save Discord channel selections to localStorage
+  const saveDiscordChannelSelections = (selections: Record<string, string>) => {
+    try {
+      localStorage.setItem(DISCORD_CHANNELS_KEY, JSON.stringify(selections))
+    } catch (error) {
+      console.warn('Failed to save Discord channel selections to localStorage:', error)
+    }
+  }
+
+  // Load Discord channel selections from localStorage
+  const loadDiscordChannelSelections = (): Record<string, string> => {
+    try {
+      const saved = localStorage.getItem(DISCORD_CHANNELS_KEY)
+      return saved ? JSON.parse(saved) : {}
+    } catch (error) {
+      console.warn('Failed to load Discord channel selections from localStorage:', error)
+      return {}
     }
   }
 
@@ -167,7 +188,7 @@ export function CreatePost() {
       })
       
       // Now try to fetch channels again
-      await fetchDiscordChannels(accountId)
+      await fetchDiscordChannels(accountId, false, false)
       
     } catch (error: any) {
       console.error('❌ Error refreshing Discord metadata:', error)
@@ -182,10 +203,10 @@ export function CreatePost() {
   }
 
   // Fetch Discord channels for a specific account
-  const fetchDiscordChannels = async (accountId: string, forceRefresh: boolean = false) => {
+  const fetchDiscordChannels = async (accountId: string, forceRefresh: boolean = false, silent: boolean = false) => {
     try {
       setChannelsLoading(prev => ({ ...prev, [accountId]: true }))
-      console.log(`🎮 Fetching Discord channels for account: ${accountId}${forceRefresh ? ' (force refresh)' : ''}`)
+      console.log(`🎮 Fetching Discord channels for account: ${accountId}${forceRefresh ? ' (force refresh)' : ''}${silent ? ' (silent)' : ''}`)
       
       const channelsData = await getDiscordChannels(accountId, forceRefresh)
       
@@ -194,56 +215,65 @@ export function CreatePost() {
         [accountId]: channelsData.channels
       }))
       
-      // Auto-select the first channel if none is selected
+      // Auto-select saved channel or first channel if none is selected
       if (!selectedDiscordChannels[accountId] && channelsData.channels.length > 0) {
-        setSelectedDiscordChannels(prev => ({
-          ...prev,
+        const newSelection = {
+          ...selectedDiscordChannels,
           [accountId]: channelsData.channels[0].id
-        }))
+        }
+        setSelectedDiscordChannels(newSelection)
+        // Save the selection
+        saveDiscordChannelSelections(newSelection)
       }
       
       const cacheStatus = channelsData.cached ? '(cached)' : '(fresh from Discord API)'
       console.log(`✅ Loaded ${channelsData.channels.length} channels for ${channelsData.guildName} ${cacheStatus}`)
       
-      if (channelsData.cached && channelsData.cachedAt) {
-        const cacheAge = Math.round((Date.now() - new Date(channelsData.cachedAt).getTime()) / (1000 * 60))
-        toast({
-          title: "Discord Channels Loaded",
-          description: `Loaded ${channelsData.channels.length} cached channels (${cacheAge}m old)`,
-        })
-      } else if (channelsData.freshlyFetched) {
-        toast({
-          title: "Discord Channels Refreshed",
-          description: `Loaded ${channelsData.channels.length} fresh channels from Discord`,
-        })
+      // Only show toast notifications if not silent
+      if (!silent) {
+        if (channelsData.cached && channelsData.cachedAt) {
+          const cacheAge = Math.round((Date.now() - new Date(channelsData.cachedAt).getTime()) / (1000 * 60))
+          toast({
+            title: "Discord Channels Loaded",
+            description: `Loaded ${channelsData.channels.length} cached channels (${cacheAge}m old)`,
+          })
+        } else if (channelsData.freshlyFetched) {
+          toast({
+            title: "Discord Channels Refreshed",
+            description: `Loaded ${channelsData.channels.length} fresh channels from Discord`,
+          })
+        }
       }
       
     } catch (error: any) {
       console.error('❌ Error fetching Discord channels:', error)
       
-      // Check if this is a bot permission error with invite URL
-      if (error.message.includes('bot needs to be invited') && error.response?.data?.botInviteUrl) {
-        toast({
-          title: "Discord Bot Needs Permissions",
-          description: (
-            <div className="space-y-2">
-              <p>The bot needs to be invited to your Discord server with proper permissions.</p>
-              <button 
-                onClick={() => window.open(error.response.data.botInviteUrl, '_blank')}
-                className="text-blue-600 underline hover:text-blue-800"
-              >
-                Click here to invite the bot
-              </button>
-            </div>
-          ),
-          variant: "destructive"
-        })
-      } else {
-        toast({
-          title: "Discord Channels Error",
-          description: error.message || "Failed to load Discord channels",
-          variant: "destructive"
-        })
+      // Only show error toasts if not silent
+      if (!silent) {
+        // Check if this is a bot permission error with invite URL
+        if (error.message.includes('bot needs to be invited') && error.response?.data?.botInviteUrl) {
+          toast({
+            title: "Discord Bot Needs Permissions",
+            description: (
+              <div className="space-y-2">
+                <p>The bot needs to be invited to your Discord server with proper permissions.</p>
+                <button 
+                  onClick={() => window.open(error.response.data.botInviteUrl, '_blank')}
+                  className="text-blue-600 underline hover:text-blue-800"
+                >
+                  Click here to invite the bot
+                </button>
+              </div>
+            ),
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "Discord Channels Error",
+            description: error.message || "Failed to load Discord channels",
+            variant: "destructive"
+          })
+        }
       }
     } finally {
       setChannelsLoading(prev => ({ ...prev, [accountId]: false }))
@@ -278,6 +308,11 @@ export function CreatePost() {
         console.log('✅ Social accounts response:', response)
         setSocialAccounts(response || [])
         
+        // Load saved Discord channel selections
+        const savedChannelSelections = loadDiscordChannelSelections()
+        setSelectedDiscordChannels(savedChannelSelections)
+        console.log('🎮 Restored Discord channel selections:', Object.keys(savedChannelSelections).length)
+        
         // Load previously selected accounts from localStorage
         const { accounts: savedAccounts, platforms: savedPlatforms } = loadSelectedAccounts()
         
@@ -310,6 +345,20 @@ export function CreatePost() {
         setSelectedPlatforms(connectedAccounts.map((acc: SocialAccount) => acc.platform))
           console.log('🎯 Auto-selected all connected accounts:', connectedAccounts.length)
         }
+
+        // Auto-load Discord channels for all connected Discord accounts
+        const discordAccounts = response?.filter((acc: SocialAccount) => 
+          acc.platform === 'discord' && acc.is_connected
+        ) || []
+        
+        if (discordAccounts.length > 0) {
+          console.log(`🎮 Auto-loading channels for ${discordAccounts.length} Discord accounts...`)
+          // Load channels silently for all Discord accounts
+          discordAccounts.forEach(account => {
+            fetchDiscordChannels(account.id, false, true) // silent = true
+          })
+        }
+
       } catch (error: any) {
         console.error('Error fetching social accounts:', error)
         toast({
@@ -331,9 +380,9 @@ export function CreatePost() {
         ? prev.filter(id => id !== accountId)
         : [...prev, accountId]
       
-      // If Discord account is being selected, fetch its channels
+      // If Discord account is being selected and channels aren't loaded yet, fetch them
       if (platform === 'discord' && newSelection.includes(accountId) && !discordChannels[accountId]) {
-        fetchDiscordChannels(accountId)
+        fetchDiscordChannels(accountId, false, false) // Not silent when user manually selects
       }
       
       // Update selected platforms based on selected accounts
@@ -992,10 +1041,13 @@ export function CreatePost() {
                                         <Select
                                           value={selectedDiscordChannels[account.id] || ''}
                                           onValueChange={(channelId) => {
-                                            setSelectedDiscordChannels(prev => ({
-                                              ...prev,
+                                            const newSelection = {
+                                              ...selectedDiscordChannels,
                                               [account.id]: channelId
-                                            }))
+                                            }
+                                            setSelectedDiscordChannels(newSelection)
+                                            // Save the selection to localStorage
+                                            saveDiscordChannelSelections(newSelection)
                                           }}
                                         >
                                           <SelectTrigger className="flex-1 bg-white dark:bg-slate-900">
@@ -1052,7 +1104,7 @@ export function CreatePost() {
                                           {channelsLoading[account.id] ? 'Fixing...' : 'Fix Discord Connection'}
                                         </button>
                                         <button 
-                                          onClick={() => fetchDiscordChannels(account.id)}
+                                          onClick={() => fetchDiscordChannels(account.id, false, false)}
                                           className="text-blue-600 underline hover:text-blue-800 text-xs"
                                         >
                                           Retry
