@@ -82,6 +82,27 @@ class PostTrackingService {
 
       console.log(`📊 Fetching posts stats for user: ${userId}`);
 
+      // First, get ALL posts for this user to debug
+      const { data: allUserPosts, error: allError } = await supabase
+        .from('user_posts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (allError) {
+        console.error('❌ Error fetching all posts:', allError);
+        throw allError;
+      }
+
+      console.log(`📈 Total posts found for user: ${allUserPosts?.length || 0}`);
+      
+      if (allUserPosts && allUserPosts.length > 0) {
+        console.log('📅 Post dates:');
+        allUserPosts.forEach((post, index) => {
+          console.log(`   ${index + 1}. ${post.created_at} (ID: ${post.id})`);
+        });
+      }
+
       // Get current month start and end dates
       const now = new Date();
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -90,6 +111,10 @@ class PostTrackingService {
       // Get last month dates
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      
+      console.log(`📅 Date ranges:`);
+      console.log(`   Current month: ${currentMonthStart.toISOString()} to ${currentMonthEnd.toISOString()}`);
+      console.log(`   Last month: ${lastMonthStart.toISOString()} to ${lastMonthEnd.toISOString()}`);
       
       // Get posts this month
       const { data: currentMonthPosts, error: currentError } = await supabase
@@ -100,6 +125,7 @@ class PostTrackingService {
         .lte('created_at', currentMonthEnd.toISOString());
 
       if (currentError) {
+        console.error('❌ Error fetching current month posts:', currentError);
         throw currentError;
       }
 
@@ -112,6 +138,7 @@ class PostTrackingService {
         .lte('created_at', lastMonthEnd.toISOString());
 
       if (lastError) {
+        console.error('❌ Error fetching last month posts:', lastError);
         throw lastError;
       }
 
@@ -120,6 +147,26 @@ class PostTrackingService {
       const difference = currentMonthCount - lastMonthCount;
 
       console.log(`📊 Posts stats: Current month: ${currentMonthCount}, Last month: ${lastMonthCount}, Difference: ${difference}`);
+      console.log(`📊 Current month posts found: ${currentMonthPosts?.length || 0}`);
+      console.log(`📊 Last month posts found: ${lastMonthPosts?.length || 0}`);
+
+      // If no current month posts found but we have total posts, check if date filtering is working
+      if (currentMonthCount === 0 && allUserPosts && allUserPosts.length > 0) {
+        console.log('⚠️  WARNING: Posts exist but none found in current month. Checking if posts are from today...');
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        const todaysPosts = allUserPosts.filter(post => post.created_at.startsWith(today));
+        console.log(`📅 Posts from today (${today}): ${todaysPosts.length}`);
+        
+        if (todaysPosts.length > 0) {
+          console.log('🔄 Using today\'s posts as current month count...');
+          return {
+            currentMonth: todaysPosts.length,
+            lastMonth: lastMonthCount,
+            difference: todaysPosts.length - lastMonthCount,
+            posts: todaysPosts
+          };
+        }
+      }
 
       return {
         currentMonth: currentMonthCount,
