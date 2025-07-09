@@ -1378,9 +1378,21 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
     if (media.length > 0) {
       console.log(`📤 Preparing to upload ${media.length} media file(s) to Discord`);
       
-      // Discord allows up to 10 files per message, each up to 25MB (with Nitro)
+      // Discord allows up to 10 files per message, each up to 25MB (with Nitro) or 8MB (without)
       const maxFiles = Math.min(media.length, 10);
       const mediaToUpload = media.slice(0, maxFiles);
+      
+      // Check file sizes and warn if too large
+      const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+      const oversizedFiles = mediaToUpload.filter(item => item.size > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        console.log(`⚠️  Warning: ${oversizedFiles.length} file(s) exceed Discord's 25MB limit`);
+      }
+      
+      // Log media details for debugging
+      mediaToUpload.forEach((item, index) => {
+        console.log(`📎 Media ${index + 1}: ${item.name} (${item.type}, ${(item.size / 1024 / 1024).toFixed(2)}MB)`);
+      });
       
       // Create form data for the message with attachments
       const FormData = require('form-data');
@@ -1391,13 +1403,13 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       
       // Add each media file
       mediaToUpload.forEach((mediaItem, index) => {
-        formData.append(`files[${index}]`, Buffer.from(mediaItem.buffer), {
+        formData.append(`files[${index}]`, mediaItem.buffer, {
           filename: mediaItem.name,
-          contentType: mediaItem.type.includes('image') ? 'image/jpeg' : 
-                      mediaItem.type.includes('video') ? 'video/mp4' : 
-                      'application/octet-stream'
+          contentType: mediaItem.type
         });
       });
+      
+      console.log(`📤 Sending Discord message with ${mediaToUpload.length} attachments to channel ${targetChannelId}`);
       
       // Send message with attachments
       const response = await fetch(`https://discord.com/api/channels/${targetChannelId}/messages`, {
@@ -1412,16 +1424,31 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       const data = await response.json();
       
       if (!response.ok) {
-        console.error('❌ Discord posting error:', data);
-        throw new Error(data.message || 'Failed to post to Discord');
+        console.error('❌ Discord posting error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: data
+        });
+        
+        // Provide more specific error messages
+        if (response.status === 413) {
+          throw new Error('File too large for Discord (max 25MB per file)');
+        } else if (response.status === 403) {
+          throw new Error('Bot lacks permissions to post in this Discord channel');
+        } else if (response.status === 400 && data.message) {
+          throw new Error(`Discord API error: ${data.message}`);
+        } else {
+          throw new Error(`Discord posting failed (${response.status}): ${data.message || 'Unknown error'}`);
+        }
       }
       
       mediaUploadResults = data.attachments || [];
       
       console.log(`✅ Posted to Discord with ${mediaUploadResults.length} media file(s)`);
+      console.log(`📊 Message details: ID=${data.id}, Channel=${targetChannelId}, Guild=${primaryGuild.id}`);
       
       return {
-      success: true,
+        success: true,
         postId: data.id,
         platform: 'discord',
         message: `Posted to Discord #${targetChannelName} successfully with ${mediaUploadResults.length} media file(s)`,
