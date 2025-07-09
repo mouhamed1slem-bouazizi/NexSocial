@@ -25,35 +25,78 @@ router.get('/test', (req, res) => {
 // Get dashboard analytics data
 router.get('/dashboard', requireUser, async (req, res) => {
   try {
-    console.log(`📊 Fetching dashboard analytics for user: ${req.user._id}`);
+    console.log(`📊 Dashboard route HIT! Fetching analytics for user: ${req.user._id}`);
+    console.log(`📊 User object:`, req.user);
 
-    // Fetch all analytics data in parallel
-    const [
+    // Check if PostTrackingService is available
+    if (!PostTrackingService) {
+      console.error('❌ PostTrackingService not available');
+      return res.status(500).json({
+        success: false,
+        error: 'PostTrackingService not available'
+      });
+    }
+
+    console.log('📊 Starting to fetch analytics data...');
+
+    // Fetch all analytics data in parallel with individual error handling
+    let postsStats = null;
+    let engagementData = null;
+    let platformDistribution = null;
+
+    try {
+      console.log('📊 Fetching posts stats...');
+      postsStats = await PostTrackingService.getPostsStats(req.user._id);
+      console.log('✅ Posts stats:', postsStats);
+    } catch (error) {
+      console.error('❌ Error fetching posts stats:', error.message);
+      postsStats = { currentMonth: 0, lastMonth: 0, difference: 0, posts: [] };
+    }
+
+    try {
+      console.log('📊 Fetching engagement data...');
+      engagementData = await PostTrackingService.getEngagementData(req.user._id);
+      console.log('✅ Engagement data:', engagementData);
+    } catch (error) {
+      console.error('❌ Error fetching engagement data:', error.message);
+      engagementData = [];
+    }
+
+    try {
+      console.log('📊 Fetching platform distribution...');
+      platformDistribution = await PostTrackingService.getPlatformDistribution(req.user._id);
+      console.log('✅ Platform distribution:', platformDistribution);
+    } catch (error) {
+      console.error('❌ Error fetching platform distribution:', error.message);
+      platformDistribution = [];
+    }
+
+    console.log(`✅ Analytics data fetched successfully`);
+    console.log(`📊 Final response data:`, {
       postsStats,
       engagementData,
       platformDistribution
-    ] = await Promise.all([
-      PostTrackingService.getPostsStats(req.user._id),
-      PostTrackingService.getEngagementData(req.user._id),
-      PostTrackingService.getPlatformDistribution(req.user._id)
-    ]);
+    });
 
-    console.log(`✅ Analytics data fetched successfully`);
-
-    res.json({
+    const responseData = {
       success: true,
       data: {
         postsStats: postsStats,
         engagementData: engagementData,
         platformDistribution: platformDistribution
       }
-    });
+    };
+
+    console.log('📤 Sending analytics response:', JSON.stringify(responseData, null, 2));
+    res.json(responseData);
 
   } catch (error) {
     console.error('❌ Error fetching dashboard analytics:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch analytics data'
+      error: error.message || 'Failed to fetch analytics data',
+      details: error.stack
     });
   }
 });

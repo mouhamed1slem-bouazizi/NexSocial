@@ -41,6 +41,14 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Global request logger for debugging
+app.use((req, res, next) => {
+  console.log(`🌐 REQUEST: ${req.method} ${req.url}`);
+  console.log(`🌐 Path: ${req.path}`);
+  console.log(`🌐 Original URL: ${req.originalUrl}`);
+  next();
+});
+
 // Serve static files from client build in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));
@@ -152,9 +160,12 @@ app.use('/api/social-accounts', checkDatabaseConnection, socialAccountRoutes);
 app.use('/api/oauth', checkDatabaseConnection, oauthRoutes);
 // Post Routes - require database
 app.use('/api/posts', checkDatabaseConnection, postRoutes);
-// Analytics Routes - temporarily bypass database check for debugging
-app.use('/api/analytics', (req, res, next) => {
+// Analytics Routes - require database connection
+app.use('/api/analytics', checkDatabaseConnection, (req, res, next) => {
   console.log(`🔍 Analytics middleware hit: ${req.method} ${req.url}`);
+  console.log(`🔍 Original URL: ${req.originalUrl}`);
+  console.log(`🔍 Headers: ${JSON.stringify(req.headers)}`);
+  console.log(`🔍 User agent: ${req.headers['user-agent']}`);
   next();
 }, analyticsRoutes);
 
