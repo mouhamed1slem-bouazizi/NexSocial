@@ -742,13 +742,36 @@ export function CreatePost() {
                     </Card>
                   )}
 
-                  {/* Emoji Picker */}
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">Add Emojis</Label>
-                    <EmojiPickerComponent 
-                      onEmojiSelect={handleEmojiSelect}
-                      disabled={loading}
-                    />
+                  {/* Emoji Picker and Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1">
+                      <Label className="text-sm font-medium mb-2 block">Add Emojis</Label>
+                      <EmojiPickerComponent 
+                        onEmojiSelect={handleEmojiSelect}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2 sm:w-48">
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={loading || !content.trim() || selectedAccounts.length === 0}
+                        className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                      >
+                        {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            {isScheduled ? 'Scheduling...' : 'Publishing...'}
+                          </>
+                        ) : (
+                          <>
+                            {isScheduled ? 'Schedule Post' : 'Publish Now'}
+                          </>
+                        )}
+                      </Button>
+                      <Button variant="outline" className="w-full">
+                        Save as Draft
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -848,13 +871,36 @@ export function CreatePost() {
                         </Card>
                       )}
 
-                      {/* Emoji Picker for AI tab */}
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Add Emojis</Label>
-                        <EmojiPickerComponent 
-                          onEmojiSelect={handleEmojiSelect}
-                          disabled={loading}
-                        />
+                      {/* Emoji Picker and Action Buttons for AI tab */}
+                      <div className="flex flex-col sm:flex-row gap-4 items-end">
+                        <div className="flex-1">
+                          <Label className="text-sm font-medium mb-2 block">Add Emojis</Label>
+                          <EmojiPickerComponent 
+                            onEmojiSelect={handleEmojiSelect}
+                            disabled={loading}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 sm:w-48">
+                          <Button
+                            onClick={handleSubmit}
+                            disabled={loading || !content.trim() || selectedAccounts.length === 0}
+                            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                          >
+                            {loading ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                {isScheduled ? 'Scheduling...' : 'Publishing...'}
+                              </>
+                            ) : (
+                              <>
+                                {isScheduled ? 'Schedule Post' : 'Publish Now'}
+                              </>
+                            )}
+                          </Button>
+                          <Button variant="outline" className="w-full">
+                            Save as Draft
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -862,6 +908,92 @@ export function CreatePost() {
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Preview */}
+          {(content || media.length > 0) && selectedAccounts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Preview</CardTitle>
+                <CardDescription>
+                  How your post will appear
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {selectedAccounts.slice(0, 3).map((accountId) => {
+                    const account = socialAccounts.find(acc => acc.id === accountId)
+                    if (!account) return null
+                    const platform = platforms.find(p => p.id === account.platform)
+                    if (!platform) return null
+                    const IconComponent = platform.icon
+
+                    return (
+                      <div key={accountId} className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`p-1 rounded ${platform.color}`}>
+                            <IconComponent className="h-3 w-3 text-white" />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-medium">{platform.name}</span>
+                            <span className="text-xs text-muted-foreground">• @{account.username}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Media preview */}
+                        {media.length > 0 && (
+                          <div className="mb-2">
+                            <div className="grid grid-cols-2 gap-1 mb-2">
+                              {media.slice(0, 4).map((item) => (
+                                <div key={item.id} className="aspect-square bg-muted rounded overflow-hidden">
+                                  {item.type === 'image' ? (
+                                    <img
+                                      src={item.url}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                                      <Video className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {media.length > 4 && (
+                              <p className="text-xs text-muted-foreground">+{media.length - 4} more</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Content preview */}
+                        {content && (
+                          <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-3">
+                            {content.slice(0, platform.limit)}
+                            {content.length > platform.limit && '...'}
+                          </p>
+                        )}
+
+                        {/* Platform-specific notes */}
+                        {account.platform === 'instagram' && media.length === 0 && (
+                          <p className="text-xs text-orange-500 mt-1">Instagram requires at least one image or video</p>
+                        )}
+                        {account.platform === 'twitter' && media.length > 0 && (
+                          <p className="text-xs text-blue-500 mt-1">
+                            📷 Media will be referenced in tweet text (direct upload requires OAuth 1.0a setup)
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {selectedAccounts.length > 3 && (
+                    <div className="text-center text-xs text-muted-foreground">
+                      +{selectedAccounts.length - 3} more account{selectedAccounts.length - 3 > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Scheduling */}
           <Card>
@@ -1125,114 +1257,7 @@ export function CreatePost() {
             </CardContent>
           </Card>
 
-          {/* Preview */}
-          {(content || media.length > 0) && selectedAccounts.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Preview</CardTitle>
-                <CardDescription>
-                  How your post will appear
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {selectedAccounts.slice(0, 3).map((accountId) => {
-                    const account = socialAccounts.find(acc => acc.id === accountId)
-                    if (!account) return null
-                    const platform = platforms.find(p => p.id === account.platform)
-                    if (!platform) return null
-                    const IconComponent = platform.icon
 
-                    return (
-                      <div key={accountId} className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`p-1 rounded ${platform.color}`}>
-                            <IconComponent className="h-3 w-3 text-white" />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs font-medium">{platform.name}</span>
-                            <span className="text-xs text-muted-foreground">• @{account.username}</span>
-                          </div>
-                        </div>
-                        
-                        {/* Media preview */}
-                        {media.length > 0 && (
-                          <div className="mb-2">
-                            <div className="grid grid-cols-2 gap-1 mb-2">
-                              {media.slice(0, 4).map((item) => (
-                                <div key={item.id} className="aspect-square bg-muted rounded overflow-hidden">
-                                  {item.type === 'image' ? (
-                                    <img
-                                      src={item.url}
-                                      alt={item.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-muted">
-                                      <Video className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            {media.length > 4 && (
-                              <p className="text-xs text-muted-foreground">+{media.length - 4} more</p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Content preview */}
-                        {content && (
-                          <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-3">
-                            {content.slice(0, platform.limit)}
-                            {content.length > platform.limit && '...'}
-                          </p>
-                        )}
-
-                        {/* Platform-specific notes */}
-                        {account.platform === 'instagram' && media.length === 0 && (
-                          <p className="text-xs text-orange-500 mt-1">Instagram requires at least one image or video</p>
-                        )}
-                        {account.platform === 'twitter' && media.length > 0 && (
-                          <p className="text-xs text-blue-500 mt-1">
-                            📷 Media will be referenced in tweet text (direct upload requires OAuth 1.0a setup)
-                          </p>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {selectedAccounts.length > 3 && (
-                    <div className="text-center text-xs text-muted-foreground">
-                      +{selectedAccounts.length - 3} more account{selectedAccounts.length - 3 > 1 ? 's' : ''}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            <Button
-              onClick={handleSubmit}
-              disabled={loading || !content.trim() || selectedAccounts.length === 0}
-              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {isScheduled ? 'Scheduling...' : 'Publishing...'}
-                </>
-              ) : (
-                <>
-                  {isScheduled ? 'Schedule Post' : 'Publish Now'}
-                </>
-              )}
-            </Button>
-            <Button variant="outline" className="w-full">
-              Save as Draft
-            </Button>
-          </div>
 
           {/* Twitter Reconnection Warning */}
           {media.length > 0 && (() => {
