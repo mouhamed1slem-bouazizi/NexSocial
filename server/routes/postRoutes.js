@@ -1554,24 +1554,47 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
 const uploadImageToReddit = async (mediaItem, accessToken) => {
   try {
     console.log(`📤 Uploading image to Reddit: ${mediaItem.name}`);
+    console.log(`📊 Media item data check:`);
+    console.log(`   Has data: ${!!mediaItem.data}`);
+    console.log(`   Data type: ${typeof mediaItem.data}`);
+    console.log(`   Data length: ${mediaItem.data ? mediaItem.data.length : 'N/A'}`);
+    console.log(`   Data preview: ${mediaItem.data ? mediaItem.data.substring(0, 100) + '...' : 'NO_DATA'}`);
+    console.log(`   Starts with 'data:': ${mediaItem.data && mediaItem.data.startsWith('data:')}`);
     
     // Convert base64 to buffer
     let imageBuffer;
     let mimeType = mediaItem.mimeType || 'image/jpeg';
     
-    if (mediaItem.data && mediaItem.data.startsWith('data:')) {
-      // Remove data URL prefix and convert base64 to buffer
-      const base64Data = mediaItem.data.split(',')[1];
-      imageBuffer = Buffer.from(base64Data, 'base64');
-      
-      // Extract mime type from data URL (this is more reliable than the type field)
-      const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
-      if (mimeMatch) {
-        mimeType = mimeMatch[1];
-        console.log(`📷 Using MIME type from data URL: ${mimeType}`);
-      }
+    if (!mediaItem.data) {
+      throw new Error('No media data provided');
+    }
+    
+    if (!mediaItem.data.startsWith('data:')) {
+      throw new Error(`Invalid media data format: expected data URL but got ${typeof mediaItem.data} starting with "${mediaItem.data.substring(0, 20)}..."`);
+    }
+    
+    // Remove data URL prefix and convert base64 to buffer
+    const dataParts = mediaItem.data.split(',');
+    if (dataParts.length !== 2) {
+      throw new Error(`Invalid data URL format: expected 2 parts separated by comma, got ${dataParts.length}`);
+    }
+    
+    const base64Data = dataParts[1];
+    if (!base64Data) {
+      throw new Error('No base64 data found after comma in data URL');
+    }
+    
+    console.log(`✅ Base64 data extracted, length: ${base64Data.length}`);
+    imageBuffer = Buffer.from(base64Data, 'base64');
+    console.log(`✅ Buffer created, size: ${imageBuffer.length} bytes`);
+    
+    // Extract mime type from data URL (this is more reliable than the type field)
+    const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
+    if (mimeMatch) {
+      mimeType = mimeMatch[1];
+      console.log(`📷 Using MIME type from data URL: ${mimeType}`);
     } else {
-      throw new Error('Invalid media data format');
+      console.log(`⚠️ Could not extract MIME type from data URL, using default: ${mimeType}`);
     }
     
     // Step 1: Request upload lease from Reddit
@@ -1710,6 +1733,8 @@ const postToReddit = async (account, content, media = []) => {
         console.log(`   type: "${type}"`);
         console.log(`   mimeType: "${mimeType}"`);
         console.log(`   dataMimeType: "${dataMimeType}"`);
+        console.log(`   data preview: "${m.data ? m.data.substring(0, 50) + '...' : 'NO_DATA'}"`);
+        console.log(`   data starts with 'data:': ${m.data && m.data.startsWith('data:')}`);
         
         // Check if it's an image (multiple ways to detect)
         const isImage = type === 'image' || 
