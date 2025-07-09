@@ -1567,36 +1567,51 @@ const postToReddit = async (account, content, media = []) => {
     }
     
     const moderatedSubreddits = metadata.moderated_subreddits || [];
+    const karmaInfo = metadata.karma || {};
     console.log(`📊 User moderates ${moderatedSubreddits.length} subreddits`);
+    console.log(`📊 User karma: ${karmaInfo.total || 0} (link: ${karmaInfo.link || 0}, comment: ${karmaInfo.comment || 0})`);
     
-    // For now, we'll post to the first moderated subreddit or user's profile
+    // Determine target subreddit
     let targetSubreddit = 'u_' + account.username; // Default to user's profile
+    let postToProfile = true;
+    
+    // Check if user has moderated subreddits and sufficient karma
     if (moderatedSubreddits.length > 0) {
+      // Use first moderated subreddit (user has posting permissions there)
       targetSubreddit = moderatedSubreddits[0].name;
+      postToProfile = false;
+      console.log(`🎯 Using moderated subreddit: r/${targetSubreddit}`);
+    } else {
+      console.log(`🎯 Posting to user profile: r/${targetSubreddit}`);
     }
     
-    console.log(`🎯 Target subreddit: r/${targetSubreddit}`);
+    // Validate content length
+    if (!content || content.trim().length === 0) {
+      throw new Error('Post content cannot be empty');
+    }
     
     // Prepare post data
     let postData;
     let postType;
     
     if (media.length > 0) {
-      // For media posts, we'll create a link post pointing to external media
-      // Note: Reddit's API doesn't support direct media upload via OAuth apps
-      // Real implementation would need to upload to external service first
-      postType = 'link';
+      // For media posts, create a text post and mention media in content
+      // Reddit's OAuth API has limited media upload capabilities
+      postType = 'self';
+      const mediaText = media.map(m => `📎 ${m.name} (${m.type})`).join('\n');
+      const fullContent = `${content}\n\n**Media Attachments:**\n${mediaText}`;
+      
       postData = {
         api_type: 'json',
-        kind: 'link',
+        kind: 'self',
         sr: targetSubreddit,
         title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-        url: 'https://example.com/media', // Would be actual media URL
-        text: `${content}\n\n📎 ${media.length} media file(s) attached`,
-        sendreplies: true
+        text: fullContent,
+        sendreplies: true,
+        validate_on_submit: true
       };
       
-      console.log(`📤 Creating link post with media reference`);
+      console.log(`📤 Creating text post with media references (${media.length} files)`);
     } else {
       // Text post
       postType = 'self';
@@ -1606,7 +1621,8 @@ const postToReddit = async (account, content, media = []) => {
         sr: targetSubreddit,
         title: content.length > 300 ? content.substring(0, 297) + '...' : content,
         text: content,
-        sendreplies: true
+        sendreplies: true,
+        validate_on_submit: true
       };
       
       console.log(`📤 Creating text post`);
@@ -1618,7 +1634,7 @@ const postToReddit = async (account, content, media = []) => {
       headers: {
         'Authorization': `Bearer ${account.access_token}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'NexSocial/1.0 by YourUsername'
+        'User-Agent': 'NexSocial/1.0'
       },
       body: new URLSearchParams(postData)
     });
@@ -1627,22 +1643,56 @@ const postToReddit = async (account, content, media = []) => {
     
     if (!response.ok) {
       console.error('❌ Reddit posting error:', data);
-      throw new Error(data.message || 'Failed to post to Reddit');
+      
+      // Handle specific Reddit API errors
+      if (response.status === 401) {
+        throw new Error('Reddit authentication expired. Please reconnect your account.');
+      } else if (response.status === 403) {
+        throw new Error('Permission denied. You may not have posting rights to this subreddit.');
+      } else if (response.status === 429) {
+        throw new Error('Reddit rate limit exceeded. Please wait before posting again.');
+      } else {
+        throw new Error(data.message || `Reddit API error (${response.status})`);
+      }
     }
     
-    // Check if the post was successful
+    // Check for API-level errors
     if (data.json && data.json.errors && data.json.errors.length > 0) {
-      const errorMessage = data.json.errors.map(err => err[1]).join(', ');
-      throw new Error(`Reddit API error: ${errorMessage}`);
+      const errors = data.json.errors;
+      console.error('❌ Reddit API errors:', errors);
+      
+      // Handle common Reddit errors
+      const errorMessages = errors.map(err => {
+        const [errorType, errorMsg] = err;
+        switch (errorType) {
+          case 'RATELIMIT':
+            return 'Rate limit exceeded. Please wait before posting again.';
+          case 'TOO_LONG':
+            return 'Post content is too long for Reddit.';
+          case 'NO_TEXT':
+            return 'Post must contain text content.';
+          case 'SUBREDDIT_NOTALLOWED':
+            return `You don't have permission to post in r/${targetSubreddit}.`;
+          case 'INVALID_OPTION':
+            return 'Invalid post options provided.';
+          default:
+            return errorMsg || 'Unknown Reddit error';
+        }
+      });
+      
+      throw new Error(`Reddit error: ${errorMessages.join(', ')}`);
     }
     
     const postInfo = data.json?.data;
     if (!postInfo) {
-      throw new Error('Reddit post created but no post data returned');
+      throw new Error('Reddit post submission failed - no response data');
     }
     
+    // Construct the Reddit URL
+    const redditUrl = `https://reddit.com${postInfo.url}`;
+    
     console.log(`✅ Posted to Reddit successfully`);
-    console.log(`📊 Post details: ID=${postInfo.id}, URL=${postInfo.url}`);
+    console.log(`📊 Post details: ID=${postInfo.id}, URL=${redditUrl}`);
     
     return {
       success: true,
@@ -1652,10 +1702,12 @@ const postToReddit = async (account, content, media = []) => {
       details: {
         subreddit: targetSubreddit,
         postType: postType,
+        postUrl: redditUrl,
         permalink: postInfo.url,
         fullname: postInfo.name,
         mediaCount: media.length,
-        isModeratedSubreddit: moderatedSubreddits.length > 0
+        postedToProfile: postToProfile,
+        userKarma: karmaInfo.total || 0
       }
     };
     
