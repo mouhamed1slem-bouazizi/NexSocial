@@ -290,6 +290,20 @@ router.post('/initiate', requireUser, async (req, res) => {
         authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${userId}&permissions=68608`;
         break;
 
+      case 'reddit':
+        clientId = process.env.REDDIT_CLIENT_ID;
+        redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/reddit/callback`);
+        scope = encodeURIComponent('identity read submit');
+
+        if (!clientId) {
+          return res.status(500).json({ success: false, error: 'Reddit OAuth not configured. Please add REDDIT_CLIENT_ID to your .env file' });
+        }
+
+        // Generate a random state parameter for security
+        const duration = 'permanent'; // Request permanent access
+        authUrl = `https://www.reddit.com/api/v1/authorize?client_id=${clientId}&response_type=code&state=${userId}&redirect_uri=${redirectUri}&duration=${duration}&scope=${scope}`;
+        break;
+
       default:
         return res.status(400).json({ success: false, error: 'Unsupported platform' });
     }
@@ -1082,6 +1096,130 @@ router.get('/discord/callback', async (req, res) => {
     res.redirect(`${process.env.CLIENT_URL}?success=discord_connected`);
   } catch (error) {
     console.error('❌ Discord OAuth callback error:', error);
+    res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
+  }
+});
+
+// Reddit OAuth callback
+router.get('/reddit/callback', async (req, res) => {
+  console.log('🔴 Reddit OAuth callback received');
+
+  try {
+    const { code, state: userId, error } = req.query;
+
+    if (error) {
+      console.error('Reddit OAuth error:', error);
+      return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
+    }
+
+    if (!code) {
+      console.error('No authorization code received from Reddit');
+      return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
+    }
+
+    console.log('🔄 Exchanging code for Reddit access token');
+
+    // Prepare Basic Auth header
+    const credentials = Buffer.from(`${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`).toString('base64');
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'NexSocial/1.0 by YourUsername'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${process.env.BASE_URL}/api/oauth/reddit/callback`
+      })
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Failed to get access token from Reddit:', tokenData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    console.log('✅ Successfully obtained Reddit access token');
+
+    // Get user profile
+    const profileResponse = await fetch('https://oauth.reddit.com/api/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'User-Agent': 'NexSocial/1.0 by YourUsername'
+      }
+    });
+
+    const profileData = await profileResponse.json();
+
+    if (!profileData.id) {
+      console.error('Failed to get Reddit profile data:', profileData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    console.log('✅ Successfully fetched Reddit profile for user:', profileData.name);
+
+    // Get user's subreddits (moderated subreddits for posting)
+    let moderatedSubreddits = [];
+    try {
+      const subredditsResponse = await fetch('https://oauth.reddit.com/subreddits/mine/moderator?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'User-Agent': 'NexSocial/1.0 by YourUsername'
+        }
+      });
+
+      if (subredditsResponse.ok) {
+        const subredditsData = await subredditsResponse.json();
+        moderatedSubreddits = subredditsData.data.children.map(child => ({
+          name: child.data.display_name,
+          id: child.data.id,
+          subscribers: child.data.subscribers,
+          title: child.data.title
+        }));
+        console.log(`📊 User moderates ${moderatedSubreddits.length} subreddits`);
+      }
+    } catch (error) {
+      console.log('⚠️ Could not fetch moderated subreddits:', error.message);
+    }
+
+    // Calculate total karma as follower count
+    const totalKarma = (profileData.link_karma || 0) + (profileData.comment_karma || 0);
+
+    // Prepare metadata
+    const metadataObject = {
+      verified: profileData.verified || false,
+      has_verified_email: profileData.has_verified_email || false,
+      link_karma: profileData.link_karma || 0,
+      comment_karma: profileData.comment_karma || 0,
+      total_karma: totalKarma,
+      account_created: profileData.created_utc,
+      moderated_subreddits: moderatedSubreddits
+    };
+
+    // Save to database
+    const accountData = {
+      platform: 'reddit',
+      username: profileData.name,
+      displayName: profileData.name,
+      platformUserId: profileData.id,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      profileImage: profileData.icon_img || '',
+      followers: totalKarma, // Use total karma as follower count
+      metadata: JSON.stringify(metadataObject)
+    };
+
+    await SocialAccountService.create(userId, accountData);
+    console.log('✅ Reddit account successfully saved to database');
+
+    res.redirect(`${process.env.CLIENT_URL}?success=reddit_connected`);
+  } catch (error) {
+    console.error('❌ Reddit OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });

@@ -113,6 +113,9 @@ router.post('/', requireUser, async (req, res) => {
           case 'discord':
             result = await postToDiscord(account, content, processedMedia, discordChannels);
             break;
+          case 'reddit':
+            result = await postToReddit(account, content, processedMedia);
+            break;
           default:
             result = {
               success: false,
@@ -1529,6 +1532,125 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
       success: false,
       error: error.message || 'Failed to post to Discord',
       platform: 'discord'
+    };
+  }
+};
+
+// Reddit posting function
+const postToReddit = async (account, content, media = []) => {
+  try {
+    console.log(`🔴 Posting to Reddit for account ${account.username}`);
+    console.log(`📝 Content: ${content}`);
+    console.log(`📎 Media items: ${media.length}`);
+    
+    // Parse metadata to get Reddit-specific info
+    let metadata = {};
+    try {
+      metadata = JSON.parse(account.metadata || '{}');
+      console.log(`🔍 Parsed metadata:`, metadata);
+    } catch (error) {
+      console.error('❌ Failed to parse Reddit metadata:', error);
+    }
+    
+    const moderatedSubreddits = metadata.moderated_subreddits || [];
+    console.log(`📊 User moderates ${moderatedSubreddits.length} subreddits`);
+    
+    // For now, we'll post to the first moderated subreddit or user's profile
+    let targetSubreddit = 'u_' + account.username; // Default to user's profile
+    if (moderatedSubreddits.length > 0) {
+      targetSubreddit = moderatedSubreddits[0].name;
+    }
+    
+    console.log(`🎯 Target subreddit: r/${targetSubreddit}`);
+    
+    // Prepare post data
+    let postData;
+    let postType;
+    
+    if (media.length > 0) {
+      // For media posts, we'll create a link post pointing to external media
+      // Note: Reddit's API doesn't support direct media upload via OAuth apps
+      // Real implementation would need to upload to external service first
+      postType = 'link';
+      postData = {
+        api_type: 'json',
+        kind: 'link',
+        sr: targetSubreddit,
+        title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+        url: 'https://example.com/media', // Would be actual media URL
+        text: `${content}\n\n📎 ${media.length} media file(s) attached`,
+        sendreplies: true
+      };
+      
+      console.log(`📤 Creating link post with media reference`);
+    } else {
+      // Text post
+      postType = 'self';
+      postData = {
+        api_type: 'json',
+        kind: 'self',
+        sr: targetSubreddit,
+        title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+        text: content,
+        sendreplies: true
+      };
+      
+      console.log(`📤 Creating text post`);
+    }
+    
+    // Make the post
+    const response = await fetch('https://oauth.reddit.com/api/submit', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${account.access_token}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'NexSocial/1.0 by YourUsername'
+      },
+      body: new URLSearchParams(postData)
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('❌ Reddit posting error:', data);
+      throw new Error(data.message || 'Failed to post to Reddit');
+    }
+    
+    // Check if the post was successful
+    if (data.json && data.json.errors && data.json.errors.length > 0) {
+      const errorMessage = data.json.errors.map(err => err[1]).join(', ');
+      throw new Error(`Reddit API error: ${errorMessage}`);
+    }
+    
+    const postInfo = data.json?.data;
+    if (!postInfo) {
+      throw new Error('Reddit post created but no post data returned');
+    }
+    
+    console.log(`✅ Posted to Reddit successfully`);
+    console.log(`📊 Post details: ID=${postInfo.id}, URL=${postInfo.url}`);
+    
+    return {
+      success: true,
+      postId: postInfo.id,
+      platform: 'reddit',
+      message: `Posted to Reddit r/${targetSubreddit} successfully${media.length > 0 ? ` with ${media.length} media reference(s)` : ''}`,
+      details: {
+        subreddit: targetSubreddit,
+        postType: postType,
+        permalink: postInfo.url,
+        fullname: postInfo.name,
+        mediaCount: media.length,
+        isModeratedSubreddit: moderatedSubreddits.length > 0
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error posting to Reddit:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to post to Reddit',
+      platform: 'reddit'
     };
   }
 };

@@ -44,6 +44,15 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 # TikTok API Configuration
 TIKTOK_CLIENT_ID=your_tiktok_client_id
 TIKTOK_CLIENT_SECRET=your_tiktok_client_secret
+
+# Discord API Configuration
+DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_SECRET=your_discord_client_secret
+DISCORD_BOT_TOKEN=your_discord_bot_token
+
+# Reddit API Configuration
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
 ```
 
 ## Twitter API Setup

@@ -43,7 +43,8 @@ import {
   Hash,
   Tv,
   Square,
-  RefreshCw
+  RefreshCw,
+  MessageCircle
 } from "lucide-react"
 import { SocialAccount } from "@/api/socialAccounts"
 import {
@@ -75,7 +76,7 @@ const platformIcons = {
   telegram: Send,
   whatsapp: MessageSquare,
   snapchat: Camera,
-  reddit: Circle,
+  reddit: MessageCircle,
   vimeo: Video,
   threads: Hash,
   twitch: Tv,
