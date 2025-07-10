@@ -1565,36 +1565,59 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     let imageBuffer;
     let mimeType = mediaItem.mimeType || 'image/jpeg';
     
-    if (!mediaItem.data) {
-      throw new Error('No media data provided');
-    }
-    
-    if (!mediaItem.data.startsWith('data:')) {
-      throw new Error(`Invalid media data format: expected data URL but got ${typeof mediaItem.data} starting with "${mediaItem.data.substring(0, 20)}..."`);
-    }
-    
-    // Remove data URL prefix and convert base64 to buffer
-    const dataParts = mediaItem.data.split(',');
-    if (dataParts.length !== 2) {
-      throw new Error(`Invalid data URL format: expected 2 parts separated by comma, got ${dataParts.length}`);
-    }
-    
-    const base64Data = dataParts[1];
-    if (!base64Data) {
-      throw new Error('No base64 data found after comma in data URL');
-    }
-    
-    console.log(`✅ Base64 data extracted, length: ${base64Data.length}`);
-    imageBuffer = Buffer.from(base64Data, 'base64');
-    console.log(`✅ Buffer created, size: ${imageBuffer.length} bytes`);
-    
-    // Extract mime type from data URL (this is more reliable than the type field)
-    const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
-    if (mimeMatch) {
-      mimeType = mimeMatch[1];
-      console.log(`📷 Using MIME type from data URL: ${mimeType}`);
+    // Check if we have a buffer (from processedMedia) or data URL (direct)
+    if (mediaItem.buffer) {
+      console.log(`✅ Using pre-processed buffer, size: ${mediaItem.buffer.length} bytes`);
+      imageBuffer = mediaItem.buffer;
+      
+      // Determine MIME type from file extension or type field
+      if (mediaItem.type === 'image') {
+        // Try to determine from filename extension
+        const name = mediaItem.name || '';
+        if (name.toLowerCase().endsWith('.png')) {
+          mimeType = 'image/png';
+        } else if (name.toLowerCase().endsWith('.jpg') || name.toLowerCase().endsWith('.jpeg')) {
+          mimeType = 'image/jpeg';
+        } else if (name.toLowerCase().endsWith('.gif')) {
+          mimeType = 'image/gif';
+        } else if (name.toLowerCase().endsWith('.webp')) {
+          mimeType = 'image/webp';
+        } else {
+          mimeType = 'image/jpeg'; // Default fallback
+        }
+      }
+      console.log(`📷 Using MIME type from file extension: ${mimeType}`);
+      
+    } else if (mediaItem.data) {
+      if (!mediaItem.data.startsWith('data:')) {
+        throw new Error(`Invalid media data format: expected data URL but got ${typeof mediaItem.data} starting with "${mediaItem.data.substring(0, 20)}..."`);
+      }
+      
+      // Remove data URL prefix and convert base64 to buffer
+      const dataParts = mediaItem.data.split(',');
+      if (dataParts.length !== 2) {
+        throw new Error(`Invalid data URL format: expected 2 parts separated by comma, got ${dataParts.length}`);
+      }
+      
+      const base64Data = dataParts[1];
+      if (!base64Data) {
+        throw new Error('No base64 data found after comma in data URL');
+      }
+      
+      console.log(`✅ Base64 data extracted, length: ${base64Data.length}`);
+      imageBuffer = Buffer.from(base64Data, 'base64');
+      console.log(`✅ Buffer created, size: ${imageBuffer.length} bytes`);
+      
+      // Extract mime type from data URL (this is more reliable than the type field)
+      const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
+      if (mimeMatch) {
+        mimeType = mimeMatch[1];
+        console.log(`📷 Using MIME type from data URL: ${mimeType}`);
+      } else {
+        console.log(`⚠️ Could not extract MIME type from data URL, using default: ${mimeType}`);
+      }
     } else {
-      console.log(`⚠️ Could not extract MIME type from data URL, using default: ${mimeType}`);
+      throw new Error('No media data provided - missing both buffer and data properties');
     }
     
     // Step 1: Request upload lease from Reddit
