@@ -1550,223 +1550,79 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
   }
 };
 
-// Helper function to upload image to Reddit using proper API
-const uploadImageToReddit = async (mediaItem, accessToken) => {
+// Helper function to create media references for Reddit posts
+// Reddit OAuth API has limited media upload capabilities, so we reference media in post text
+const createRedditMediaReference = async (mediaItem) => {
   try {
-    console.log(`📤 Uploading image to Reddit: ${mediaItem.name}`);
-    console.log(`📊 Media item data check:`);
-    console.log(`   Has data: ${!!mediaItem.data}`);
-    console.log(`   Data type: ${typeof mediaItem.data}`);
-    console.log(`   Data length: ${mediaItem.data ? mediaItem.data.length : 'N/A'}`);
-    console.log(`   Data preview: ${mediaItem.data ? mediaItem.data.substring(0, 100) + '...' : 'NO_DATA'}`);
-    console.log(`   Starts with 'data:': ${mediaItem.data && mediaItem.data.startsWith('data:')}`);
+    console.log(`📎 Creating Reddit media reference for: ${mediaItem.name}`);
     
-    // Convert base64 to buffer
-    let imageBuffer;
-    let mimeType = mediaItem.mimeType || 'image/jpeg';
+    // Extract media information
+    let mediaInfo = {
+      name: mediaItem.name || 'Untitled Media',
+      type: 'Unknown',
+      size: 'Unknown'
+    };
     
-    // Check if we have a buffer (from processedMedia) or data URL (direct)
-    if (mediaItem.buffer) {
-      console.log(`✅ Using pre-processed buffer, size: ${mediaItem.buffer.length} bytes`);
-      imageBuffer = mediaItem.buffer;
-      
-      // Determine MIME type from file extension or type field
-      if (mediaItem.type === 'image') {
-        // Try to determine from filename extension
-        const name = mediaItem.name || '';
-        if (name.toLowerCase().endsWith('.png')) {
-          mimeType = 'image/png';
-        } else if (name.toLowerCase().endsWith('.jpg') || name.toLowerCase().endsWith('.jpeg')) {
-          mimeType = 'image/jpeg';
-        } else if (name.toLowerCase().endsWith('.gif')) {
-          mimeType = 'image/gif';
-        } else if (name.toLowerCase().endsWith('.webp')) {
-          mimeType = 'image/webp';
-        } else {
-          mimeType = 'image/jpeg'; // Default fallback
-        }
-      }
-      console.log(`📷 Using MIME type from file extension: ${mimeType}`);
-      
-    } else if (mediaItem.data) {
-      if (!mediaItem.data.startsWith('data:')) {
-        throw new Error(`Invalid media data format: expected data URL but got ${typeof mediaItem.data} starting with "${mediaItem.data.substring(0, 20)}..."`);
-      }
-      
-      // Remove data URL prefix and convert base64 to buffer
-      const dataParts = mediaItem.data.split(',');
-      if (dataParts.length !== 2) {
-        throw new Error(`Invalid data URL format: expected 2 parts separated by comma, got ${dataParts.length}`);
-      }
-      
-      const base64Data = dataParts[1];
-      if (!base64Data) {
-        throw new Error('No base64 data found after comma in data URL');
-      }
-      
-      console.log(`✅ Base64 data extracted, length: ${base64Data.length}`);
-      imageBuffer = Buffer.from(base64Data, 'base64');
-      console.log(`✅ Buffer created, size: ${imageBuffer.length} bytes`);
-      
-      // Extract mime type from data URL (this is more reliable than the type field)
+    // Determine media type from data or filename
+    if (mediaItem.data && mediaItem.data.startsWith('data:')) {
       const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
       if (mimeMatch) {
-        mimeType = mimeMatch[1];
-        console.log(`📷 Using MIME type from data URL: ${mimeType}`);
-      } else {
-        console.log(`⚠️ Could not extract MIME type from data URL, using default: ${mimeType}`);
+        const mimeType = mimeMatch[1];
+        if (mimeType.startsWith('image/')) {
+          mediaInfo.type = 'Image';
+        } else if (mimeType.startsWith('video/')) {
+          mediaInfo.type = 'Video';
+        } else if (mimeType.startsWith('audio/')) {
+          mediaInfo.type = 'Audio';
+        }
       }
-    } else {
-      throw new Error('No media data provided - missing both buffer and data properties');
-    }
-    
-    // Ensure we have a valid filename with proper extension for lease request
-    let filename = mediaItem.name || 'image';
-    if (!filename.includes('.')) {
-      // Add appropriate extension based on MIME type
-      const extensionMap = {
-        'image/jpeg': '.jpg',
-        'image/png': '.png',
-        'image/gif': '.gif',
-        'image/webp': '.webp'
-      };
-      filename = filename + (extensionMap[mimeType] || '.jpg');
-      console.log(`📝 Added extension to filename for lease request: ${filename}`);
-    }
-
-    // Step 1: Request upload lease from Reddit
-    console.log(`📋 Requesting upload lease with:`, { filepath: filename, mimetype: mimeType });
-    
-    const leaseResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'NexSocial/1.0'
-      },
-      body: new URLSearchParams({
-        filepath: filename,
-        mimetype: mimeType
-      })
-    });
-    
-    if (!leaseResponse.ok) {
-      const errorText = await leaseResponse.text();
-      console.error(`❌ Failed to get upload lease:`, {
-        status: leaseResponse.status,
-        statusText: leaseResponse.statusText,
-        headers: Object.fromEntries(leaseResponse.headers.entries()),
-        body: errorText
-      });
-      throw new Error(`Failed to get upload lease: ${leaseResponse.status} - ${errorText}`);
-    }
-    
-    const leaseData = await leaseResponse.json();
-    console.log(`✅ Got upload lease from Reddit`);
-    console.log(`📊 Lease response structure:`, JSON.stringify(leaseData, null, 2));
-    
-    // Step 2: Upload to Reddit's media servers
-    // Reddit API response structure: { args: { action, fields }, asset: { asset_id, media_id, websocket_url } }
-    const { args, asset } = leaseData;
-    
-    if (!args || !args.action || !args.fields || !asset) {
-      console.error('❌ Invalid lease response structure:', leaseData);
-      throw new Error('Invalid upload lease response from Reddit - missing required fields');
-    }
-    
-    // Prepare multipart form data for upload
-    const FormData = require('form-data');
-    const form = new FormData();
-    
-    // Add all required fields from args.fields
-    console.log(`📋 Adding form fields:`, Object.keys(args.fields));
-    Object.entries(args.fields).forEach(([key, value]) => {
-      form.append(key, value);
-    });
-    
-    // Use the filename variable that was already declared above
-    if (!filename.includes('.')) {
-      // Add appropriate extension based on MIME type if not already present
-      const extensionMap = {
-        'image/jpeg': '.jpg',
-        'image/png': '.png',
-        'image/gif': '.gif',
-        'image/webp': '.webp'
-      };
-      filename = filename + (extensionMap[mimeType] || '.jpg');
-      console.log(`📝 Added extension to filename: ${filename}`);
-    }
-    
-    // Add the file - Try buffer first, fallback to stream if needed
-    try {
-      // Try using buffer directly (most compatible approach)
-      form.append('file', imageBuffer, {
-        filename: filename,
-        contentType: mimeType
-      });
-      console.log(`📤 Using buffer directly for file upload with filename: ${filename}`);
-    } catch (bufferError) {
-      console.log(`⚠️ Buffer approach failed, trying stream approach:`, bufferError.message);
       
-      // Fallback: Use PassThrough stream for better compatibility
-      const { PassThrough } = require('stream');
-      const imageStream = new PassThrough();
+      // Calculate approximate size from base64 data
+      const base64Data = mediaItem.data.split(',')[1];
+      if (base64Data) {
+        const sizeBytes = (base64Data.length * 3) / 4;
+        if (sizeBytes > 1024 * 1024) {
+          mediaInfo.size = `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+        } else if (sizeBytes > 1024) {
+          mediaInfo.size = `${(sizeBytes / 1024).toFixed(1)} KB`;
+        } else {
+          mediaInfo.size = `${sizeBytes} bytes`;
+        }
+      }
+    } else if (mediaItem.buffer) {
+      mediaInfo.size = `${(mediaItem.buffer.length / 1024).toFixed(1)} KB`;
       
-      // Write buffer to stream and end it
-      imageStream.end(imageBuffer);
-      
-      form.append('file', imageStream, {
-        filename: filename,
-        contentType: mimeType,
-        knownLength: imageBuffer.length
-      });
-      console.log(`📤 Using stream approach for file upload with filename: ${filename}`);
+      // Try to determine type from filename extension
+      const name = mediaItem.name || '';
+      const ext = name.toLowerCase().split('.').pop();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) {
+        mediaInfo.type = 'Image';
+      } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'].includes(ext)) {
+        mediaInfo.type = 'Video';
+      } else if (['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)) {
+        mediaInfo.type = 'Audio';
+      }
     }
     
-    console.log(`📤 Uploading to Reddit servers: ${args.action}`);
-    console.log(`📊 Form headers:`, form.getHeaders());
+    // Create a markdown-formatted media reference
+    const mediaReference = `**📎 Media Attachment: ${mediaInfo.name}**\n- Type: ${mediaInfo.type}\n- Size: ${mediaInfo.size}`;
     
-    // Upload to Reddit's servers
-    const uploadResponse = await fetch(args.action, {
-      method: 'POST',
-      body: form,
-      headers: form.getHeaders()
-    });
-    
-    if (!uploadResponse.ok) {
-      const responseText = await uploadResponse.text();
-      console.error('❌ Upload failed:', {
-        status: uploadResponse.status,
-        statusText: uploadResponse.statusText,
-        headers: Object.fromEntries(uploadResponse.headers.entries()),
-        body: responseText
-      });
-      throw new Error(`Upload failed: ${uploadResponse.status} - ${responseText}`);
-    }
-    
-    console.log(`✅ Upload successful:`, {
-      status: uploadResponse.status,
-      statusText: uploadResponse.statusText
-    });
-    
-    console.log(`✅ Successfully uploaded image to Reddit`);
-    console.log(`📊 Asset info:`, asset);
-    
-    // Validate asset response
-    if (!asset.media_id) {
-      console.error('❌ Missing media_id in asset response:', asset);
-      throw new Error('Invalid asset response - missing media_id');
-    }
-    
+    console.log(`✅ Created Reddit media reference successfully`);
     return {
-      media_id: asset.media_id,
-      asset_id: asset.asset_id,
-      websocket_url: asset.websocket_url
+      reference: mediaReference,
+      mediaInfo: mediaInfo,
+      success: true
     };
     
   } catch (error) {
-    console.error('❌ Error uploading image to Reddit:', error);
-    throw error;
+    console.error('❌ Failed to create Reddit media reference:', error);
+    // Return a fallback reference instead of throwing
+    return {
+      reference: `**📎 Media Attachment: ${mediaItem.name || 'Media File'}**\n- Note: Media file could not be processed`,
+      mediaInfo: { name: mediaItem.name || 'Media File', type: 'Unknown', size: 'Unknown' },
+      success: false,
+      error: error.message
+    };
   }
 };
 
@@ -1893,39 +1749,34 @@ const postToReddit = async (account, content, media = []) => {
           console.log(`📷 Creating image post for Reddit`);
           
           try {
-            // Upload image to Reddit first
-            const uploadResult = await uploadImageToReddit(mediaItem, account.access_token);
+            // Create media reference for Reddit post (OAuth API has limited media upload)
+            const mediaRef = await createRedditMediaReference(mediaItem);
             
-            // Create an image post using the uploaded media
-            postType = 'image';
-            postData = {
-              api_type: 'json',
-              kind: 'image',
-              sr: targetSubreddit,
-              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-              url: uploadResult.media_id, // Use Reddit's media ID
-              sendreplies: true,
-              validate_on_submit: true
-            };
-            
-            // If there's additional text content, add it as a comment
-            if (content && content.trim() !== (content.length > 300 ? content.substring(0, 297) + '...' : content)) {
-              postData.text = content;
-            }
-            
-            console.log(`✅ Created Reddit image post with media ID: ${uploadResult.media_id}`);
-            
-          } catch (uploadError) {
-            console.error('❌ Failed to upload image to Reddit, falling back to text post:', uploadError);
-            
-            // Fall back to text post with image mention
+            // Create a text post with media reference
             postType = 'self';
             postData = {
               api_type: 'json',
               kind: 'self',
               sr: targetSubreddit,
               title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-              text: `${content}\n\n📷 *Image: ${mediaItem.name}*\n\n*(Image upload failed: ${uploadError.message})*`,
+              text: `${content}\n\n${mediaRef.reference}`,
+              sendreplies: true,
+              validate_on_submit: true
+            };
+            
+            console.log(`✅ Created Reddit text post with media reference: ${mediaRef.mediaInfo.name}`);
+            
+          } catch (mediaError) {
+            console.error('❌ Failed to create media reference, creating basic text post:', mediaError);
+            
+            // Fall back to basic text post
+            postType = 'self';
+            postData = {
+              api_type: 'json',
+              kind: 'self',
+              sr: targetSubreddit,
+              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+              text: `${content}\n\n📎 *[Media attachment: ${mediaItem.name}]*`,
               sendreplies: true,
               validate_on_submit: true
             };
@@ -1945,16 +1796,28 @@ const postToReddit = async (account, content, media = []) => {
           };
         }
       } else {
-        // Multiple media items - create text post with media mentions
+        // Multiple media items - create text post with detailed media references
         console.log(`📎 Multiple media items detected, creating text post with references`);
-        const mediaList = supportedMedia.map(m => `• ${m.name}`).join('\n');
+        
+        const mediaReferences = [];
+        for (const mediaItem of supportedMedia) {
+          try {
+            const mediaRef = await createRedditMediaReference(mediaItem);
+            mediaReferences.push(mediaRef.reference);
+          } catch (error) {
+            console.error(`❌ Failed to create reference for ${mediaItem.name}:`, error);
+            mediaReferences.push(`**📎 Media Attachment: ${mediaItem.name}**\n- Note: Could not process file`);
+          }
+        }
+        
+        const mediaText = mediaReferences.join('\n\n');
         postType = 'self';
         postData = {
           api_type: 'json',
           kind: 'self',
           sr: targetSubreddit,
           title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-          text: `${content}\n\n**Attached Media:**\n${mediaList}`,
+          text: `${content}\n\n**Media Attachments:**\n\n${mediaText}`,
           sendreplies: true,
           validate_on_submit: true
         };
