@@ -1621,6 +1621,8 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     }
     
     // Step 1: Request upload lease from Reddit
+    console.log(`📋 Requesting upload lease with:`, { filepath: mediaItem.name, mimetype: mimeType });
+    
     const leaseResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
       method: 'POST',
       headers: {
@@ -1635,25 +1637,36 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     });
     
     if (!leaseResponse.ok) {
-      throw new Error(`Failed to get upload lease: ${leaseResponse.status}`);
+      const errorText = await leaseResponse.text();
+      console.error(`❌ Failed to get upload lease:`, {
+        status: leaseResponse.status,
+        statusText: leaseResponse.statusText,
+        headers: Object.fromEntries(leaseResponse.headers.entries()),
+        body: errorText
+      });
+      throw new Error(`Failed to get upload lease: ${leaseResponse.status} - ${errorText}`);
     }
     
     const leaseData = await leaseResponse.json();
     console.log(`✅ Got upload lease from Reddit`);
+    console.log(`📊 Lease response structure:`, JSON.stringify(leaseData, null, 2));
     
     // Step 2: Upload to Reddit's media servers
-    const { asset, upload_url } = leaseData;
+    // Reddit API response structure: { args: { action, fields }, asset: { asset_id, media_id, websocket_url } }
+    const { args, asset } = leaseData;
     
-    if (!upload_url || !asset) {
-      throw new Error('Invalid upload lease response from Reddit');
+    if (!args || !args.action || !args.fields || !asset) {
+      console.error('❌ Invalid lease response structure:', leaseData);
+      throw new Error('Invalid upload lease response from Reddit - missing required fields');
     }
     
     // Prepare multipart form data for upload
     const FormData = require('form-data');
     const form = new FormData();
     
-    // Add all required fields from upload_url
-    Object.entries(upload_url.fields).forEach(([key, value]) => {
+    // Add all required fields from args.fields
+    console.log(`📋 Adding form fields:`, Object.keys(args.fields));
+    Object.entries(args.fields).forEach(([key, value]) => {
       form.append(key, value);
     });
     
@@ -1663,8 +1676,11 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
       contentType: mimeType
     });
     
+    console.log(`📤 Uploading to Reddit servers: ${args.action}`);
+    console.log(`📊 Form headers:`, form.getHeaders());
+    
     // Upload to Reddit's servers
-    const uploadResponse = await fetch(upload_url.action, {
+    const uploadResponse = await fetch(args.action, {
       method: 'POST',
       body: form,
       headers: form.getHeaders()
@@ -1672,11 +1688,28 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     
     if (!uploadResponse.ok) {
       const responseText = await uploadResponse.text();
-      console.error('❌ Upload failed:', responseText);
-      throw new Error(`Upload failed: ${uploadResponse.status}`);
+      console.error('❌ Upload failed:', {
+        status: uploadResponse.status,
+        statusText: uploadResponse.statusText,
+        headers: Object.fromEntries(uploadResponse.headers.entries()),
+        body: responseText
+      });
+      throw new Error(`Upload failed: ${uploadResponse.status} - ${responseText}`);
     }
     
+    console.log(`✅ Upload successful:`, {
+      status: uploadResponse.status,
+      statusText: uploadResponse.statusText
+    });
+    
     console.log(`✅ Successfully uploaded image to Reddit`);
+    console.log(`📊 Asset info:`, asset);
+    
+    // Validate asset response
+    if (!asset.media_id) {
+      console.error('❌ Missing media_id in asset response:', asset);
+      throw new Error('Invalid asset response - missing media_id');
+    }
     
     return {
       media_id: asset.media_id,
