@@ -1954,6 +1954,73 @@ const createRedditMediaReference = async (mediaItem) => {
   };
 };
 
+// Add new function for Reddit native video upload
+const uploadVideoToReddit = async (mediaItem, accessToken) => {
+  try {
+    console.log(`🔴 Uploading video to Reddit's native hosting: ${mediaItem.name}`);
+    
+    // Extract video data
+    const base64Data = mediaItem.data.split(',')[1];
+    if (!base64Data) {
+      throw new Error('Invalid video data format');
+    }
+    
+    const videoBuffer = Buffer.from(base64Data, 'base64');
+    const mimeType = mediaItem.data.match(/data:([^;]+);/)?.[1] || 'video/mp4';
+    
+    // Step 1: Get upload lease from Reddit
+    const leaseResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'NexSocial/1.0',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        'filepath': mediaItem.name,
+        'mimetype': mimeType
+      })
+    });
+    
+    if (!leaseResponse.ok) {
+      const errorText = await leaseResponse.text();
+      console.error('Reddit upload lease error:', errorText);
+      throw new Error(`Reddit upload lease failed: ${leaseResponse.status}`);
+    }
+    
+    const leaseData = await leaseResponse.json();
+    console.log(`✅ Got Reddit upload lease for video`);
+    
+    // Step 2: Upload video to Reddit's S3
+    const uploadFormData = new FormData();
+    Object.entries(leaseData.args).forEach(([key, value]) => {
+      uploadFormData.append(key, value);
+    });
+    uploadFormData.append('file', new Blob([videoBuffer], { type: mimeType }), mediaItem.name);
+    
+    const uploadResponse = await fetch(leaseData.action, {
+      method: 'POST',
+      body: uploadFormData
+    });
+    
+    if (!uploadResponse.ok) {
+      throw new Error(`Reddit S3 upload failed: ${uploadResponse.status}`);
+    }
+    
+    console.log(`✅ Video uploaded to Reddit S3 successfully`);
+    
+    // Return the websocket URL and asset URL for Reddit submission
+    return {
+      websocket_url: leaseData.websocket_url,
+      asset_url: leaseData.asset.asset_url
+    };
+    
+  } catch (error) {
+    console.error('❌ Reddit video upload failed:', error);
+    throw error;
+  }
+};
+
 // Reddit posting function
 const postToReddit = async (account, content, media = []) => {
   const attemptRedditPost = async (currentAccount, retryCount = 0) => {
@@ -2074,38 +2141,91 @@ const postToReddit = async (account, content, media = []) => {
                        mimeType.startsWith('image/') || 
                        dataMimeType.startsWith('image/');
         
+        const isVideo = type === 'video' || 
+                       type.startsWith('video/') || 
+                       mimeType.startsWith('video/') || 
+                       dataMimeType.startsWith('video/');
+        
         const mediaType = getMediaType(mediaItem);
         console.log(`📷 Creating ${mediaType} post for Reddit`);
         
         try {
-          // Reddit's OAuth API has severe limitations for media uploads
-          // Use a more reliable approach: upload to Imgur and post as link
-          const uploadResult = await uploadMediaToImgur(mediaItem);
-          
-          if (uploadResult && uploadResult.url) {
-            // Create a link post with the Imgur URL (works for both images and videos)
-            postType = 'link';
-            postData = {
-              api_type: 'json',
-              kind: 'link',
-              sr: targetSubreddit,
-              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-              url: uploadResult.url,
-              sendreplies: true,
-              validate_on_submit: true,
-              nsfw: false,
-              spoiler: false
-            };
+          if (isVideo) {
+            // For videos: Try Reddit native upload first, fallback to Imgur
+            console.log(`🎬 Attempting Reddit native video upload for better thumbnails...`);
             
-            console.log(`✅ Created Reddit link post with Imgur ${mediaType} URL: ${uploadResult.url}`);
+                         try {
+               const redditUpload = await uploadVideoToReddit(mediaItem, currentAccount.access_token);
+               
+               // Create a video post with Reddit's native video hosting
+               postType = 'videogif';
+               postData = {
+                 api_type: 'json',
+                 kind: 'videogif',
+                 sr: targetSubreddit,
+                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                 url: redditUpload.asset_url,
+                 sendreplies: true,
+                 validate_on_submit: true,
+                 nsfw: false,
+                 spoiler: false
+               };
+               
+               console.log(`✅ Created Reddit native video post with proper thumbnail support: ${redditUpload.asset_url}`);
+              
+            } catch (redditUploadError) {
+              console.log(`⚠️ Reddit native upload failed, falling back to Imgur: ${redditUploadError.message}`);
+              
+              // Fallback to Imgur for videos
+              const imgurUpload = await uploadMediaToImgur(mediaItem);
+              
+              if (imgurUpload && imgurUpload.url) {
+                postType = 'link';
+                postData = {
+                  api_type: 'json',
+                  kind: 'link',
+                  sr: targetSubreddit,
+                  title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                  url: imgurUpload.url,
+                  sendreplies: true,
+                  validate_on_submit: true,
+                  nsfw: false,
+                  spoiler: false
+                };
+                
+                console.log(`✅ Created Imgur video link post: ${imgurUpload.url}`);
+              } else {
+                throw new Error('Both Reddit and Imgur video uploads failed');
+              }
+            }
           } else {
-            throw new Error(`Failed to upload ${mediaType} to Imgur`);
+            // For images: Continue using Imgur (working well)
+            const uploadResult = await uploadMediaToImgur(mediaItem);
+            
+            if (uploadResult && uploadResult.url) {
+              postType = 'link';
+              postData = {
+                api_type: 'json',
+                kind: 'link',
+                sr: targetSubreddit,
+                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                url: uploadResult.url,
+                sendreplies: true,
+                validate_on_submit: true,
+                nsfw: false,
+                spoiler: false
+              };
+              
+              console.log(`✅ Created Reddit link post with Imgur ${mediaType} URL: ${uploadResult.url}`);
+            } else {
+              throw new Error(`Failed to upload ${mediaType} to Imgur`);
+            }
           }
           
           // For link posts, the content will be shown when users click the link
           
         } catch (uploadError) {
-          console.error(`❌ Imgur ${mediaType} upload failed, falling back to text post:`, uploadError);
+          console.error(`❌ All ${mediaType} upload methods failed, falling back to text post:`, uploadError);
           
           // Fall back to text post with media reference
           try {
@@ -2116,7 +2236,7 @@ const postToReddit = async (account, content, media = []) => {
               kind: 'self',
               sr: targetSubreddit,
               title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-              text: `${content}\n\n${mediaRef.reference}\n\n*(${mediaType} upload to Imgur failed: ${uploadError.message})*`,
+              text: `${content}\n\n${mediaRef.reference}\n\n*(${mediaType} upload failed: ${uploadError.message})*`,
               sendreplies: true,
               validate_on_submit: true
             };

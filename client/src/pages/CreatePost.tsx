@@ -613,11 +613,7 @@ export function CreatePost() {
             title: "🔧 Reddit Authentication Required",
             description: "Your Reddit account connection has expired. Go to Settings → Social Accounts → Disconnect and reconnect your Reddit account.",
             variant: "destructive",
-            duration: 10000, // Show for 10 seconds
-            action: {
-              altText: "Go to Settings",
-              onClick: () => navigate('/settings')
-            }
+            duration: 10000
           })
           return
         }
@@ -634,6 +630,8 @@ export function CreatePost() {
           })
           return
         }
+
+
 
         // Clear only content and media, keep account selections
         setContent("")
