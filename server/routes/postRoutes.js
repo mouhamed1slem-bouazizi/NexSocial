@@ -2146,12 +2146,16 @@ const postToReddit = async (account, content, media = []) => {
       console.error(`❌ Failed to parse Reddit response as JSON:`, parseError.message);
       console.error(`❌ Full response: ${responseText}`);
       
-      // If Reddit returned HTML, it's likely an authentication or permission issue
-      if (responseText.includes('<!doctype') || responseText.includes('<html>')) {
-        throw new Error('Reddit returned HTML instead of JSON - likely authentication or permission error. Please reconnect your Reddit account.');
-      } else {
-        throw new Error(`Reddit returned invalid JSON response: ${parseError.message}`);
-      }
+             // If Reddit returned HTML, it's likely an authentication or permission issue
+       if (responseText.includes('<!doctype') || responseText.includes('<html>')) {
+         if (response.status === 401) {
+           throw new Error('❌ Reddit authentication expired! Your access token is no longer valid. Please disconnect and reconnect your Reddit account in Settings → Social Accounts.');
+         } else {
+           throw new Error('Reddit returned HTML instead of JSON - likely authentication or permission error. Please reconnect your Reddit account.');
+         }
+       } else {
+         throw new Error(`Reddit returned invalid JSON response: ${parseError.message}`);
+       }
     }
     
     if (!response.ok) {
@@ -2239,7 +2243,7 @@ const postToReddit = async (account, content, media = []) => {
     console.error('❌ Error posting to Reddit:', error);
     
     // If we were trying to post a link (video/image) and it failed, try fallback to text post with URL
-    if (postType === 'link' && postData && postData.url) {
+    if (typeof postType !== 'undefined' && postType === 'link' && postData && postData.url) {
       console.log('🔄 Link post failed, trying fallback text post with media URL...');
       
       try {
