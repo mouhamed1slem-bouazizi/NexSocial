@@ -1550,6 +1550,63 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
   }
 };
 
+// Helper function to refresh Reddit access token
+const refreshRedditToken = async (account) => {
+  try {
+    console.log('🔄 Refreshing Reddit access token...');
+    
+    if (!account.refresh_token) {
+      throw new Error('REFRESH_TOKEN_NOT_AVAILABLE');
+    }
+    
+    // Prepare Basic Auth header
+    const credentials = Buffer.from(`${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`).toString('base64');
+    
+    const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'NexSocial/1.0'
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: account.refresh_token
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Reddit token refresh failed:', response.status, errorText);
+      
+      // Check if refresh token is expired or invalid
+      if (response.status === 400 || response.status === 401) {
+        throw new Error('REFRESH_TOKEN_EXPIRED');
+      }
+      
+      throw new Error(`Token refresh failed: ${errorText}`);
+    }
+    
+    const tokenData = await response.json();
+    
+    if (!tokenData.access_token) {
+      console.error('❌ No access token in Reddit refresh response:', tokenData);
+      throw new Error('Invalid refresh response');
+    }
+    
+    console.log('✅ Reddit token refresh successful');
+    
+    return {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || account.refresh_token, // Use new refresh token if provided
+      expires_in: tokenData.expires_in || 3600 // Default 1 hour
+    };
+  } catch (error) {
+    console.error('❌ Reddit token refresh error:', error);
+    throw error;
+  }
+};
+
 // Helper function to determine media type
 const getMediaType = (mediaItem) => {
   const type = mediaItem.type || '';
@@ -1899,10 +1956,11 @@ const createRedditMediaReference = async (mediaItem) => {
 
 // Reddit posting function
 const postToReddit = async (account, content, media = []) => {
-  try {
-    console.log(`🔴 Posting to Reddit for account ${account.username}`);
-    console.log(`📝 Content: ${content}`);
-    console.log(`📎 Media items: ${media.length}`);
+  const attemptRedditPost = async (currentAccount, retryCount = 0) => {
+    try {
+      console.log(`🔴 Posting to Reddit for account ${currentAccount.username} (attempt ${retryCount + 1})`);
+      console.log(`📝 Content: ${content}`);
+      console.log(`📎 Media items: ${media.length}`);
     
     // Parse metadata to get Reddit-specific info
     let metadata = {};
@@ -2119,19 +2177,19 @@ const postToReddit = async (account, content, media = []) => {
       console.log(`📤 Creating text post`);
     }
     
-    // Make the post
-    console.log(`📤 Submitting ${postType} post to Reddit with data:`, postData);
-    console.log(`🔑 Using access token: ${account.access_token ? `${account.access_token.substring(0, 10)}...` : 'MISSING'}`);
-    
-    const response = await fetch('https://oauth.reddit.com/api/submit', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${account.access_token}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'NexSocial/1.0'
-      },
-      body: new URLSearchParams(postData)
-    });
+      // Make the post
+      console.log(`📤 Submitting ${postType} post to Reddit with data:`, postData);
+      console.log(`🔑 Using access token: ${currentAccount.access_token ? `${currentAccount.access_token.substring(0, 10)}...` : 'MISSING'}`);
+      
+      const response = await fetch('https://oauth.reddit.com/api/submit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentAccount.access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'NexSocial/1.0'
+        },
+        body: new URLSearchParams(postData)
+      });
     
     const responseText = await response.text();
     console.log(`📊 Reddit submit response status: ${response.status}`);
@@ -2149,9 +2207,9 @@ const postToReddit = async (account, content, media = []) => {
              // If Reddit returned HTML, it's likely an authentication or permission issue
        if (responseText.includes('<!doctype') || responseText.includes('<html>')) {
          if (response.status === 401) {
-           throw new Error('❌ Reddit authentication expired! Your access token is no longer valid. Please disconnect and reconnect your Reddit account in Settings → Social Accounts.');
+           throw new Error('❌ Reddit authentication expired! Your access token is no longer valid. Please go to Settings → Social Accounts → Disconnect and reconnect your Reddit account.');
          } else {
-           throw new Error('Reddit returned HTML instead of JSON - likely authentication or permission error. Please reconnect your Reddit account.');
+           throw new Error('🔧 Reddit Authentication Issue: Please go to Settings → Social Accounts and reconnect your Reddit account to continue posting.');
          }
        } else {
          throw new Error(`Reddit returned invalid JSON response: ${parseError.message}`);
@@ -2239,75 +2297,122 @@ const postToReddit = async (account, content, media = []) => {
       }
     };
     
+    } catch (error) {
+      console.error('❌ Reddit posting attempt failed:', error);
+      
+      // Handle unauthorized error with token refresh
+      if ((error.message.includes('authentication expired') || error.message.includes('invalid_token')) && retryCount === 0 && currentAccount.refresh_token) {
+        console.log('🔄 Attempting to refresh Reddit token...');
+        
+        try {
+          const refreshedTokens = await refreshRedditToken(currentAccount);
+          
+          // Update tokens in database
+          await SocialAccountService.updateTokens(
+            currentAccount.id,
+            currentAccount.user_id,
+            refreshedTokens.access_token,
+            refreshedTokens.refresh_token
+          );
+          
+          console.log('✅ Reddit token refreshed successfully, retrying post...');
+          
+          // Update current account with new tokens
+          currentAccount.access_token = refreshedTokens.access_token;
+          if (refreshedTokens.refresh_token) {
+            currentAccount.refresh_token = refreshedTokens.refresh_token;
+          }
+          
+          // Retry posting with new token
+          return await attemptRedditPost(currentAccount, retryCount + 1);
+        } catch (refreshError) {
+          console.error('❌ Reddit token refresh failed:', refreshError);
+          
+          if (refreshError.message === 'REFRESH_TOKEN_EXPIRED' || refreshError.message === 'REFRESH_TOKEN_NOT_AVAILABLE') {
+            // Enhanced user-friendly error message
+            const errorMsg = '🔧 Reddit Authentication Required: Your Reddit account connection has expired. Please go to Settings → Social Accounts → Disconnect and reconnect your Reddit account to continue posting.';
+            throw new Error(errorMsg);
+          }
+          
+          throw new Error(`Reddit token refresh failed: ${refreshError.message}`);
+        }
+      }
+      
+      // If we were trying to post a link (video/image) and it failed, try fallback to text post with URL
+      if (typeof postType !== 'undefined' && postType === 'link' && postData && postData.url) {
+        console.log('🔄 Link post failed, trying fallback text post with media URL...');
+        
+        try {
+          const fallbackData = {
+            api_type: 'json',
+            kind: 'self',
+            sr: postData.sr,
+            title: postData.title,
+            text: `${content}\n\n🎬 **Video:** ${postData.url}\n\n*(Direct link posting failed, posted as text with link)*`,
+            sendreplies: true,
+            validate_on_submit: true
+          };
+          
+          console.log(`📤 Submitting fallback text post to Reddit:`, fallbackData);
+          
+          const fallbackResponse = await fetch('https://oauth.reddit.com/api/submit', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentAccount.access_token}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': 'NexSocial/1.0'
+            },
+            body: new URLSearchParams(fallbackData)
+          });
+          
+          const fallbackResponseText = await fallbackResponse.text();
+          console.log(`📊 Fallback response status: ${fallbackResponse.status}`);
+          console.log(`📊 Fallback response body (first 500 chars):`, fallbackResponseText.substring(0, 500));
+          
+          let fallbackParsedData;
+          try {
+            fallbackParsedData = JSON.parse(fallbackResponseText);
+          } catch (parseError) {
+            console.error(`❌ Fallback also failed to parse JSON:`, parseError.message);
+            throw error; // Re-throw original error
+          }
+          
+          if (fallbackResponse.ok && fallbackParsedData.json?.data) {
+            const postInfo = fallbackParsedData.json.data;
+            const redditUrl = `https://reddit.com${postInfo.url}`;
+            
+            console.log(`✅ Fallback text post succeeded: ${redditUrl}`);
+            
+            return {
+              success: true,
+              postId: postInfo.id,
+              platform: 'reddit',
+              message: `Posted to Reddit r/${postData.sr.replace('u_', '')} as text post (link post failed)`,
+              details: {
+                subreddit: postData.sr,
+                postType: 'self',
+                postUrl: redditUrl,
+                permalink: postInfo.url,
+                fullname: postInfo.name,
+                mediaCount: media.length,
+                mediaUploaded: false,
+                fallbackUsed: true
+              }
+            };
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback text post also failed:', fallbackError);
+        }
+      }
+      
+      throw error;
+    }
+  };
+
+  try {
+    return await attemptRedditPost(account, 0);
   } catch (error) {
     console.error('❌ Error posting to Reddit:', error);
-    
-    // If we were trying to post a link (video/image) and it failed, try fallback to text post with URL
-    if (typeof postType !== 'undefined' && postType === 'link' && postData && postData.url) {
-      console.log('🔄 Link post failed, trying fallback text post with media URL...');
-      
-      try {
-        const fallbackData = {
-          api_type: 'json',
-          kind: 'self',
-          sr: postData.sr,
-          title: postData.title,
-          text: `${content}\n\n🎬 **Video:** ${postData.url}\n\n*(Direct link posting failed, posted as text with link)*`,
-          sendreplies: true,
-          validate_on_submit: true
-        };
-        
-        console.log(`📤 Submitting fallback text post to Reddit:`, fallbackData);
-        
-        const fallbackResponse = await fetch('https://oauth.reddit.com/api/submit', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${account.access_token}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'NexSocial/1.0'
-          },
-          body: new URLSearchParams(fallbackData)
-        });
-        
-        const fallbackResponseText = await fallbackResponse.text();
-        console.log(`📊 Fallback response status: ${fallbackResponse.status}`);
-        console.log(`📊 Fallback response body (first 500 chars):`, fallbackResponseText.substring(0, 500));
-        
-        let fallbackParsedData;
-        try {
-          fallbackParsedData = JSON.parse(fallbackResponseText);
-        } catch (parseError) {
-          console.error(`❌ Fallback also failed to parse JSON:`, parseError.message);
-          throw error; // Re-throw original error
-        }
-        
-        if (fallbackResponse.ok && fallbackParsedData.json?.data) {
-          const postInfo = fallbackParsedData.json.data;
-          const redditUrl = `https://reddit.com${postInfo.url}`;
-          
-          console.log(`✅ Fallback text post succeeded: ${redditUrl}`);
-          
-          return {
-            success: true,
-            postId: postInfo.id,
-            platform: 'reddit',
-            message: `Posted to Reddit r/${postData.sr.replace('u_', '')} as text post (link post failed)`,
-            details: {
-              subreddit: postData.sr,
-              postType: 'self',
-              postUrl: redditUrl,
-              permalink: postInfo.url,
-              fullname: postInfo.name,
-              mediaCount: media.length,
-              mediaUploaded: false,
-              fallbackUsed: true
-            }
-          };
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback text post also failed:', fallbackError);
-      }
-    }
     
     return {
       success: false,

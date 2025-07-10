@@ -590,6 +590,14 @@ export function CreatePost() {
         const twitterTokenIssues = failedResults.filter(r => 
           r.platform === 'twitter' && (r.requiresTokenRefresh || r.requiresReconnect)
         )
+        const redditAuthIssues = failedResults.filter(r => 
+          r.platform === 'reddit' && (
+            r.error?.includes('authentication expired') || 
+            r.error?.includes('Authentication Required') ||
+            r.error?.includes('Authentication Issue') ||
+            r.error?.includes('disconnect and reconnect')
+          )
+        )
         
         // Show success notification
         toast({
@@ -598,6 +606,21 @@ export function CreatePost() {
             ? `Post scheduled successfully! You can continue creating more posts.` 
             : `Post published to ${successCount} of ${totalCount} accounts! Your account selection has been saved for next time.`,
         })
+
+        // Show additional notification for Reddit authentication issues
+        if (redditAuthIssues.length > 0) {
+          toast({
+            title: "🔧 Reddit Authentication Required",
+            description: "Your Reddit account connection has expired. Go to Settings → Social Accounts → Disconnect and reconnect your Reddit account.",
+            variant: "destructive",
+            duration: 10000, // Show for 10 seconds
+            action: {
+              altText: "Go to Settings",
+              onClick: () => navigate('/settings')
+            }
+          })
+          return
+        }
 
         // Show additional notification for Twitter token issues
         if (twitterTokenIssues.length > 0) {
@@ -628,6 +651,30 @@ export function CreatePost() {
         const allFailed = Object.values(results).every(r => !r.success)
         
         if (allFailed) {
+          // Check for Reddit authentication issues first
+          const redditAuthIssues = Object.values(results).filter(r => 
+            r.platform === 'reddit' && (
+              r.error?.includes('authentication expired') || 
+              r.error?.includes('Authentication Required') ||
+              r.error?.includes('Authentication Issue') ||
+              r.error?.includes('disconnect and reconnect')
+            )
+          )
+          
+          if (redditAuthIssues.length > 0) {
+            toast({
+              title: "🔧 Reddit Authentication Required",
+              description: "Your Reddit account connection has expired. Go to Settings → Social Accounts → Disconnect and reconnect your Reddit account.",
+              variant: "destructive",
+              duration: 10000, // Show for 10 seconds
+              action: {
+                altText: "Go to Settings",
+                onClick: () => navigate('/settings')
+              }
+            })
+            return
+          }
+          
           // Check for Twitter token issues
           const twitterTokenIssues = Object.values(results).filter(r => 
             r.platform === 'twitter' && (r.requiresTokenRefresh || r.requiresReconnect)
@@ -649,11 +696,30 @@ export function CreatePost() {
         throw new Error(response.message || 'Failed to create post')
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create post",
-        variant: "destructive"
-      })
+      // Check if this is a Reddit authentication error
+      if (error.message && (
+        error.message.includes('authentication expired') || 
+        error.message.includes('Authentication Required') ||
+        error.message.includes('Authentication Issue') ||
+        error.message.includes('disconnect and reconnect')
+      )) {
+        toast({
+          title: "🔧 Reddit Authentication Required",
+          description: "Your Reddit account connection has expired. Go to Settings → Social Accounts → Disconnect and reconnect your Reddit account.",
+          variant: "destructive",
+          duration: 10000, // Show for 10 seconds
+          action: {
+            altText: "Go to Settings",
+            onClick: () => navigate('/settings')
+          }
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create post",
+          variant: "destructive"
+        })
+      }
     } finally {
       setLoading(false)
     }
