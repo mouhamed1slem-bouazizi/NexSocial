@@ -2121,6 +2121,7 @@ const postToReddit = async (account, content, media = []) => {
     
     // Make the post
     console.log(`📤 Submitting ${postType} post to Reddit with data:`, postData);
+    console.log(`🔑 Using access token: ${account.access_token ? `${account.access_token.substring(0, 10)}...` : 'MISSING'}`);
     
     const response = await fetch('https://oauth.reddit.com/api/submit', {
       method: 'POST',
@@ -2132,8 +2133,26 @@ const postToReddit = async (account, content, media = []) => {
       body: new URLSearchParams(postData)
     });
     
-    const data = await response.json();
-    console.log(`📊 Reddit submit response:`, JSON.stringify(data, null, 2));
+    const responseText = await response.text();
+    console.log(`📊 Reddit submit response status: ${response.status}`);
+    console.log(`📊 Reddit submit response headers:`, Object.fromEntries(response.headers.entries()));
+    console.log(`📊 Reddit submit response body (first 500 chars):`, responseText.substring(0, 500));
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log(`📊 Reddit submit parsed data:`, JSON.stringify(data, null, 2));
+    } catch (parseError) {
+      console.error(`❌ Failed to parse Reddit response as JSON:`, parseError.message);
+      console.error(`❌ Full response: ${responseText}`);
+      
+      // If Reddit returned HTML, it's likely an authentication or permission issue
+      if (responseText.includes('<!doctype') || responseText.includes('<html>')) {
+        throw new Error('Reddit returned HTML instead of JSON - likely authentication or permission error. Please reconnect your Reddit account.');
+      } else {
+        throw new Error(`Reddit returned invalid JSON response: ${parseError.message}`);
+      }
+    }
     
     if (!response.ok) {
       console.error('❌ Reddit posting error:', data);
@@ -2218,6 +2237,74 @@ const postToReddit = async (account, content, media = []) => {
     
   } catch (error) {
     console.error('❌ Error posting to Reddit:', error);
+    
+    // If we were trying to post a link (video/image) and it failed, try fallback to text post with URL
+    if (postType === 'link' && postData && postData.url) {
+      console.log('🔄 Link post failed, trying fallback text post with media URL...');
+      
+      try {
+        const fallbackData = {
+          api_type: 'json',
+          kind: 'self',
+          sr: postData.sr,
+          title: postData.title,
+          text: `${content}\n\n🎬 **Video:** ${postData.url}\n\n*(Direct link posting failed, posted as text with link)*`,
+          sendreplies: true,
+          validate_on_submit: true
+        };
+        
+        console.log(`📤 Submitting fallback text post to Reddit:`, fallbackData);
+        
+        const fallbackResponse = await fetch('https://oauth.reddit.com/api/submit', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${account.access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'NexSocial/1.0'
+          },
+          body: new URLSearchParams(fallbackData)
+        });
+        
+        const fallbackResponseText = await fallbackResponse.text();
+        console.log(`📊 Fallback response status: ${fallbackResponse.status}`);
+        console.log(`📊 Fallback response body (first 500 chars):`, fallbackResponseText.substring(0, 500));
+        
+        let fallbackParsedData;
+        try {
+          fallbackParsedData = JSON.parse(fallbackResponseText);
+        } catch (parseError) {
+          console.error(`❌ Fallback also failed to parse JSON:`, parseError.message);
+          throw error; // Re-throw original error
+        }
+        
+        if (fallbackResponse.ok && fallbackParsedData.json?.data) {
+          const postInfo = fallbackParsedData.json.data;
+          const redditUrl = `https://reddit.com${postInfo.url}`;
+          
+          console.log(`✅ Fallback text post succeeded: ${redditUrl}`);
+          
+          return {
+            success: true,
+            postId: postInfo.id,
+            platform: 'reddit',
+            message: `Posted to Reddit r/${postData.sr.replace('u_', '')} as text post (link post failed)`,
+            details: {
+              subreddit: postData.sr,
+              postType: 'self',
+              postUrl: redditUrl,
+              permalink: postInfo.url,
+              fullname: postInfo.name,
+              mediaCount: media.length,
+              mediaUploaded: false,
+              fallbackUsed: true
+            }
+          };
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback text post also failed:', fallbackError);
+      }
+    }
+    
     return {
       success: false,
       error: error.message || 'Failed to post to Reddit',
