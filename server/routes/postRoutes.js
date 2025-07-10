@@ -1958,15 +1958,49 @@ const createRedditMediaReference = async (mediaItem) => {
 const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
   try {
     console.log(`🔴 Uploading video to Reddit's native hosting: ${mediaItem.name}`);
+    console.log(`📊 Media item structure:`, {
+      hasData: !!mediaItem.data,
+      hasBuffer: !!mediaItem.buffer,
+      dataType: typeof mediaItem.data,
+      dataPreview: mediaItem.data ? mediaItem.data.substring(0, 50) + '...' : 'NO_DATA',
+      bufferLength: mediaItem.buffer ? mediaItem.buffer.length : 'NO_BUFFER'
+    });
     
-    // Extract video data
-    const base64Data = mediaItem.data.split(',')[1];
-    if (!base64Data) {
-      throw new Error('Invalid video data format');
+    // Extract video data with robust detection
+    let videoBuffer;
+    let mimeType = 'video/mp4'; // default
+    
+    if (mediaItem.data && typeof mediaItem.data === 'string' && mediaItem.data.startsWith('data:')) {
+      // Extract from data URL
+      const mimeMatch = mediaItem.data.match(/data:([^;]+);base64,(.+)$/);
+      if (!mimeMatch) {
+        throw new Error('Invalid data URL format');
+      }
+      mimeType = mimeMatch[1];
+      const base64Data = mimeMatch[2];
+      videoBuffer = Buffer.from(base64Data, 'base64');
+      console.log(`✅ Extracted video from data URL: ${videoBuffer.length} bytes, MIME: ${mimeType}`);
+      
+    } else if (mediaItem.buffer && Buffer.isBuffer(mediaItem.buffer)) {
+      // Use existing buffer
+      videoBuffer = mediaItem.buffer;
+      mimeType = mediaItem.mimeType || mediaItem.type || 'video/mp4';
+      console.log(`✅ Using existing buffer: ${videoBuffer.length} bytes, MIME: ${mimeType}`);
+      
+    } else if (mediaItem.data && Buffer.isBuffer(mediaItem.data)) {
+      // Data field contains buffer
+      videoBuffer = mediaItem.data;
+      mimeType = mediaItem.mimeType || mediaItem.type || 'video/mp4';
+      console.log(`✅ Using buffer from data field: ${videoBuffer.length} bytes, MIME: ${mimeType}`);
+      
+    } else {
+      console.error('❌ No valid video data found:', {
+        dataType: typeof mediaItem.data,
+        hasBuffer: !!mediaItem.buffer,
+        dataStart: mediaItem.data ? String(mediaItem.data).substring(0, 50) : 'NO_DATA'
+      });
+      throw new Error('No valid video data found in media item');
     }
-    
-    const videoBuffer = Buffer.from(base64Data, 'base64');
-    const mimeType = mediaItem.data.match(/data:([^;]+);/)?.[1] || 'video/mp4';
     
     // Step 1: Request upload URL from Reddit
     const uploadRequest = {
@@ -1995,22 +2029,35 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     const uploadData = await uploadUrlResponse.json();
     console.log(`✅ Got Reddit upload data:`, uploadData);
     
-    // Step 2: Upload file to the provided S3 URL
+    // Step 2: Upload file to the provided S3 URL using Node.js FormData
+    const FormData = require('form-data');
+    const { Readable } = require('stream');
+    
     const uploadFormData = new FormData();
     
     // Add all the form fields Reddit requires
-    Object.entries(uploadData.args).forEach(([key, value]) => {
-      uploadFormData.append(key, value);
-    });
+    if (uploadData.args && uploadData.args.fields) {
+      Object.entries(uploadData.args.fields).forEach(([key, value]) => {
+        uploadFormData.append(key, value);
+      });
+    }
+    
+    // Create a readable stream from the buffer
+    const videoStream = Readable.from(videoBuffer);
     
     // Add the file last (as per S3 requirements)
-    uploadFormData.append('file', new Blob([videoBuffer], { type: mimeType }), mediaItem.name);
+    uploadFormData.append('file', videoStream, {
+      filename: mediaItem.name,
+      contentType: mimeType,
+      knownLength: videoBuffer.length
+    });
     
     console.log(`📤 Uploading video to Reddit S3...`);
     
     const s3Response = await fetch(uploadData.action, {
       method: 'POST',
-      body: uploadFormData
+      body: uploadFormData,
+      headers: uploadFormData.getHeaders()
     });
     
     if (!s3Response.ok) {
