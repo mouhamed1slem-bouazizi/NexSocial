@@ -1550,75 +1550,101 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
   }
 };
 
-// Helper function to upload image to Imgur (much more reliable than Reddit's OAuth API)
-const uploadImageToImgur = async (mediaItem) => {
+// Helper function to determine media type
+const getMediaType = (mediaItem) => {
+  const type = mediaItem.type || '';
+  const mimeType = mediaItem.mimeType || '';
+  
+  // Extract MIME type from data URL if available
+  let dataMimeType = '';
+  if (mediaItem.data && mediaItem.data.startsWith('data:')) {
+    const mimeMatch = mediaItem.data.match(/data:([^;]+);/);
+    if (mimeMatch) {
+      dataMimeType = mimeMatch[1];
+    }
+  }
+  
+  // Check if it's a video
+  if (type === 'video' || type.startsWith('video/') || mimeType.startsWith('video/') || dataMimeType.startsWith('video/')) {
+    return 'video';
+  }
+  
+  // Default to image
+  return 'image';
+};
+
+// Helper function to upload media (image/video) to Imgur (much more reliable than Reddit's OAuth API)
+const uploadMediaToImgur = async (mediaItem) => {
   try {
-    console.log(`📤 Uploading image to Imgur: ${mediaItem.name || 'unnamed_image'}`);
+    const mediaType = getMediaType(mediaItem);
+    console.log(`📤 Uploading ${mediaType} to Imgur: ${mediaItem.name || 'unnamed_media'}`);
     
     // Convert to base64 if needed
-    let base64Image;
+    let base64Media;
     
-    if (mediaItem.data && mediaItem.data.startsWith('data:')) {
-      // Extract base64 from data URL
-      const base64Match = mediaItem.data.match(/data:[^;]+;base64,(.+)$/);
-      if (base64Match) {
-        base64Image = base64Match[1];
+          if (mediaItem.data && mediaItem.data.startsWith('data:')) {
+        // Extract base64 from data URL
+        const base64Match = mediaItem.data.match(/data:[^;]+;base64,(.+)$/);
+        if (base64Match) {
+          base64Media = base64Match[1];
+        } else {
+          throw new Error('Invalid data URL format');
+        }
+      } else if (mediaItem.buffer && Buffer.isBuffer(mediaItem.buffer)) {
+        // Convert buffer to base64
+        base64Media = mediaItem.buffer.toString('base64');
+      } else if (mediaItem.data && Buffer.isBuffer(mediaItem.data)) {
+        // Data field contains buffer
+        base64Media = mediaItem.data.toString('base64');
       } else {
-        throw new Error('Invalid data URL format');
+        throw new Error('No valid media data found');
       }
-    } else if (mediaItem.buffer && Buffer.isBuffer(mediaItem.buffer)) {
-      // Convert buffer to base64
-      base64Image = mediaItem.buffer.toString('base64');
-    } else if (mediaItem.data && Buffer.isBuffer(mediaItem.data)) {
-      // Data field contains buffer
-      base64Image = mediaItem.data.toString('base64');
-    } else {
-      throw new Error('No valid image data found');
+      
+      console.log(`📊 Base64 ${mediaType} length: ${base64Media.length} characters`);
+    
+          // Upload to Imgur (supports both images and videos)
+      const uploadEndpoint = mediaType === 'video' ? 'https://api.imgur.com/3/upload' : 'https://api.imgur.com/3/image';
+      const response = await fetch(uploadEndpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          image: base64Media, // Imgur uses 'image' field for both images and videos
+          type: 'base64',
+          name: mediaItem.name || (mediaType === 'video' ? 'video' : 'image'),
+          title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} uploaded via NexSocial`
+        })
+      });
+    
+          if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Imgur ${mediaType} upload failed: ${response.status} - ${errorText}`);
+        throw new Error(`Imgur ${mediaType} upload failed: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.error(`❌ Imgur API returned error for ${mediaType}:`, result);
+        throw new Error(`Imgur ${mediaType} upload was not successful`);
+      }
+      
+      const mediaUrl = result.data.link;
+      console.log(`✅ Successfully uploaded ${mediaType} to Imgur: ${mediaUrl}`);
+      
+      return {
+        url: mediaUrl,
+        delete_hash: result.data.deletehash,
+        id: result.data.id,
+        type: mediaType
+      };
+      
+    } catch (error) {
+      console.error(`❌ Imgur ${mediaType} upload failed: ${error.message}`);
+      throw error;
     }
-    
-    console.log(`📊 Base64 image length: ${base64Image.length} characters`);
-    
-    // Upload to Imgur
-    const response = await fetch('https://api.imgur.com/3/image', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        image: base64Image,
-        type: 'base64',
-        name: mediaItem.name || 'image',
-        title: 'Uploaded via NexSocial'
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Imgur upload failed: ${response.status} - ${errorText}`);
-      throw new Error(`Imgur upload failed: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    
-    if (!result.success) {
-      console.error('❌ Imgur API returned error:', result);
-      throw new Error('Imgur upload was not successful');
-    }
-    
-    const imageUrl = result.data.link;
-    console.log(`✅ Successfully uploaded to Imgur: ${imageUrl}`);
-    
-    return {
-      url: imageUrl,
-      delete_hash: result.data.deletehash,
-      id: result.data.id
-    };
-    
-  } catch (error) {
-    console.error(`❌ Imgur upload failed: ${error.message}`);
-    throw error;
-  }
 };
 
 // Helper function to upload image to Reddit using proper multipart form handling
@@ -1990,79 +2016,65 @@ const postToReddit = async (account, content, media = []) => {
                        mimeType.startsWith('image/') || 
                        dataMimeType.startsWith('image/');
         
-        if (isImage) {
-          console.log(`📷 Creating image post for Reddit`);
+        const mediaType = getMediaType(mediaItem);
+        console.log(`📷 Creating ${mediaType} post for Reddit`);
+        
+        try {
+          // Reddit's OAuth API has severe limitations for media uploads
+          // Use a more reliable approach: upload to Imgur and post as link
+          const uploadResult = await uploadMediaToImgur(mediaItem);
           
-          try {
-            // Reddit's OAuth API has severe limitations for media uploads
-            // Use a more reliable approach: upload to Imgur and post as link
-            const uploadResult = await uploadImageToImgur(mediaItem);
+          if (uploadResult && uploadResult.url) {
+            // Create a link post with the Imgur URL (works for both images and videos)
+            postType = 'link';
+            postData = {
+              api_type: 'json',
+              kind: 'link',
+              sr: targetSubreddit,
+              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+              url: uploadResult.url,
+              sendreplies: true,
+              validate_on_submit: true,
+              nsfw: false,
+              spoiler: false
+            };
             
-            if (uploadResult && uploadResult.url) {
-              // Create a link post with the Imgur URL
-              postType = 'link';
-              postData = {
-                api_type: 'json',
-                kind: 'link',
-                sr: targetSubreddit,
-                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: uploadResult.url,
-                sendreplies: true,
-                validate_on_submit: true,
-                nsfw: false,
-                spoiler: false
-              };
-              
-              console.log(`✅ Created Reddit link post with Imgur URL: ${uploadResult.url}`);
-            } else {
-              throw new Error('Failed to upload image to Imgur');
-            }
-            
-            // For link posts, the content will be shown when users click the link
-            
-                      } catch (uploadError) {
-            console.error('❌ Imgur upload failed, falling back to text post:', uploadError);
-            
-            // Fall back to text post with media reference
-            try {
-              const mediaRef = await createRedditMediaReference(mediaItem);
-              postType = 'self';
-              postData = {
-                api_type: 'json',
-                kind: 'self',
-                sr: targetSubreddit,
-                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                text: `${content}\n\n${mediaRef.reference}\n\n*(Image upload to Imgur failed: ${uploadError.message})*`,
-                sendreplies: true,
-                validate_on_submit: true
-              };
-            } catch (refError) {
-              // Ultimate fallback - basic text post
-              postType = 'self';
-              postData = {
-                api_type: 'json',
-                kind: 'self',
-                sr: targetSubreddit,
-                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                text: `${content}\n\n📎 *[Image: ${mediaItem.name}]*\n\n*(Upload failed)*`,
-                sendreplies: true,
-                validate_on_submit: true
-              };
-            }
+            console.log(`✅ Created Reddit link post with Imgur ${mediaType} URL: ${uploadResult.url}`);
+          } else {
+            throw new Error(`Failed to upload ${mediaType} to Imgur`);
           }
-        } else {
-          // Video post - Reddit's video API is more complex, fall back to text for now
-          console.log(`🎥 Video detected - creating text post with video mention`);
-          postType = 'self';
-          postData = {
-            api_type: 'json',
-            kind: 'self',
-            sr: targetSubreddit,
-            title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-            text: `${content}\n\n*[Video: ${mediaItem.name}]*`,
-            sendreplies: true,
-            validate_on_submit: true
-          };
+          
+          // For link posts, the content will be shown when users click the link
+          
+        } catch (uploadError) {
+          console.error(`❌ Imgur ${mediaType} upload failed, falling back to text post:`, uploadError);
+          
+          // Fall back to text post with media reference
+          try {
+            const mediaRef = await createRedditMediaReference(mediaItem);
+            postType = 'self';
+            postData = {
+              api_type: 'json',
+              kind: 'self',
+              sr: targetSubreddit,
+              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+              text: `${content}\n\n${mediaRef.reference}\n\n*(${mediaType} upload to Imgur failed: ${uploadError.message})*`,
+              sendreplies: true,
+              validate_on_submit: true
+            };
+          } catch (refError) {
+            // Ultimate fallback - basic text post
+            postType = 'self';
+            postData = {
+              api_type: 'json',
+              kind: 'self',
+              sr: targetSubreddit,
+              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+              text: `${content}\n\n📎 *[${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}: ${mediaItem.name}]*\n\n*(Upload failed)*`,
+              sendreplies: true,
+              validate_on_submit: true
+            };
+          }
         }
       } else {
         // Multiple media items - create text post with detailed media references
