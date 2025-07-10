@@ -1954,8 +1954,8 @@ const createRedditMediaReference = async (mediaItem) => {
   };
 };
 
-// Add new function for Reddit native video upload
-const uploadVideoToReddit = async (mediaItem, accessToken) => {
+// Reddit native video upload using their actual API workflow
+const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
   try {
     console.log(`🔴 Uploading video to Reddit's native hosting: ${mediaItem.name}`);
     
@@ -1968,55 +1968,67 @@ const uploadVideoToReddit = async (mediaItem, accessToken) => {
     const videoBuffer = Buffer.from(base64Data, 'base64');
     const mimeType = mediaItem.data.match(/data:([^;]+);/)?.[1] || 'video/mp4';
     
-    // Step 1: Get upload lease from Reddit
-    const leaseResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
+    // Step 1: Request upload URL from Reddit
+    const uploadRequest = {
+      filepath: mediaItem.name,
+      mimetype: mimeType
+    };
+    
+    console.log(`📡 Requesting Reddit upload URL...`);
+    
+    const uploadUrlResponse = await fetch('https://oauth.reddit.com/api/media/asset', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'User-Agent': 'NexSocial/1.0',
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({
-        'filepath': mediaItem.name,
-        'mimetype': mimeType
-      })
+      body: new URLSearchParams(uploadRequest)
     });
     
-    if (!leaseResponse.ok) {
-      const errorText = await leaseResponse.text();
-      console.error('Reddit upload lease error:', errorText);
-      throw new Error(`Reddit upload lease failed: ${leaseResponse.status}`);
+    if (!uploadUrlResponse.ok) {
+      const errorText = await uploadUrlResponse.text();
+      console.error(`❌ Reddit upload URL request failed (${uploadUrlResponse.status}):`, errorText);
+      throw new Error(`Reddit upload URL failed: ${uploadUrlResponse.status}`);
     }
     
-    const leaseData = await leaseResponse.json();
-    console.log(`✅ Got Reddit upload lease for video`);
+    const uploadData = await uploadUrlResponse.json();
+    console.log(`✅ Got Reddit upload data:`, uploadData);
     
-    // Step 2: Upload video to Reddit's S3
+    // Step 2: Upload file to the provided S3 URL
     const uploadFormData = new FormData();
-    Object.entries(leaseData.args).forEach(([key, value]) => {
+    
+    // Add all the form fields Reddit requires
+    Object.entries(uploadData.args).forEach(([key, value]) => {
       uploadFormData.append(key, value);
     });
+    
+    // Add the file last (as per S3 requirements)
     uploadFormData.append('file', new Blob([videoBuffer], { type: mimeType }), mediaItem.name);
     
-    const uploadResponse = await fetch(leaseData.action, {
+    console.log(`📤 Uploading video to Reddit S3...`);
+    
+    const s3Response = await fetch(uploadData.action, {
       method: 'POST',
       body: uploadFormData
     });
     
-    if (!uploadResponse.ok) {
-      throw new Error(`Reddit S3 upload failed: ${uploadResponse.status}`);
+    if (!s3Response.ok) {
+      const errorText = await s3Response.text();
+      console.error(`❌ S3 upload failed (${s3Response.status}):`, errorText);
+      throw new Error(`S3 upload failed: ${s3Response.status}`);
     }
     
     console.log(`✅ Video uploaded to Reddit S3 successfully`);
     
-    // Return the websocket URL and asset URL for Reddit submission
+    // Step 3: Return the asset info for submission
     return {
-      websocket_url: leaseData.websocket_url,
-      asset_url: leaseData.asset.asset_url
+      asset_url: uploadData.asset.asset_url,
+      websocket_url: uploadData.websocket_url
     };
     
   } catch (error) {
-    console.error('❌ Reddit video upload failed:', error);
+    console.error('❌ Reddit native video upload failed:', error);
     throw error;
   }
 };
@@ -2150,33 +2162,33 @@ const postToReddit = async (account, content, media = []) => {
         console.log(`📷 Creating ${mediaType} post for Reddit`);
         
         try {
-          if (isVideo) {
-            // For videos: Try Reddit native upload first, fallback to Imgur
-            console.log(`🎬 Attempting Reddit native video upload for better thumbnails...`);
+                    if (isVideo) {
+            // For videos: Try Reddit native upload for proper v.redd.it hosting
+            console.log(`🎬 Attempting Reddit native video upload for v.redd.it hosting...`);
             
-                         try {
-               const redditUpload = await uploadVideoToReddit(mediaItem, currentAccount.access_token);
-               
-               // Create a video post with Reddit's native video hosting
-               postType = 'videogif';
-               postData = {
-                 api_type: 'json',
-                 kind: 'videogif',
-                 sr: targetSubreddit,
-                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                 url: redditUpload.asset_url,
-                 sendreplies: true,
-                 validate_on_submit: true,
-                 nsfw: false,
-                 spoiler: false
-               };
-               
-               console.log(`✅ Created Reddit native video post with proper thumbnail support: ${redditUpload.asset_url}`);
+            try {
+              const redditVideoUpload = await uploadVideoToRedditNative(mediaItem, currentAccount.access_token);
               
-            } catch (redditUploadError) {
-              console.log(`⚠️ Reddit native upload failed, falling back to Imgur: ${redditUploadError.message}`);
+              // Create a video post using Reddit's native asset
+              postType = 'videogif';
+              postData = {
+                api_type: 'json',
+                kind: 'videogif',
+                sr: targetSubreddit,
+                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                url: redditVideoUpload.asset_url,
+                sendreplies: true,
+                validate_on_submit: true,
+                nsfw: false,
+                spoiler: false
+              };
               
-              // Fallback to Imgur for videos
+              console.log(`✅ Created Reddit native video post with v.redd.it hosting: ${redditVideoUpload.asset_url}`);
+              
+            } catch (redditVideoError) {
+              console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
+              
+              // Fallback to Imgur approach
               const imgurUpload = await uploadMediaToImgur(mediaItem);
               
               if (imgurUpload && imgurUpload.url) {
@@ -2193,9 +2205,9 @@ const postToReddit = async (account, content, media = []) => {
                   spoiler: false
                 };
                 
-                console.log(`✅ Created Imgur video link post: ${imgurUpload.url}`);
+                console.log(`✅ Created Imgur fallback video link post: ${imgurUpload.url}`);
               } else {
-                throw new Error('Both Reddit and Imgur video uploads failed');
+                throw new Error('Both Reddit native and Imgur video uploads failed');
               }
             }
           } else {
