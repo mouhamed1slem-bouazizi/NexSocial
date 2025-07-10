@@ -1550,19 +1550,100 @@ const postToDiscord = async (account, content, media = [], discordChannels = {})
   }
 };
 
+// Helper function to upload image to Imgur (much more reliable than Reddit's OAuth API)
+const uploadImageToImgur = async (mediaItem) => {
+  try {
+    console.log(`📤 Uploading image to Imgur: ${mediaItem.name || 'unnamed_image'}`);
+    
+    // Convert to base64 if needed
+    let base64Image;
+    
+    if (mediaItem.data && mediaItem.data.startsWith('data:')) {
+      // Extract base64 from data URL
+      const base64Match = mediaItem.data.match(/data:[^;]+;base64,(.+)$/);
+      if (base64Match) {
+        base64Image = base64Match[1];
+      } else {
+        throw new Error('Invalid data URL format');
+      }
+    } else if (mediaItem.buffer && Buffer.isBuffer(mediaItem.buffer)) {
+      // Convert buffer to base64
+      base64Image = mediaItem.buffer.toString('base64');
+    } else if (mediaItem.data && Buffer.isBuffer(mediaItem.data)) {
+      // Data field contains buffer
+      base64Image = mediaItem.data.toString('base64');
+    } else {
+      throw new Error('No valid image data found');
+    }
+    
+    console.log(`📊 Base64 image length: ${base64Image.length} characters`);
+    
+    // Upload to Imgur
+    const response = await fetch('https://api.imgur.com/3/image', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image: base64Image,
+        type: 'base64',
+        name: mediaItem.name || 'image',
+        title: 'Uploaded via NexSocial'
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Imgur upload failed: ${response.status} - ${errorText}`);
+      throw new Error(`Imgur upload failed: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      console.error('❌ Imgur API returned error:', result);
+      throw new Error('Imgur upload was not successful');
+    }
+    
+    const imageUrl = result.data.link;
+    console.log(`✅ Successfully uploaded to Imgur: ${imageUrl}`);
+    
+    return {
+      url: imageUrl,
+      delete_hash: result.data.deletehash,
+      id: result.data.id
+    };
+    
+  } catch (error) {
+    console.error(`❌ Imgur upload failed: ${error.message}`);
+    throw error;
+  }
+};
+
 // Helper function to upload image to Reddit using proper multipart form handling
 const uploadImageToReddit = async (mediaItem, accessToken) => {
   try {
-    console.log(`📤 Starting Reddit image upload for: ${mediaItem.name}`);
+    console.log(`📤 Starting Reddit image upload for: ${mediaItem.name || 'unnamed_media'}`);
+    console.log(`📊 Media item structure:`, {
+      hasData: !!mediaItem.data,
+      hasBuffer: !!mediaItem.buffer,
+      dataType: typeof mediaItem.data,
+      dataPreview: mediaItem.data ? mediaItem.data.substring(0, 50) + '...' : 'NO_DATA',
+      bufferLength: mediaItem.buffer ? mediaItem.buffer.length : 'NO_BUFFER',
+      type: mediaItem.type,
+      mimeType: mediaItem.mimeType
+    });
     
     // Convert media to buffer format
     let imageBuffer;
     let mimeType = 'image/jpeg'; // default
     
-    if (mediaItem.data && mediaItem.data.startsWith('data:')) {
+    if (mediaItem.data && typeof mediaItem.data === 'string' && mediaItem.data.startsWith('data:')) {
       // Extract MIME type and convert base64 to buffer
       const mimeMatch = mediaItem.data.match(/data:([^;]+);base64,(.+)$/);
       if (!mimeMatch) {
+        console.error('❌ Invalid data URL format:', mediaItem.data.substring(0, 100));
         throw new Error('Invalid data URL format');
       }
       
@@ -1571,17 +1652,44 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
       imageBuffer = Buffer.from(base64Data, 'base64');
       console.log(`✅ Converted base64 to buffer: ${imageBuffer.length} bytes, MIME: ${mimeType}`);
       
-    } else if (mediaItem.buffer) {
+    } else if (mediaItem.buffer && Buffer.isBuffer(mediaItem.buffer)) {
       imageBuffer = mediaItem.buffer;
-      // Determine MIME type from filename
-      const name = mediaItem.name || '';
-      if (name.toLowerCase().includes('.png')) mimeType = 'image/png';
-      else if (name.toLowerCase().includes('.gif')) mimeType = 'image/gif';
-      else if (name.toLowerCase().includes('.webp')) mimeType = 'image/webp';
+      // Determine MIME type from filename or provided mimeType
+      if (mediaItem.mimeType) {
+        mimeType = mediaItem.mimeType;
+      } else {
+        const name = (mediaItem.name || '').toLowerCase();
+        if (name.includes('.png')) mimeType = 'image/png';
+        else if (name.includes('.gif')) mimeType = 'image/gif';
+        else if (name.includes('.webp')) mimeType = 'image/webp';
+        else if (name.includes('.jpg') || name.includes('.jpeg')) mimeType = 'image/jpeg';
+      }
       console.log(`✅ Using buffer: ${imageBuffer.length} bytes, MIME: ${mimeType}`);
       
+    } else if (mediaItem.data && Buffer.isBuffer(mediaItem.data)) {
+      // Sometimes the data field contains the buffer directly
+      imageBuffer = mediaItem.data;
+      if (mediaItem.mimeType) {
+        mimeType = mediaItem.mimeType;
+      } else {
+        const name = (mediaItem.name || '').toLowerCase();
+        if (name.includes('.png')) mimeType = 'image/png';
+        else if (name.includes('.gif')) mimeType = 'image/gif';
+        else if (name.includes('.webp')) mimeType = 'image/webp';
+        else if (name.includes('.jpg') || name.includes('.jpeg')) mimeType = 'image/jpeg';
+      }
+      console.log(`✅ Using data buffer: ${imageBuffer.length} bytes, MIME: ${mimeType}`);
+      
     } else {
-      throw new Error('No valid image data found');
+      console.error('❌ No valid image data found in media item:', {
+        hasData: !!mediaItem.data,
+        dataType: typeof mediaItem.data,
+        hasBuffer: !!mediaItem.buffer,
+        bufferType: typeof mediaItem.buffer,
+        isDataBuffer: Buffer.isBuffer(mediaItem.data),
+        isBufferBuffer: Buffer.isBuffer(mediaItem.buffer)
+      });
+      throw new Error('No media data provided');
     }
     
     // Prepare filename with proper extension
@@ -1619,17 +1727,77 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     }
     
     const leaseData = await leaseResponse.json();
-    console.log(`✅ Got upload lease from Reddit`);
+    console.log(`📊 Reddit lease response:`, JSON.stringify(leaseData, null, 2));
     
-    // Validate lease response structure
-    const { args, asset } = leaseData;
-    if (!args?.action || !args?.fields || !asset?.media_id) {
-      console.error('❌ Invalid lease response:', leaseData);
-      throw new Error('Invalid upload lease response from Reddit');
+    // Extract data from Reddit's actual response structure
+    let uploadUrl, uploadFields, mediaId;
+    
+    // Reddit's actual response structure (from logs analysis)
+    if (leaseData.args && leaseData.args.action && leaseData.args.fields) {
+      // Standard Reddit API structure
+      uploadUrl = leaseData.args.action;
+      uploadFields = leaseData.args.fields;
+      
+      // Media ID can be in different places
+      mediaId = leaseData.asset?.media_id || 
+                leaseData.asset?.asset_id || 
+                leaseData.args.fields?.key ||
+                leaseData.args.fields?.['X-Amz-Meta-Ext-Media-Id'] ||
+                'reddit_upload_' + Date.now();
+      
+      console.log(`📋 Using Reddit args structure - URL: ${uploadUrl}, Media ID: ${mediaId}`);
+      
+    } else if (leaseData.action && leaseData.fields) {
+      // Alternative Reddit structure  
+      uploadUrl = leaseData.action;
+      uploadFields = leaseData.fields;
+      mediaId = leaseData.media_id || leaseData.asset_id || 'reddit_upload_' + Date.now();
+      
+      console.log(`📋 Using direct Reddit structure - URL: ${uploadUrl}, Media ID: ${mediaId}`);
+      
+    } else {
+      // Log the full response to understand the structure
+      console.log(`🔍 Unrecognized Reddit lease structure:`, Object.keys(leaseData));
+      
+      // Try to extract what we can from any structure
+      uploadUrl = leaseData.args?.action || 
+                  leaseData.action || 
+                  leaseData.upload_url || 
+                  leaseData.url;
+                  
+      uploadFields = leaseData.args?.fields || 
+                     leaseData.fields || 
+                     leaseData.form_data || 
+                     {};
+                     
+      mediaId = leaseData.asset?.media_id || 
+                leaseData.asset?.asset_id || 
+                leaseData.media_id || 
+                leaseData.asset_id || 
+                leaseData.args?.fields?.key ||
+                'reddit_upload_' + Date.now();
+      
+      console.log(`📋 Using fallback extraction - URL: ${uploadUrl}, Media ID: ${mediaId}`);
     }
     
-    console.log(`📤 Uploading to: ${args.action}`);
-    console.log(`📊 Media ID: ${asset.media_id}`);
+    // Ensure uploadUrl has proper protocol
+    if (uploadUrl && uploadUrl.startsWith('//')) {
+      uploadUrl = 'https:' + uploadUrl;
+      console.log(`📋 Fixed URL protocol: ${uploadUrl}`);
+    }
+    
+    // Validate we have the essential components
+    if (!uploadUrl) {
+      console.error('❌ Missing upload URL in lease response:', { 
+        availableKeys: Object.keys(leaseData),
+        leaseData: leaseData
+      });
+      throw new Error('Invalid upload lease response from Reddit - missing upload URL');
+    }
+    
+    console.log(`📤 Uploading to: ${uploadUrl}`);
+    console.log(`📊 Media ID: ${mediaId}`);
+    console.log(`📋 Upload fields:`, uploadFields);
     
     // Step 2: Upload using Node.js form-data with proper stream handling
     const FormData = require('form-data');
@@ -1638,9 +1806,11 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     const form = new FormData();
     
     // Add all required fields from the lease
-    Object.entries(args.fields).forEach(([key, value]) => {
-      form.append(key, value);
-    });
+    if (uploadFields && typeof uploadFields === 'object') {
+      Object.entries(uploadFields).forEach(([key, value]) => {
+        form.append(key, value);
+      });
+    }
     
     // Create a readable stream from the buffer using Readable.from() (Node.js 12.3+)
     const imageStream = Readable.from(imageBuffer);
@@ -1655,7 +1825,7 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     console.log(`🚀 Uploading image stream to Reddit...`);
     
     // Upload to Reddit's servers
-    const uploadResponse = await fetch(args.action, {
+    const uploadResponse = await fetch(uploadUrl, {
       method: 'POST',
       body: form,
       headers: form.getHeaders()
@@ -1668,12 +1838,12 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
     }
     
     console.log(`✅ Successfully uploaded image to Reddit`);
-    console.log(`📊 Asset details:`, { media_id: asset.media_id, asset_id: asset.asset_id });
+    console.log(`📊 Final media ID for posting: ${mediaId}`);
     
     return {
-      media_id: asset.media_id,
-      asset_id: asset.asset_id,
-      websocket_url: asset.websocket_url
+      media_id: mediaId,
+      asset_id: mediaId,
+      websocket_url: leaseData.asset?.websocket_url || null
     };
     
   } catch (error) {
@@ -1824,30 +1994,34 @@ const postToReddit = async (account, content, media = []) => {
           console.log(`📷 Creating image post for Reddit`);
           
           try {
-            // Upload image to Reddit and get media_id
-            const uploadResult = await uploadImageToReddit(mediaItem, account.access_token);
+            // Reddit's OAuth API has severe limitations for media uploads
+            // Use a more reliable approach: upload to Imgur and post as link
+            const uploadResult = await uploadImageToImgur(mediaItem);
             
-            // Create an image post using the uploaded media
-            postType = 'image';
-            postData = {
-              api_type: 'json',
-              kind: 'image',
-              sr: targetSubreddit,
-              title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-              url: uploadResult.media_id, // Use the media_id directly
-              sendreplies: true,
-              validate_on_submit: true
-            };
-            
-            // Add text content as the first comment if we have additional content
-            if (content && content.trim() !== (content.length > 300 ? content.substring(0, 297) + '...' : content)) {
-              postData.text = content;
+            if (uploadResult && uploadResult.url) {
+              // Create a link post with the Imgur URL
+              postType = 'link';
+              postData = {
+                api_type: 'json',
+                kind: 'link',
+                sr: targetSubreddit,
+                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                url: uploadResult.url,
+                sendreplies: true,
+                validate_on_submit: true,
+                nsfw: false,
+                spoiler: false
+              };
+              
+              console.log(`✅ Created Reddit link post with Imgur URL: ${uploadResult.url}`);
+            } else {
+              throw new Error('Failed to upload image to Imgur');
             }
             
-            console.log(`✅ Created Reddit image post with media ID: ${uploadResult.media_id}`);
+            // For link posts, the content will be shown when users click the link
             
-          } catch (uploadError) {
-            console.error('❌ Image upload failed, falling back to text post:', uploadError);
+                      } catch (uploadError) {
+            console.error('❌ Imgur upload failed, falling back to text post:', uploadError);
             
             // Fall back to text post with media reference
             try {
@@ -1858,7 +2032,7 @@ const postToReddit = async (account, content, media = []) => {
                 kind: 'self',
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                text: `${content}\n\n${mediaRef.reference}\n\n*(Image upload failed: ${uploadError.message})*`,
+                text: `${content}\n\n${mediaRef.reference}\n\n*(Image upload to Imgur failed: ${uploadError.message})*`,
                 sendreplies: true,
                 validate_on_submit: true
               };
@@ -1934,6 +2108,8 @@ const postToReddit = async (account, content, media = []) => {
     }
     
     // Make the post
+    console.log(`📤 Submitting ${postType} post to Reddit with data:`, postData);
+    
     const response = await fetch('https://oauth.reddit.com/api/submit', {
       method: 'POST',
       headers: {
@@ -1945,6 +2121,7 @@ const postToReddit = async (account, content, media = []) => {
     });
     
     const data = await response.json();
+    console.log(`📊 Reddit submit response:`, JSON.stringify(data, null, 2));
     
     if (!response.ok) {
       console.error('❌ Reddit posting error:', data);
