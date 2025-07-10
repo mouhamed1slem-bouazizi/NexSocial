@@ -1,20 +1,4 @@
-REQUEST: GET /assets/index-617yUYik.css
-🌐 Path: /assets/index-617yUYik.css
-🌐 Original URL: /assets/index-617yUYik.css
-🌐 REQUEST: GET /create
-🌐 Path: /create
-🌐 Original URL: /create
-🌐 REQUEST: GET /assets/index-617yUYik.css
-🌐 Path: /assets/index-617yUYik.css
-🌐 Original URL: /assets/index-617yUYik.css
-🌐 REQUEST: GET /assets/index-Df7OdtRa.js
-🌐 Path: /assets/index-Df7OdtRa.js
-🌐 Original URL: /assets/index-Df7OdtRa.js
-🌐 REQUEST: GET /api/social-accounts
-🌐 Path: /api/social-accounts
-🌐 Original URL: /api/social-accounts
-🔒 Auth middleware - checking authentication
-🔑 Token received, length: 192
+Token received, length: 192
 ✅ Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 ✅ Auth successful for user: mibtn10@gmail.com
@@ -183,7 +167,7 @@ Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 ✅ Auth successful for user: mibtn10@gmail.com
 📝 Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📊 Post data: {
-  "content": "test 2 image post",
+  "content": "test 2df",
   "platforms": [
     "reddit"
   ],
@@ -207,7 +191,7 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📎 Processed 1 media files
 🚀 Posting to reddit:suareztn...
 🔴 Posting to Reddit for account suareztn
-📝 Content: test 2 image post
+📝 Content: test 2df
 📎 Media items: 1
 🔍 Parsed metadata: {}
 📊 User moderates 0 subreddits
@@ -231,25 +215,110 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
    Starts with 'data:': undefined
 ✅ Using pre-processed buffer, size: 87356 bytes
 📷 Using MIME type from file extension: image/jpeg
+📋 Requesting upload lease with: {
+  filepath: '20250702_1241_Nexora Logo Design_simple_compose_01jz5848hqe8mtpwyfazpazts7.jpg',
+  mimetype: 'image/jpeg'
+}
 ✅ Got upload lease from Reddit
-❌ Error uploading image to Reddit: Error: Invalid upload lease response from Reddit
-    at uploadImageToReddit (/opt/render/project/src/server/routes/postRoutes.js:1648:13)
+📊 Lease response structure: {
+  "args": {
+    "action": "//reddit-uploaded-media.s3-accelerate.amazonaws.com",
+    "fields": [
+      {
+        "name": "x-amz-algorithm",
+        "value": "AWS4-HMAC-SHA256"
+      },
+      {
+        "name": "x-amz-security-token",
+        "value": "IQoJb3JpZ2luX2VjEK7//////////wEaCXVzLWVhc3QtMSJHMEUCIQCF147K8LPatdsGn3v0tiIhnU0dsxz+ZOYd5khuCT23HAIgUC5Yg7Ek+C4qK4QEi+WjkY6dqfkl3xstg6ATExJDXfcqsAIIt///////////ARAAGgwyMTAyNDYzMjYzMzEiDKwiIcJx3N66yaeDziqEAow3K+YP3bdmr3j3qz7PxmcJ1HCqL9RxDppfbTjxTOLltUEJyvIrVzw9jVZpNSYGSFOLUFnRWDbaY9zgm/YWjVToVXbBepDBVX8ZY22F/FsissTuPUGI+jPKZVtTYRHWoa2BMT9hr7/fpXsUb09kJAZuGNFV67JdavbyVntiJcmwYgakeubir9+zyw+eci9HPPlgpve7VbUn3GvS95HDeUOcxjlKvBy6/WdEJU/lPdx1W7eGl57XkK7dR4N71iFVyB+j2v5SEP7fxy6ODLUAkNhf++ABLtqHuwYeVfwDfk0w0CPTfCB8MQIejAZetfpGXt1cX04lgZXgCOC8mpsskUc9noYXMOSqvcMGOp0BuP/IlP+5jUrXvOB0CpFWx0SWwiuyM7x7PnrXBqL49difJahBSPQpbjnM7GKT1PgR3bHpgHcBEeSliNmOWGElSKEnPTv4PQhyJx5JjNNY6vDipp4geJDKpV6RIxQ/Hu5PnVUZ4g9idGP21WfKk/dMcu4wxzNoYVJhpLIEVyMaXw6o2MSGW62qzXgXOc7p2G5EMiFfRtZnd1l6OKrnVQ=="
+      },
+      {
+        "name": "x-amz-storage-class",
+        "value": "STANDARD"
+      },
+      {
+        "name": "x-amz-date",
+        "value": "20250710T055654Z"
+      },
+      {
+        "name": "success_action_status",
+        "value": "201"
+      },
+      {
+        "name": "bucket",
+        "value": "reddit-uploaded-media"
+      },
+      {
+        "name": "acl",
+        "value": "private"
+      },
+      {
+        "name": "x-amz-signature",
+        "value": "e2c20f5659d377fc20cd41577eddc0654441e1448e2b69e38fea7530aa599a5e"
+      },
+      {
+        "name": "key",
+        "value": "nckpozn6lzbf1"
+      },
+      {
+        "name": "x-amz-meta-ext",
+        "value": "jpeg"
+      },
+      {
+        "name": "policy",
+        "value": "eyJleHBpcmF0aW9uIjoiMjAyNS0wNy0xMFQwNjoxMTo1NC4zN1oiLCJjb25kaXRpb25zIjpbWyJlcSIsIiR4LWFtei1zdG9yYWdlLWNsYXNzIiwiU1RBTkRBUkQiXSxbImVxIiwiJHgtYW16LWRhdGUiLCIyMDI1MDcxMFQwNTU2NTRaIl0sWyJlcSIsIiR4LWFtei1hbGdvcml0aG0iLCJBV1M0LUhNQUMtU0hBMjU2Il0sWyJlcSIsIiRidWNrZXQiLCJyZWRkaXQtdXBsb2FkZWQtbWVkaWEiXSxbImVxIiwiJGFjbCIsInByaXZhdGUiXSxbImVxIiwiJGtleSIsIm5ja3Bvem42bHpiZjEiXSxbImVxIiwiJENvbnRlbnQtVHlwZSIsImltYWdlL2pwZWciXSxbImVxIiwiJHN1Y2Nlc3NfYWN0aW9uX3N0YXR1cyIsIjIwMSJdLFsiZXEiLCIkeC1hbXotc2VjdXJpdHktdG9rZW4iLCJJUW9KYjNKcFoybHVYMlZqRUs3Ly8vLy8vLy8vL3dFYUNYVnpMV1ZoYzNRdE1TSkhNRVVDSVFDRjE0N0s4TFBhdGRzR24zdjB0aUloblUwZHN4eitaT1lkNWtodUNUMjNIQUlnVUM1WWc3RWsrQzRxSzRRRWkrV2prWTZkcWZrbDN4c3RnNkFURXhKRFhmY3FzQUlJdC8vLy8vLy8vLy8vQVJBQUdnd3lNVEF5TkRZek1qWXpNekVpREt3aUljSngzTjY2eWFlRHppcUVBb3czSytZUDNiZG1yM2ozcXo3UHhtY0oxSENxTDlSeERwcGZiVGp4VE9MbHRVRUp5dklyVnp3OWpWWnBOU1lHU0ZPTFVGblJXRGJhWTl6Z20vWVdqVlRvVlhiQmVwREJWWDhaWTIyRi9Gc2lzc1R1UFVHSStqUEtaVnRUWVJIV29hMkJNVDlocjcvZnBYc1ViMDlrSkFadUdORlY2N0pkYXZieVZudGlKY213WWdha2V1YmlyOSt6eXcrZWNpOUhQUGxncHZlN1ZiVW4zR3ZTOTVIRGVVT2N4amxLdkJ5Ni9XZEVKVS9sUGR4MVc3ZUdsNTdYa0s3ZFI0TjcxaUZWeUIrajJ2NVNFUDdmeHk2T0RMVUFrTmhmKytBQkx0cUh1d1llVmZ3RGZrMHcwQ1BUZkNCOE1RSWVqQVpldGZwR1h0MWNYMDRsZ1pYZ0NPQzhtcHNza1VjOW5vWVhNT1NxdmNNR09wMEJ1UC9JbFArNWpVclh2T0IwQ3BGV3gwU1d3aXV5TTd4N1BuclhCcUw0OWRpZkphaEJTUFFwYmpuTTdHS1QxUGdSM2JIcGdIY0JFZVNsaU5tT1dHRWxTS0VuUFR2NFBRaHlKeDVKak5OWTZ2RGlwcDRnZUpES3BWNlJJeFEvSHU1UG5WVVo0ZzlpZEdQMjFXZktrL2RNY3U0d3h6Tm9ZVkpocExJRVZ5TWFYdzZvMk1TR1c2MnF6WGdYT2M3cDJHNUVNaUZmUnRabmQxbDZPS3JuVlE9PSJdLFsiZXEiLCIkeC1hbXotbWV0YS1leHQiLCJqcGVnIl0sWyJlcSIsIiR4LWFtei1jcmVkZW50aWFsIiwiQVNJQVRCNDVJTEE1M0JCVTNRV0YvMjAyNTA3MTAvdXMtZWFzdC0xL3MzL2F3czRfcmVxdWVzdCJdLFsiY29udGVudC1sZW5ndGgtcmFuZ2UiLCAxLCAyMDk3MTUyMF1dfQ=="
+      },
+      {
+        "name": "x-amz-credential",
+        "value": "ASIATB45ILA53BBU3QWF/20250710/us-east-1/s3/aws4_request"
+      },
+      {
+        "name": "Content-Type",
+        "value": "image/jpeg"
+      }
+    ]
+  },
+  "asset": {
+    "asset_id": "nckpozn6lzbf1",
+    "processing_state": "incomplete",
+    "payload": {
+      "filepath": "20250702_1241_Nexora Logo Design_simple_compose_01jz5848hqe8mtpwyfazpazts7.jpg"
+    },
+    "websocket_url": "wss://k8s-lb.wss.redditmedia.com/nckpozn6lzbf1?m=AQAAflhvaILMUo0LH39pdm3_PPGS9vTFN7Rb2Lzb0VP_D0bP9wwZ"
+  }
+}
+📋 Adding form fields: [
+  '0',  '1', '2',  '3',
+  '4',  '5', '6',  '7',
+  '8',  '9', '10', '11',
+  '12'
+]
+❌ Error uploading image to Reddit: TypeError: source.on is not a function
+    at DelayedStream.create (/opt/render/project/src/server/node_modules/delayed-stream/lib/delayed_stream.js:33:10)
+    at CombinedStream.append (/opt/render/project/src/server/node_modules/combined-stream/lib/combined_stream.js:45:37)
+    at FormData.append (/opt/render/project/src/server/node_modules/form-data/lib/form_data.js:77:3)
+    at /opt/render/project/src/server/routes/postRoutes.js:1670:12
+    at Array.forEach (<anonymous>)
+    at uploadImageToReddit (/opt/render/project/src/server/routes/postRoutes.js:1669:33)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1817:34)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1850:34)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
     at async Promise.all (index 0)
-    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
-❌ Failed to upload image to Reddit, falling back to text post: Error: Invalid upload lease response from Reddit
-    at uploadImageToReddit (/opt/render/project/src/server/routes/postRoutes.js:1648:13)
+❌ Failed to upload image to Reddit, falling back to text post: TypeError: source.on is not a function
+    at DelayedStream.create (/opt/render/project/src/server/node_modules/delayed-stream/lib/delayed_stream.js:33:10)
+    at CombinedStream.append (/opt/render/project/src/server/node_modules/combined-stream/lib/combined_stream.js:45:37)
+    at FormData.append (/opt/render/project/src/server/node_modules/form-data/lib/form_data.js:77:3)
+    at /opt/render/project/src/server/routes/postRoutes.js:1670:12
+    at Array.forEach (<anonymous>)
+    at uploadImageToReddit (/opt/render/project/src/server/routes/postRoutes.js:1669:33)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1817:34)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1850:34)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
     at async Promise.all (index 0)
-    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
 ✅ Posted to Reddit successfully
-📊 Post details: ID=1lw4uwe, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lw4uwe/test_2_image_post/
+📊 Post details: ID=1lw56qy, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lw56qy/test_2df/
 ✅ Successfully posted to reddit:suareztn
 📊 Posting complete: 1/1 successful
 📊 Creating post record for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-✅ Post record created successfully: 16
+✅ Post record created successfully: 17
 📊 Post tracking record saved successfully

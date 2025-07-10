@@ -1670,8 +1670,13 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
       form.append(key, value);
     });
     
-    // Add the file
-    form.append('file', imageBuffer, {
+    // Add the file - Create a readable stream from the buffer to avoid "source.on is not a function" error
+    const { Readable } = require('stream');
+    const imageStream = new Readable();
+    imageStream.push(imageBuffer);
+    imageStream.push(null); // Signal end of stream
+    
+    form.append('file', imageStream, {
       filename: mediaItem.name,
       contentType: mimeType
     });
