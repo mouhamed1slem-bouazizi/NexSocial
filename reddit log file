@@ -1,173 +1,7 @@
-Token received, length: 192
-✅ Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-✅ Auth successful for user: mibtn10@gmail.com
-GET /api/social-accounts - User: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-Fetching social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-🌐 REQUEST: GET /api/social-accounts/65b24020-8927-4cfb-9d89-9d2d23e1ff32/discord-channels
-🌐 Path: /api/social-accounts/65b24020-8927-4cfb-9d89-9d2d23e1ff32/discord-channels
-🌐 Original URL: /api/social-accounts/65b24020-8927-4cfb-9d89-9d2d23e1ff32/discord-channels
-🔒 Auth middleware - checking authentication
-🔑 Token received, length: 192
-✅ Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-✅ Auth successful for user: mibtn10@gmail.com
-🎮 Fetching Discord channels for account: 65b24020-8927-4cfb-9d89-9d2d23e1ff32
-Fetching social account: 65b24020-8927-4cfb-9d89-9d2d23e1ff32 for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-🔍 Parsed Discord metadata: {
-  "guilds": [
-    {
-      "id": "321973067221958657",
-      "name": "Coma Online",
-      "icon": "c0806a15a0f98027363c84caa66eb9f9",
-      "banner": "8a0a19143153ee1338d591964f53d9e3",
-      "owner": false,
-      "permissions": 103810625,
-      "permissions_new": "1588248945100353",
-      "features": [
-        "TIERLESS_BOOSTING_SYSTEM_MESSAGE",
-        "THREADS_ENABLED",
-        "AUTO_MODERATION",
-        "NEWS",
-        "PREVIEW_ENABLED",
-        "ENABLED_DISCOVERABLE_BEFORE",
-        "MEMBER_VERIFICATION_GATE_ENABLED",
-        "DISCOVERABLE",
-        "COMMUNITY",
-        "COMMUNITY_EXP_LARGE_UNGATED",
-        "CHANNEL_ICON_EMOJIS_GENERATED"
-      ]
-    },
-    {
-      "id": "400062314457464833",
-      "name": "tulipcoin",
-      "icon": "5d2778c249b027e17200c73ddfd7b3a7",
-      "banner": null,
-      "owner": false,
-      "permissions": 104324673,
-      "permissions_new": "2222085186772545",
-      "features": []
-    },
-    {
-      "id": "715980612799823993",
-      "name": "CINCINNATI GAMING STUDIO",
-      "icon": "a_d147f32efe3cbe2d8535669daf45620b",
-      "banner": "fc8d954343f1333f5ccee28cd285130a",
-      "owner": false,
-      "permissions": 2427904,
-      "permissions_new": "1095805073427456",
-      "features": [
-        "GUILD_SERVER_GUIDE",
-        "GUILD_WEB_PAGE_VANITY_URL",
-        "GUILD_ONBOARDING_EVER_ENABLED",
-        "TIERLESS_BOOSTING_SYSTEM_MESSAGE",
-        "AUTO_MODERATION",
-        "NEWS",
-        "ACTIVITY_FEED_ENABLED_BY_USER",
-        "DISCOVERABLE_DISABLED",
-        "ENABLED_DISCOVERABLE_BEFORE",
-        "GUILD_HOME_TEST",
-        "MEMBER_VERIFICATION_GATE_ENABLED",
-        "WELCOME_SCREEN_ENABLED",
-        "PREVIEW_ENABLED",
-        "COMMUNITY",
-        "TIERLESS_BOOSTING",
-        "CHANNEL_ICON_EMOJIS_GENERATED",
-        "SOUNDBOARD"
-      ]
-    },
-    {
-      "id": "763373158601850892",
-      "name": "EL.Fallaga.TN",
-      "icon": "c4ed57c17e3b7302118095521a7de7cb",
-      "banner": null,
-      "owner": false,
-      "permissions": 104320577,
-      "permissions_new": "2222085186768449",
-      "features": []
-    },
-    {
-      "id": "787733223278641154",
-      "name": "Fallega E-Sports",
-      "icon": "724b1bbcdb1c45007d384eeba07000c9",
-      "banner": "d274123841fad7d03b1fdc762d3f5119",
-      "owner": false,
-      "permissions": 1110822721,
-      "permissions_new": "2229954573356865",
-      "features": [
-        "TIERLESS_BOOSTING_SYSTEM_MESSAGE",
-        "THREADS_ENABLED",
-        "NEWS",
-        "NEW_THREAD_PERMISSIONS",
-        "COMMUNITY",
-        "CHANNEL_ICON_EMOJIS_GENERATED"
-      ]
-    },
-    {
-      "id": "811868305055940688",
-      "name": "Cryptic Trading",
-      "icon": "6df4e8eac63219bd985e270ca65d05a5",
-      "banner": "051462f7779aaf40b68fdc77ab2ed406",
-      "owner": false,
-      "permissions": 68609,
-      "permissions_new": "2221982003301377",
-      "features": [
-        "TEXT_IN_VOICE_ENABLED",
-        "TIERLESS_BOOSTING_SYSTEM_MESSAGE",
-        "AUTO_MODERATION",
-        "NEWS",
-        "COMMUNITY_EXP_LARGE_GATED",
-        "COMMUNITY",
-        "CHANNEL_ICON_EMOJIS_GENERATED"
-      ]
-    },
-    {
-      "id": "898983819112222740",
-      "name": "NBA inAction Fantasy",
-      "icon": "c71be7e338d405afe60e28a0df4bf8c8",
-      "banner": null,
-      "owner": false,
-      "permissions": 104320577,
-      "permissions_new": "2248473465835073",
-      "features": []
-    },
-    {
-      "id": "1392079021243895898",
-      "name": "Nexora's server",
-      "icon": "64d160d06563b9b427bbe2fb471524b3",
-      "banner": null,
-      "owner": true,
-      "permissions": 2147483647,
-      "permissions_new": "4503599627370495",
-      "features": []
-    }
-  ],
-  "primaryGuild": {
-    "id": "1392079021243895898",
-    "name": "Nexora's server",
-    "icon": "64d160d06563b9b427bbe2fb471524b3",
-    "banner": null,
-    "owner": true,
-    "permissions": 2147483647,
-    "permissions_new": "4503599627370495",
-    "features": []
-  },
-  "refreshed_at": "2025-07-09T05:24:31.839Z"
-}
-🔍 Checking for cached Discord channels...
-✅ Found 4 cached Discord channels (fresh within 1 hour)
-🌐 REQUEST: POST /api/posts
-🌐 Path: /api/posts
-🌐 Original URL: /api/posts
-🔒 Auth middleware - checking authentication
-🔑 Token received, length: 192
-✅ Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-✅ Auth successful for user: mibtn10@gmail.com
+Auth successful for user: mibtn10@gmail.com
 📝 Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📊 Post data: {
-  "content": "test 2df",
+  "content": "test 3 image",
   "platforms": [
     "reddit"
   ],
@@ -191,7 +25,7 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📎 Processed 1 media files
 🚀 Posting to reddit:suareztn...
 🔴 Posting to Reddit for account suareztn
-📝 Content: test 2df
+📝 Content: test 3 image
 📎 Media items: 1
 🔍 Parsed metadata: {}
 📊 User moderates 0 subreddits
@@ -229,16 +63,12 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
         "value": "AWS4-HMAC-SHA256"
       },
       {
-        "name": "x-amz-security-token",
-        "value": "IQoJb3JpZ2luX2VjEK7//////////wEaCXVzLWVhc3QtMSJHMEUCIQCF147K8LPatdsGn3v0tiIhnU0dsxz+ZOYd5khuCT23HAIgUC5Yg7Ek+C4qK4QEi+WjkY6dqfkl3xstg6ATExJDXfcqsAIIt///////////ARAAGgwyMTAyNDYzMjYzMzEiDKwiIcJx3N66yaeDziqEAow3K+YP3bdmr3j3qz7PxmcJ1HCqL9RxDppfbTjxTOLltUEJyvIrVzw9jVZpNSYGSFOLUFnRWDbaY9zgm/YWjVToVXbBepDBVX8ZY22F/FsissTuPUGI+jPKZVtTYRHWoa2BMT9hr7/fpXsUb09kJAZuGNFV67JdavbyVntiJcmwYgakeubir9+zyw+eci9HPPlgpve7VbUn3GvS95HDeUOcxjlKvBy6/WdEJU/lPdx1W7eGl57XkK7dR4N71iFVyB+j2v5SEP7fxy6ODLUAkNhf++ABLtqHuwYeVfwDfk0w0CPTfCB8MQIejAZetfpGXt1cX04lgZXgCOC8mpsskUc9noYXMOSqvcMGOp0BuP/IlP+5jUrXvOB0CpFWx0SWwiuyM7x7PnrXBqL49difJahBSPQpbjnM7GKT1PgR3bHpgHcBEeSliNmOWGElSKEnPTv4PQhyJx5JjNNY6vDipp4geJDKpV6RIxQ/Hu5PnVUZ4g9idGP21WfKk/dMcu4wxzNoYVJhpLIEVyMaXw6o2MSGW62qzXgXOc7p2G5EMiFfRtZnd1l6OKrnVQ=="
+        "name": "x-amz-date",
+        "value": "20250710T060920Z"
       },
       {
         "name": "x-amz-storage-class",
         "value": "STANDARD"
-      },
-      {
-        "name": "x-amz-date",
-        "value": "20250710T055654Z"
       },
       {
         "name": "success_action_status",
@@ -253,12 +83,16 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
         "value": "private"
       },
       {
-        "name": "x-amz-signature",
-        "value": "e2c20f5659d377fc20cd41577eddc0654441e1448e2b69e38fea7530aa599a5e"
+        "name": "key",
+        "value": "zviqfgjenzbf1"
       },
       {
-        "name": "key",
-        "value": "nckpozn6lzbf1"
+        "name": "x-amz-signature",
+        "value": "282cfb9d1ac32bb0115cae7155e5630d5e2407b5ac185a41d14a52f71da2666b"
+      },
+      {
+        "name": "x-amz-security-token",
+        "value": "IQoJb3JpZ2luX2VjEK7//////////wEaCXVzLWVhc3QtMSJHMEUCID3vKkJ5/hCjQOAjcSLl7+JNA9EIwdgkuqV+V5Tx5QYhAiEA8tvMkdiySmZswaxDXWKakVLhVLM82Y9Hwq0VX9wdj0wqsAIIt///////////ARAAGgwyMTAyNDYzMjYzMzEiDLUXJp2LZCmp3YNGLiqEAvLa700NqXc010Tah2u9mJL5hBKP8pN6OghZULesQ+NOOpTn5mDrO8nedt/YsfvV9n0WYfLuEuQHp0kdX6LLw4kOT2M7IKteREjNblVmBCvlrXHnr+nfQGapq8I0KIkqXcpFqRf7ULYFFV9xOJqwRNn3ALfRxJTMOccLEm5kccAT7vOzP2mtmGen8PWKMCkFn2Tqlh0cMArSZmd3OZzTGmuGAdDxrLHb8vBqL4RKgPTM4b4JV+MHG+MzRz6VTUcWvPeTL6MLO8mzvoDaqWhkGHNAPXLFk853CxxwynWNY0x0AzDYL/mj5Jqw5mckMzoe2ShGfv4zwKItm6KBOjB/2VGrtBcoMM2ovcMGOp0BiJqeHPBub6mL6zkRECax00jaLOyc8JbgT+bC+1aSE73981MNheuzWxDQB8URECwSEjufjhAbtmbEmfP/JGal8HuiaK3pJpY+6ne/ejcZmF8XiOXAWoKN+2AGnzVkB7MSDlkTB5tvskf/i72xwn2dlcLJE9QM1Tmlsmg5tUKUAPyd3bElMb5/RBlbuebiXIfovUsVhQ8mWak/hmi+tA=="
       },
       {
         "name": "x-amz-meta-ext",
@@ -266,11 +100,11 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
       },
       {
         "name": "policy",
-        "value": "eyJleHBpcmF0aW9uIjoiMjAyNS0wNy0xMFQwNjoxMTo1NC4zN1oiLCJjb25kaXRpb25zIjpbWyJlcSIsIiR4LWFtei1zdG9yYWdlLWNsYXNzIiwiU1RBTkRBUkQiXSxbImVxIiwiJHgtYW16LWRhdGUiLCIyMDI1MDcxMFQwNTU2NTRaIl0sWyJlcSIsIiR4LWFtei1hbGdvcml0aG0iLCJBV1M0LUhNQUMtU0hBMjU2Il0sWyJlcSIsIiRidWNrZXQiLCJyZWRkaXQtdXBsb2FkZWQtbWVkaWEiXSxbImVxIiwiJGFjbCIsInByaXZhdGUiXSxbImVxIiwiJGtleSIsIm5ja3Bvem42bHpiZjEiXSxbImVxIiwiJENvbnRlbnQtVHlwZSIsImltYWdlL2pwZWciXSxbImVxIiwiJHN1Y2Nlc3NfYWN0aW9uX3N0YXR1cyIsIjIwMSJdLFsiZXEiLCIkeC1hbXotc2VjdXJpdHktdG9rZW4iLCJJUW9KYjNKcFoybHVYMlZqRUs3Ly8vLy8vLy8vL3dFYUNYVnpMV1ZoYzNRdE1TSkhNRVVDSVFDRjE0N0s4TFBhdGRzR24zdjB0aUloblUwZHN4eitaT1lkNWtodUNUMjNIQUlnVUM1WWc3RWsrQzRxSzRRRWkrV2prWTZkcWZrbDN4c3RnNkFURXhKRFhmY3FzQUlJdC8vLy8vLy8vLy8vQVJBQUdnd3lNVEF5TkRZek1qWXpNekVpREt3aUljSngzTjY2eWFlRHppcUVBb3czSytZUDNiZG1yM2ozcXo3UHhtY0oxSENxTDlSeERwcGZiVGp4VE9MbHRVRUp5dklyVnp3OWpWWnBOU1lHU0ZPTFVGblJXRGJhWTl6Z20vWVdqVlRvVlhiQmVwREJWWDhaWTIyRi9Gc2lzc1R1UFVHSStqUEtaVnRUWVJIV29hMkJNVDlocjcvZnBYc1ViMDlrSkFadUdORlY2N0pkYXZieVZudGlKY213WWdha2V1YmlyOSt6eXcrZWNpOUhQUGxncHZlN1ZiVW4zR3ZTOTVIRGVVT2N4amxLdkJ5Ni9XZEVKVS9sUGR4MVc3ZUdsNTdYa0s3ZFI0TjcxaUZWeUIrajJ2NVNFUDdmeHk2T0RMVUFrTmhmKytBQkx0cUh1d1llVmZ3RGZrMHcwQ1BUZkNCOE1RSWVqQVpldGZwR1h0MWNYMDRsZ1pYZ0NPQzhtcHNza1VjOW5vWVhNT1NxdmNNR09wMEJ1UC9JbFArNWpVclh2T0IwQ3BGV3gwU1d3aXV5TTd4N1BuclhCcUw0OWRpZkphaEJTUFFwYmpuTTdHS1QxUGdSM2JIcGdIY0JFZVNsaU5tT1dHRWxTS0VuUFR2NFBRaHlKeDVKak5OWTZ2RGlwcDRnZUpES3BWNlJJeFEvSHU1UG5WVVo0ZzlpZEdQMjFXZktrL2RNY3U0d3h6Tm9ZVkpocExJRVZ5TWFYdzZvMk1TR1c2MnF6WGdYT2M3cDJHNUVNaUZmUnRabmQxbDZPS3JuVlE9PSJdLFsiZXEiLCIkeC1hbXotbWV0YS1leHQiLCJqcGVnIl0sWyJlcSIsIiR4LWFtei1jcmVkZW50aWFsIiwiQVNJQVRCNDVJTEE1M0JCVTNRV0YvMjAyNTA3MTAvdXMtZWFzdC0xL3MzL2F3czRfcmVxdWVzdCJdLFsiY29udGVudC1sZW5ndGgtcmFuZ2UiLCAxLCAyMDk3MTUyMF1dfQ=="
+        "value": "eyJleHBpcmF0aW9uIjoiMjAyNS0wNy0xMFQwNjoyNDoyMC41MzJaIiwiY29uZGl0aW9ucyI6W1siZXEiLCIkYnVja2V0IiwicmVkZGl0LXVwbG9hZGVkLW1lZGlhIl0sWyJlcSIsIiRhY2wiLCJwcml2YXRlIl0sWyJlcSIsIiRrZXkiLCJ6dmlxZmdqZW56YmYxIl0sWyJlcSIsIiRDb250ZW50LVR5cGUiLCJpbWFnZS9qcGVnIl0sWyJlcSIsIiRzdWNjZXNzX2FjdGlvbl9zdGF0dXMiLCIyMDEiXSxbImVxIiwiJHgtYW16LXN0b3JhZ2UtY2xhc3MiLCJTVEFOREFSRCJdLFsiZXEiLCIkeC1hbXotc2VjdXJpdHktdG9rZW4iLCJJUW9KYjNKcFoybHVYMlZqRUs3Ly8vLy8vLy8vL3dFYUNYVnpMV1ZoYzNRdE1TSkhNRVVDSUQzdktrSjUvaENqUU9BamNTTGw3K0pOQTlFSXdkZ2t1cVYrVjVUeDVRWWhBaUVBOHR2TWtkaXlTbVpzd2F4RFhXS2FrVkxoVkxNODJZOUh3cTBWWDl3ZGowd3FzQUlJdC8vLy8vLy8vLy8vQVJBQUdnd3lNVEF5TkRZek1qWXpNekVpRExVWEpwMkxaQ21wM1lOR0xpcUVBdkxhNzAwTnFYYzAxMFRhaDJ1OW1KTDVoQktQOHBONk9naFpVTGVzUStOT09wVG41bURyTzhuZWR0L1lzZnZWOW4wV1lmTHVFdVFIcDBrZFg2TEx3NGtPVDJNN0lLdGVSRWpOYmxWbUJDdmxyWEhucituZlFHYXBxOEkwS0lrcVhjcEZxUmY3VUxZRkZWOXhPSnF3Uk5uM0FMZlJ4SlRNT2NjTEVtNWtjY0FUN3ZPelAybXRtR2VuOFBXS01Da0ZuMlRxbGgwY01BclNabWQzT1p6VEdtdUdBZER4ckxIYjh2QnFMNFJLZ1BUTTRiNEpWK01IRytNelJ6NlZUVWNXdlBlVEw2TUxPOG16dm9EYXFXaGtHSE5BUFhMRms4NTNDeHh3eW5XTlkweDBBekRZTC9tajVKcXc1bWNrTXpvZTJTaEdmdjR6d0tJdG02S0JPakIvMlZHcnRCY29NTTJvdmNNR09wMEJpSnFlSFBCdWI2bUw2emtSRUNheDAwamFMT3ljOEpiZ1QrYkMrMWFTRTczOTgxTU5oZXV6V3hEUUI4VVJFQ3dTRWp1ZmpoQWJ0bWJFbWZQL0pHYWw4SHVpYUszcEpwWSs2bmUvZWpjWm1GOFhpT1hBV29LTisyQUduelZrQjdNU0Rsa1RCNXR2c2tmL2k3Mnh3bjJkbGNMSkU5UU0xVG1sc21nNXRVS1VBUHlkM2JFbE1iNS9SQmxidWViaVhJZm92VXNWaFE4bVdhay9obWkrdEE9PSJdLFsiZXEiLCIkeC1hbXotbWV0YS1leHQiLCJqcGVnIl0sWyJlcSIsIiR4LWFtei1kYXRlIiwiMjAyNTA3MTBUMDYwOTIwWiJdLFsiZXEiLCIkeC1hbXotYWxnb3JpdGhtIiwiQVdTNC1ITUFDLVNIQTI1NiJdLFsiZXEiLCIkeC1hbXotY3JlZGVudGlhbCIsIkFTSUFUQjQ1SUxBNTUzTTJSTkNDLzIwMjUwNzEwL3VzLWVhc3QtMS9zMy9hd3M0X3JlcXVlc3QiXSxbImNvbnRlbnQtbGVuZ3RoLXJhbmdlIiwgMSwgMjA5NzE1MjBdXX0="
       },
       {
         "name": "x-amz-credential",
-        "value": "ASIATB45ILA53BBU3QWF/20250710/us-east-1/s3/aws4_request"
+        "value": "ASIATB45ILA553M2RNCC/20250710/us-east-1/s3/aws4_request"
       },
       {
         "name": "Content-Type",
@@ -279,12 +113,12 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
     ]
   },
   "asset": {
-    "asset_id": "nckpozn6lzbf1",
+    "asset_id": "zviqfgjenzbf1",
     "processing_state": "incomplete",
     "payload": {
       "filepath": "20250702_1241_Nexora Logo Design_simple_compose_01jz5848hqe8mtpwyfazpazts7.jpg"
     },
-    "websocket_url": "wss://k8s-lb.wss.redditmedia.com/nckpozn6lzbf1?m=AQAAflhvaILMUo0LH39pdm3_PPGS9vTFN7Rb2Lzb0VP_D0bP9wwZ"
+    "websocket_url": "wss://k8s-lb.wss.redditmedia.com/zviqfgjenzbf1?m=AQAAaFtvaOwTY6aQqgXh2mYeBUhysD8FbZTAdiACQygYcsuKiAD7"
   }
 }
 📋 Adding form fields: [
@@ -301,7 +135,7 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
     at Array.forEach (<anonymous>)
     at uploadImageToReddit (/opt/render/project/src/server/routes/postRoutes.js:1669:33)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1850:34)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1855:34)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
     at async Promise.all (index 0)
 ❌ Failed to upload image to Reddit, falling back to text post: TypeError: source.on is not a function
@@ -312,13 +146,13 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
     at Array.forEach (<anonymous>)
     at uploadImageToReddit (/opt/render/project/src/server/routes/postRoutes.js:1669:33)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1850:34)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:1855:34)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
     at async Promise.all (index 0)
 ✅ Posted to Reddit successfully
-📊 Post details: ID=1lw56qy, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lw56qy/test_2df/
+📊 Post details: ID=1lw5dvw, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lw5dvw/test_3_image/
 ✅ Successfully posted to reddit:suareztn
 📊 Posting complete: 1/1 successful
 📊 Creating post record for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-✅ Post record created successfully: 17
+✅ Post record created successfully: 19
 📊 Post tracking record saved successfully

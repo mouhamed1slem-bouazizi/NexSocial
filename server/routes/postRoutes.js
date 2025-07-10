@@ -1620,8 +1620,22 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
       throw new Error('No media data provided - missing both buffer and data properties');
     }
     
+    // Ensure we have a valid filename with proper extension for lease request
+    let filename = mediaItem.name || 'image';
+    if (!filename.includes('.')) {
+      // Add appropriate extension based on MIME type
+      const extensionMap = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/webp': '.webp'
+      };
+      filename = filename + (extensionMap[mimeType] || '.jpg');
+      console.log(`📝 Added extension to filename for lease request: ${filename}`);
+    }
+
     // Step 1: Request upload lease from Reddit
-    console.log(`📋 Requesting upload lease with:`, { filepath: mediaItem.name, mimetype: mimeType });
+    console.log(`📋 Requesting upload lease with:`, { filepath: filename, mimetype: mimeType });
     
     const leaseResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
       method: 'POST',
@@ -1631,7 +1645,7 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
         'User-Agent': 'NexSocial/1.0'
       },
       body: new URLSearchParams({
-        filepath: mediaItem.name,
+        filepath: filename,
         mimetype: mimeType
       })
     });
@@ -1670,16 +1684,44 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
       form.append(key, value);
     });
     
-    // Add the file - Create a readable stream from the buffer to avoid "source.on is not a function" error
-    const { Readable } = require('stream');
-    const imageStream = new Readable();
-    imageStream.push(imageBuffer);
-    imageStream.push(null); // Signal end of stream
+    // Use the filename variable that was already declared above
+    if (!filename.includes('.')) {
+      // Add appropriate extension based on MIME type if not already present
+      const extensionMap = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/webp': '.webp'
+      };
+      filename = filename + (extensionMap[mimeType] || '.jpg');
+      console.log(`📝 Added extension to filename: ${filename}`);
+    }
     
-    form.append('file', imageStream, {
-      filename: mediaItem.name,
-      contentType: mimeType
-    });
+    // Add the file - Try buffer first, fallback to stream if needed
+    try {
+      // Try using buffer directly (most compatible approach)
+      form.append('file', imageBuffer, {
+        filename: filename,
+        contentType: mimeType
+      });
+      console.log(`📤 Using buffer directly for file upload with filename: ${filename}`);
+    } catch (bufferError) {
+      console.log(`⚠️ Buffer approach failed, trying stream approach:`, bufferError.message);
+      
+      // Fallback: Use PassThrough stream for better compatibility
+      const { PassThrough } = require('stream');
+      const imageStream = new PassThrough();
+      
+      // Write buffer to stream and end it
+      imageStream.end(imageBuffer);
+      
+      form.append('file', imageStream, {
+        filename: filename,
+        contentType: mimeType,
+        knownLength: imageBuffer.length
+      });
+      console.log(`📤 Using stream approach for file upload with filename: ${filename}`);
+    }
     
     console.log(`📤 Uploading to Reddit servers: ${args.action}`);
     console.log(`📊 Form headers:`, form.getHeaders());
