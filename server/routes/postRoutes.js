@@ -2122,12 +2122,29 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
       });
     }
     
-    // Add the file buffer directly (FormData can handle buffers directly)
-    uploadFormData.append('file', videoBuffer, {
-      filename: mediaItem.name,
-      contentType: mimeType,
-      knownLength: videoBuffer.length
-    });
+    // Add the file buffer as the last field (S3 requirement)
+    // Try multiple approaches for file attachment
+    const { Readable } = require('stream');
+    
+    try {
+      // Approach 1: Use Readable.from() (Node.js 12.3+)
+      const fileStream = Readable.from(videoBuffer);
+      uploadFormData.append('file', fileStream, {
+        filename: mediaItem.name,
+        contentType: mimeType,
+        knownLength: videoBuffer.length
+      });
+      console.log(`📤 File attached using Readable.from(): ${mediaItem.name} (${videoBuffer.length} bytes)`);
+    } catch (streamError) {
+      console.log(`⚠️ Readable.from() failed, trying buffer directly...`);
+      // Approach 2: Use buffer directly
+      uploadFormData.append('file', videoBuffer, {
+        filename: mediaItem.name,
+        contentType: mimeType,
+        knownLength: videoBuffer.length
+      });
+      console.log(`📤 File attached using buffer: ${mediaItem.name} (${videoBuffer.length} bytes)`);
+    }
     
     console.log(`📤 Uploading video to Reddit S3...`);
     
@@ -2139,16 +2156,34 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     console.log(`📤 Upload URL: ${uploadUrl}`);
     
+    // Debug FormData contents
+    console.log(`📊 FormData fields count: ${uploadFormData._fields?.length || 'unknown'}`);
+    console.log(`📊 Video buffer size: ${videoBuffer.length} bytes`);
+    
+    // Get headers but ensure they're properly formatted
+    const formHeaders = uploadFormData.getHeaders();
+    console.log(`📊 FormData headers:`, formHeaders);
+    
     const s3Response = await fetch(uploadUrl, {
       method: 'POST',
       body: uploadFormData,
-      headers: uploadFormData.getHeaders()
+      headers: formHeaders
     });
     
     if (!s3Response.ok) {
       const errorText = await s3Response.text();
       console.error(`❌ S3 upload failed (${s3Response.status}):`, errorText);
-      throw new Error(`S3 upload failed: ${s3Response.status}`);
+      console.error(`❌ S3 response headers:`, Object.fromEntries(s3Response.headers.entries()));
+      
+      // Log FormData debug info for troubleshooting
+      console.error(`❌ Debug info:`, {
+        uploadUrl: uploadUrl,
+        bufferSize: videoBuffer.length,
+        filename: mediaItem.name,
+        mimeType: mimeType
+      });
+      
+      throw new Error(`S3 upload failed: ${s3Response.status} - ${errorText}`);
     }
     
     console.log(`✅ Video uploaded to Reddit S3 successfully`);
