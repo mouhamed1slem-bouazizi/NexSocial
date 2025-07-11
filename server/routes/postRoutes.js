@@ -2003,14 +2003,36 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     }
     
     // Step 1: Request upload URL from Reddit
+    // Ensure proper MIME type for video files
+    if (mimeType === 'video') {
+      mimeType = 'video/mp4'; // Default for generic video type
+    }
+    
+    // Get file extension to help determine MIME type
+    const fileExtension = mediaItem.name.split('.').pop().toLowerCase();
+    if (mimeType === 'video/mp4' && fileExtension) {
+      const extToMimeType = {
+        'mp4': 'video/mp4',
+        'mov': 'video/quicktime',
+        'avi': 'video/x-msvideo',
+        'wmv': 'video/x-ms-wmv',
+        'flv': 'video/x-flv',
+        'webm': 'video/webm',
+        'mkv': 'video/x-matroska',
+        '3gp': 'video/3gpp',
+        'm4v': 'video/x-m4v'
+      };
+      mimeType = extToMimeType[fileExtension] || 'video/mp4';
+    }
+    
     const uploadRequest = {
       filepath: mediaItem.name,
       mimetype: mimeType
     };
     
-    console.log(`📡 Requesting Reddit upload URL...`);
+    console.log(`📡 Requesting Reddit upload URL with MIME type: ${mimeType}...`);
     
-    const uploadUrlResponse = await fetch('https://oauth.reddit.com/api/media/asset', {
+    const uploadUrlResponse = await fetch('https://oauth.reddit.com/api/media/asset.json', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -2239,20 +2261,27 @@ const postToReddit = async (account, content, media = []) => {
               const imgurUpload = await uploadMediaToImgur(mediaItem);
               
               if (imgurUpload && imgurUpload.url) {
-                postType = 'link';
+                // Create a text post with the Imgur URL for better thumbnail display
+                // Reddit shows thumbnails for URLs in text posts better than link posts
+                const videoContent = content.trim();
+                const postText = videoContent ? 
+                  `${videoContent}\n\n🎬 **Watch Video:** ${imgurUpload.url}` : 
+                  `🎬 **Video:** ${imgurUpload.url}`;
+                
+                postType = 'self';
                 postData = {
                   api_type: 'json',
-                  kind: 'link',
+                  kind: 'self',
                   sr: targetSubreddit,
                   title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                  url: imgurUpload.url,
+                  text: postText,
                   sendreplies: true,
                   validate_on_submit: true,
                   nsfw: false,
                   spoiler: false
                 };
                 
-                console.log(`✅ Created Imgur fallback video link post: ${imgurUpload.url}`);
+                console.log(`✅ Created Imgur fallback video text post with embedded URL: ${imgurUpload.url}`);
               } else {
                 throw new Error('Both Reddit native and Imgur video uploads failed');
               }
@@ -2262,6 +2291,7 @@ const postToReddit = async (account, content, media = []) => {
             const uploadResult = await uploadMediaToImgur(mediaItem);
             
             if (uploadResult && uploadResult.url) {
+              // For images, link posts work well and show thumbnails
               postType = 'link';
               postData = {
                 api_type: 'json',
@@ -2451,10 +2481,12 @@ const postToReddit = async (account, content, media = []) => {
     // Determine success message based on post type and media
     let successMessage = `Posted to Reddit r/${targetSubreddit} successfully`;
     if (media.length > 0) {
-      if (postType === 'image') {
-        successMessage += ` with image upload`;
+      if (postType === 'link') {
+        successMessage += ` with media link`;
+      } else if (postType === 'videogif') {
+        successMessage += ` with native video upload (v.redd.it)`;
       } else if (postType === 'self' && media.length > 0) {
-        successMessage += ` with ${media.length} media reference(s)`;
+        successMessage += ` with embedded media`;
       }
     }
     
