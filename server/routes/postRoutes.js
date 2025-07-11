@@ -1660,19 +1660,27 @@ const uploadMediaToImgur = async (mediaItem) => {
       console.log(`📊 Base64 ${mediaType} length: ${base64Media.length} characters`);
     
           // Upload to Imgur (supports both images and videos)
-      const uploadEndpoint = mediaType === 'video' ? 'https://api.imgur.com/3/upload' : 'https://api.imgur.com/3/image';
+      const uploadEndpoint = 'https://api.imgur.com/3/upload';
+      const uploadData = {
+        image: base64Media, // Imgur uses 'image' field for both images and videos
+        type: 'base64',
+        name: mediaItem.name || (mediaType === 'video' ? 'video' : 'image'),
+        title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} uploaded via NexSocial`
+      };
+      
+      // Add additional parameters for videos to help with thumbnail generation
+      if (mediaType === 'video') {
+        uploadData.disable_audio = '0'; // Keep audio for video posts
+        uploadData.album = null; // Don't add to album
+      }
+      
       const response = await fetch(uploadEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          image: base64Media, // Imgur uses 'image' field for both images and videos
-          type: 'base64',
-          name: mediaItem.name || (mediaType === 'video' ? 'video' : 'image'),
-          title: `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} uploaded via NexSocial`
-        })
+        body: JSON.stringify(uploadData)
       });
     
           if (!response.ok) {
@@ -1690,12 +1698,29 @@ const uploadMediaToImgur = async (mediaItem) => {
       
       const mediaUrl = result.data.link;
       console.log(`✅ Successfully uploaded ${mediaType} to Imgur: ${mediaUrl}`);
+      console.log(`📊 Imgur upload details:`, {
+        url: mediaUrl,
+        id: result.data.id,
+        type: mediaType,
+        size: result.data.size,
+        width: result.data.width,
+        height: result.data.height,
+        animated: result.data.animated,
+        has_sound: result.data.has_sound
+      });
       
       return {
         url: mediaUrl,
         delete_hash: result.data.deletehash,
         id: result.data.id,
-        type: mediaType
+        type: mediaType,
+        metadata: {
+          size: result.data.size,
+          width: result.data.width,
+          height: result.data.height,
+          animated: result.data.animated,
+          has_sound: result.data.has_sound
+        }
       };
       
     } catch (error) {
@@ -2053,7 +2078,6 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     // Step 2: Upload file to the provided S3 URL using Node.js FormData
     const FormData = require('form-data');
-    const { Readable } = require('stream');
     
     const uploadFormData = new FormData();
     
@@ -2064,11 +2088,8 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
       });
     }
     
-    // Create a readable stream from the buffer
-    const videoStream = Readable.from(videoBuffer);
-    
-    // Add the file last (as per S3 requirements)
-    uploadFormData.append('file', videoStream, {
+    // Add the file buffer directly (FormData can handle buffers directly)
+    uploadFormData.append('file', videoBuffer, {
       filename: mediaItem.name,
       contentType: mimeType,
       knownLength: videoBuffer.length
@@ -2261,27 +2282,24 @@ const postToReddit = async (account, content, media = []) => {
               const imgurUpload = await uploadMediaToImgur(mediaItem);
               
               if (imgurUpload && imgurUpload.url) {
-                // Create a text post with the Imgur URL for better thumbnail display
-                // Reddit shows thumbnails for URLs in text posts better than link posts
-                const videoContent = content.trim();
-                const postText = videoContent ? 
-                  `${videoContent}\n\n🎬 **Watch Video:** ${imgurUpload.url}` : 
-                  `🎬 **Video:** ${imgurUpload.url}`;
-                
-                postType = 'self';
+                // Use link post for Imgur videos to show thumbnails properly
+                // Reddit link posts are better at showing video previews from Imgur
+                postType = 'link';
                 postData = {
                   api_type: 'json',
-                  kind: 'self',
+                  kind: 'link',
                   sr: targetSubreddit,
                   title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                  text: postText,
+                  url: imgurUpload.url,
                   sendreplies: true,
                   validate_on_submit: true,
                   nsfw: false,
-                  spoiler: false
+                  spoiler: false,
+                  resubmit: true, // Allow resubmission of the same URL
+                  extension: 'json' // Ensure JSON response format
                 };
                 
-                console.log(`✅ Created Imgur fallback video text post with embedded URL: ${imgurUpload.url}`);
+                console.log(`✅ Created Imgur fallback video link post: ${imgurUpload.url}`);
               } else {
                 throw new Error('Both Reddit native and Imgur video uploads failed');
               }
@@ -2404,6 +2422,16 @@ const postToReddit = async (account, content, media = []) => {
     console.log(`📊 Reddit submit response status: ${response.status}`);
     console.log(`📊 Reddit submit response headers:`, Object.fromEntries(response.headers.entries()));
     console.log(`📊 Reddit submit response body (first 500 chars):`, responseText.substring(0, 500));
+    
+    // For link posts, log additional debugging info
+    if (postType === 'link') {
+      console.log(`🔗 Link post debugging:`, {
+        postType: postType,
+        submittedUrl: postData.url,
+        postTitle: postData.title,
+        subreddit: postData.sr
+      });
+    }
     
     let data;
     try {
