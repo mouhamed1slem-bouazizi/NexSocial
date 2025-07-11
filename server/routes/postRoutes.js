@@ -1658,6 +1658,12 @@ const uploadMediaToImgur = async (mediaItem) => {
       }
       
       console.log(`📊 Base64 ${mediaType} length: ${base64Media.length} characters`);
+      
+      // Imgur has size limits - warn if file is very large
+      const estimatedSizeMB = Math.round((base64Media.length * 3) / 4 / 1024 / 1024); // Base64 to bytes conversion
+      if (estimatedSizeMB > 200) {
+        console.warn(`⚠️ Large ${mediaType} file (${estimatedSizeMB}MB) may fail on Imgur. Consider compressing.`);
+      }
     
           // Upload to Imgur (supports both images and videos)
       const uploadEndpoint = 'https://api.imgur.com/3/upload';
@@ -2051,6 +2057,19 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
       mimeType = extToMimeType[fileExtension] || 'video/mp4';
     }
     
+    // Validate video according to Reddit requirements (from techevangelistseo.com docs)
+    const maxFileSize = 1024 * 1024 * 1024; // 1GB limit
+    if (videoBuffer.length > maxFileSize) {
+      console.warn(`⚠️ Video file size (${Math.round(videoBuffer.length / 1024 / 1024)}MB) exceeds Reddit's 1GB limit`);
+    }
+    
+    // Reddit prefers MP4 with H.264 + AAC
+    if (mimeType !== 'video/mp4') {
+      console.warn(`⚠️ Video format ${mimeType} may not be optimal for Reddit. Reddit prefers MP4 (H.264 + AAC)`);
+    }
+    
+    console.log(`📊 Video validation: Size=${Math.round(videoBuffer.length / 1024 / 1024)}MB, Format=${mimeType}`);
+    
     const uploadRequest = {
       filepath: mediaItem.name,
       mimetype: mimeType
@@ -2093,15 +2112,12 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     if (uploadData.args && uploadData.args.fields) {
       console.log(`📝 Processing ${uploadData.args.fields.length} form fields...`);
       
-      // Reddit returns fields as an array of objects, not a single object
+      // Reddit returns fields as an array of objects with name/value properties
       uploadData.args.fields.forEach((field, index) => {
         console.log(`📝 Field ${index}:`, field);
-        if (field && typeof field === 'object') {
-          // Each field object has key-value pairs
-          Object.entries(field).forEach(([key, value]) => {
-            console.log(`📝 Appending: ${key} = ${value}`);
-            uploadFormData.append(key, value);
-          });
+        if (field && typeof field === 'object' && field.name && field.value) {
+          console.log(`📝 Appending: ${field.name} = ${field.value}`);
+          uploadFormData.append(field.name, field.value);
         }
       });
     }
@@ -2115,7 +2131,15 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     console.log(`📤 Uploading video to Reddit S3...`);
     
-    const s3Response = await fetch(uploadData.action, {
+    // Fix upload URL - Reddit returns URLs without protocol
+    let uploadUrl = uploadData.args.action;
+    if (uploadUrl.startsWith('//')) {
+      uploadUrl = 'https:' + uploadUrl;
+    }
+    
+    console.log(`📤 Upload URL: ${uploadUrl}`);
+    
+    const s3Response = await fetch(uploadUrl, {
       method: 'POST',
       body: uploadFormData,
       headers: uploadFormData.getHeaders()

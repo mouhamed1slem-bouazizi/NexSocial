@@ -1,6 +1,6 @@
 Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📊 Post data: {
-  "content": "test agin the video upload after the fix uploading",
+  "content": "test video nowwwww 1",
   "platforms": [
     "reddit"
   ],
@@ -9,9 +9,9 @@ Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
   ],
   "media": [
     {
-      "name": "Mastaziano__-Aventure _(3).mp4",
+      "name": "TATI G13 - VITE (Official Audio, EP JBML #8).mp4",
       "type": "video",
-      "data": "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAHgobW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAASCsAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAWiV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAASAIAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAB4AAAAQ4AAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAEgCAAACAAABAAAAAFmdbWRpYQAAACBtZGhkAAAAAAAA
+      "data": "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAFtwbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAATmsAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAJ9UFEXYsRlp/ZW/0vgKRK7WDdAcRMLZwJwTpNE/8Tl4u/axV/bXdxQB9lL98JkPZlmmYqHPcxLPizgZ3jDKOU/r7
     }
   ],
   "discordChannels": {
@@ -24,14 +24,14 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📎 Processed 1 media files
 🚀 Posting to reddit:suareztn...
 🔴 Posting to Reddit for account suareztn (attempt 1)
-📝 Content: test agin the video upload after the fix uploading
+📝 Content: test video nowwwww 1
 📎 Media items: 1
 🔍 Parsed metadata: {}
 📊 User moderates 0 subreddits
 📊 User karma: 0 (link: 0, comment: 0)
 🎯 Posting to user profile: r/u_suareztn
 📤 Processing 1 media items for Reddit
-🔍 Checking media: Mastaziano__-Aventure _(3).mp4
+🔍 Checking media: TATI G13 - VITE (Official Audio, EP JBML #8).mp4
    type: "video"
    mimeType: ""
    dataMimeType: ""
@@ -40,15 +40,15 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
    isImage: false, isVideo: true
 📷 Creating video post for Reddit
 🎬 Attempting Reddit native video upload for v.redd.it hosting...
-🔴 Uploading video to Reddit's native hosting: Mastaziano__-Aventure _(3).mp4
+🔴 Uploading video to Reddit's native hosting: TATI G13 - VITE (Official Audio, EP JBML #8).mp4
 📊 Media item structure: {
   hasData: false,
   hasBuffer: true,
   dataType: 'undefined',
   dataPreview: 'NO_DATA',
-  bufferLength: 2134072
+  bufferLength: 7214203
 }
-✅ Using existing buffer: 2134072 bytes, MIME: video
+✅ Using existing buffer: 7214203 bytes, MIME: video
 📡 Requesting Reddit upload URL with MIME type: video/mp4...
 ✅ Got Reddit upload data: {
   args: {
@@ -64,32 +64,109 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
     ]
   },
   asset: {
-    asset_id: 'ru4zymrvt6cf1',
+    asset_id: 'vxo5wd7y07cf1',
     processing_state: 'incomplete',
-    payload: { filepath: 'Mastaziano__-Aventure _(3).mp4' },
-    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/ru4zymrvt6cf1?m=AQAA965waIE1BiHCWIJ_RX0KKLWDeXs3ByIIGDfa9_U6IlrI__P1'
+    payload: { filepath: 'TATI G13 - VITE (Official Audio, EP JBML #8).mp4' },
+    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/vxo5wd7y07cf1?m=AQAAQLhwaKvItK7E4KNfnCz2VvVp4ftIgVwBoVLJT9Cw8ZbJmadd'
   }
 }
-❌ Reddit native video upload failed: TypeError: source.on is not a function
-    at DelayedStream.create (/opt/render/project/src/server/node_modules/delayed-stream/lib/delayed_stream.js:33:10)
-    at CombinedStream.append (/opt/render/project/src/server/node_modules/combined-stream/lib/combined_stream.js:45:37)
-    at FormData.append (/opt/render/project/src/server/node_modules/form-data/lib/form_data.js:77:3)
-    at /opt/render/project/src/server/routes/postRoutes.js:2087:24
-    at Array.forEach (<anonymous>)
-⚠️ Reddit native video upload failed, falling back to Imgur: source.on is not a function
-    at uploadVideoToRedditNative (/opt/render/project/src/server/routes/postRoutes.js:2086:46)
+🔍 Upload data structure: {
+  hasArgs: true,
+  hasFields: true,
+  fieldsType: 'object',
+  fieldsLength: 13,
+  fieldsPreview: [
+    { name: 'x-amz-algorithm', value: 'AWS4-HMAC-SHA256' },
+    { name: 'key', value: 'vxo5wd7y07cf1' }
+  ]
+}
+📝 Processing 13 form fields...
+📝 Field 0: { name: 'x-amz-algorithm', value: 'AWS4-HMAC-SHA256' }
+📝 Appending: name = x-amz-algorithm
+📝 Appending: value = AWS4-HMAC-SHA256
+📝 Field 1: { name: 'key', value: 'vxo5wd7y07cf1' }
+📝 Appending: name = key
+📝 Appending: value = vxo5wd7y07cf1
+📝 Field 2: { name: 'x-amz-storage-class', value: 'STANDARD' }
+📝 Appending: name = x-amz-storage-class
+📝 Appending: value = STANDARD
+📝 Field 3: { name: 'x-amz-date', value: '20250711T065744Z' }
+📝 Appending: name = x-amz-date
+📝 Appending: value = 20250711T065744Z
+📝 Field 4: { name: 'success_action_status', value: '201' }
+📝 Appending: name = success_action_status
+📝 Appending: value = 201
+📝 Field 5: { name: 'bucket', value: 'reddit-uploaded-video' }
+📝 Appending: name = bucket
+📝 Appending: value = reddit-uploaded-video
+📝 Field 6: { name: 'acl', value: 'public-read' }
+📝 Appending: name = acl
+📝 Appending: value = public-read
+📝 Field 7: {
+  name: 'x-amz-signature',
+  value: 'acfcbc1bc6f20289e373c9a5752f0a4f36c5b6f17498a30e284f9b66ec8b3633'
+}
+📝 Appending: name = x-amz-signature
+📝 Appending: value = acfcbc1bc6f20289e373c9a5752f0a4f36c5b6f17498a30e284f9b66ec8b3633
+📝 Field 8: {
+  name: 'x-amz-security-token',
+  value: 'IQoJb3JpZ2luX2VjEMf//////////wEaCXVzLWVhc3QtMSJIMEYCIQDl74ZwZeonbt7FSgFFTc12vuMjBv6TePyvGgRGUpry+AIhAMC2Tvp0FlK25O7f+nYFq7fYdbmNc7upoV5JK69nNFBAKrACCND//////////wEQABoMMjEwMjQ2MzI2MzMxIgzM0Soq8ERuNJIwXKoqhAKcVTKJ+5YBzADTHheD5BY9fdR2WIAVKE/N25GlsfiRF/m6c7pvDEHzVR3QWQtjUQ7butTn163Qhx7gC74XkvFJCFdhC3Ef3ZlLixOOEADABpOzf1Mpg/ec6lvxPjFkx/B6lz2WNt3f9XrEQhI+XmDMPAAELFQp8xW+0AvP0pueJY71Foh4fEoh78+ggHDEsBU1+QAnYe60PTL4MerTkc/oN2FeDYF0YijlXrvAqaVMiLaiISfGwof9UBReHuCB94+zvm0iBUBE6gHh/Q7m655UJOzITg15ChbMNx0kjNmnrQr4+if40c4XsAHmHbCMWMnHAC0XeEEjF5ICXBGPNSGTAdiKFTD04cLDBjqcAbKwax+k9VLDsgPDc6litRqFVBgwQUeP/tD+KRus8BUjjgf2BUekPnM431OoyBTN3PZVt8nAhvQbkP9IE57yQUVVveWNU/NHKReoWvjVeAktqbiEm06+3gYWR4202QDojLrQwVN8B4KK2YpSYhTnjYlghNYdrUJ6ZxXfhSwTnFDG6GszVAvSkXhre9OuDnLl5+No1jIn94yvzFL1dw=='
+}
+📝 Appending: name = x-amz-security-token
+📝 Appending: value = IQoJb3JpZ2luX2VjEMf//////////wEaCXVzLWVhc3QtMSJIMEYCIQDl74ZwZeonbt7FSgFFTc12vuMjBv6TePyvGgRGUpry+AIhAMC2Tvp0FlK25O7f+nYFq7fYdbmNc7upoV5JK69nNFBAKrACCND//////////wEQABoMMjEwMjQ2MzI2MzMxIgzM0Soq8ERuNJIwXKoqhAKcVTKJ+5YBzADTHheD5BY9fdR2WIAVKE/N25GlsfiRF/m6c7pvDEHzVR3QWQtjUQ7butTn163Qhx7gC74XkvFJCFdhC3Ef3ZlLixOOEADABpOzf1Mpg/ec6lvxPjFkx/B6lz2WNt3f9XrEQhI+XmDMPAAELFQp8xW+0AvP0pueJY71Foh4fEoh78+ggHDEsBU1+QAnYe60PTL4MerTkc/oN2FeDYF0YijlXrvAqaVMiLaiISfGwof9UBReHuCB94+zvm0iBUBE6gHh/Q7m655UJOzITg15ChbMNx0kjNmnrQr4+if40c4XsAHmHbCMWMnHAC0XeEEjF5ICXBGPNSGTAdiKFTD04cLDBjqcAbKwax+k9VLDsgPDc6litRqFVBgwQUeP/tD+KRus8BUjjgf2BUekPnM431OoyBTN3PZVt8nAhvQbkP9IE57yQUVVveWNU/NHKReoWvjVeAktqbiEm06+3gYWR4202QDojLrQwVN8B4KK2YpSYhTnjYlghNYdrUJ6ZxXfhSwTnFDG6GszVAvSkXhre9OuDnLl5+No1jIn94yvzFL1dw==
+📝 Field 9: { name: 'x-amz-meta-ext', value: 'mp4' }
+📝 Appending: name = x-amz-meta-ext
+📝 Appending: value = mp4
+📝 Field 10: {
+  name: 'policy',
+  value: 'eyJleHBpcmF0aW9uIjoiMjAyNS0wNy0xMVQwNzoxMjo0NC4zOThaIiwiY29uZGl0aW9ucyI6W1siZXEiLCIkeC1hbXotY3JlZGVudGlhbCIsIkFTSUFUQjQ1SUxBNVRUVzI2VUFGLzIwMjUwNzExL3VzLWVhc3QtMS9zMy9hd3M0X3JlcXVlc3QiXSxbImVxIiwiJHgtYW16LXNlY3VyaXR5LXRva2VuIiwiSVFvSmIzSnBaMmx1WDJWakVNZi8vLy8vLy8vLy93RWFDWFZ6TFdWaGMzUXRNU0pJTUVZQ0lRRGw3NFp3WmVvbmJ0N0ZTZ0ZGVGMxMnZ1TWpCdjZUZVB5dkdnUkdVcHJ5K0FJaEFNQzJUdnAwRmxLMjVPN2YrbllGcTdmWWRibU5jN3Vwb1Y1Sks2OW5ORkJBS3JBQ0NORC8vLy8vLy8vLy93RVFBQm9NTWpFd01qUTJNekkyTXpNeElnek0wU29xOEVSdU5KSXdYS29xaEFLY1ZUS0orNVlCekFEVEhoZUQ1Qlk5ZmRSMldJQVZLRS9OMjVHbHNmaVJGL202YzdwdkRFSHpWUjNRV1F0alVRN2J1dFRuMTYzUWh4N2dDNzRYa3ZGSkNGZGhDM0VmM1psTGl4T09FQURBQnBPemYxTXBnL2VjNmx2eFBqRmt4L0I2bHoyV050M2Y5WHJFUWhJK1htRE1QQUFFTEZRcDh4VyswQXZQMHB1ZUpZNzFGb2g0ZkVvaDc4K2dnSERFc0JVMStRQW5ZZTYwUFRMNE1lclRrYy9vTjJGZURZRjBZaWpsWHJ2QXFhVk1pTGFpSVNmR3dvZjlVQlJlSHVDQjk0K3p2bTBpQlVCRTZnSGgvUTdtNjU1VUpPeklUZzE1Q2hiTU54MGtqTm1uclFyNCtpZjQwYzRYc0FIbUhiQ01XTW5IQUMwWGVFRWpGNUlDWEJHUE5TR1RBZGlLRlREMDRjTERCanFjQWJLd2F4K2s5VkxEc2dQRGM2bGl0UnFGVkJnd1FVZVAvdEQrS1J1czhCVWpqZ2YyQlVla1BuTTQzMU9veUJUTjNQWlZ0OG5BaHZRYmtQOUlFNTd5UVVWVnZlV05VL05IS1Jlb1d2alZlQWt0cWJpRW0wNiszZ1lXUjQyMDJRRG9qTHJRd1ZOOEI0S0syWXBTWWhUbmpZbGdoTllkclVKNlp4WGZoU3dUbkZERzZHc3pWQXZTa1hocmU5T3VEbkxsNStObzFqSW45NHl2ekZMMWR3PT0iXSxbImVxIiwiJHgtYW16LXN0b3JhZ2UtY2xhc3MiLCJTVEFOREFSRCJdLFsiZXEiLCIkeC1hbXotZGF0ZSIsIjIwMjUwNzExVDA2NTc0NFoiXSxbImVxIiwiJHgtYW16LWFsZ29yaXRobSIsIkFXUzQtSE1BQy1TSEEyNTYiXSxbImVxIiwiJENvbnRlbnQtVHlwZSIsInZpZGVvL21wNCJdLFsiZXEiLCIkc3VjY2Vzc19hY3Rpb25fc3RhdHVzIiwiMjAxIl0sWyJlcSIsIiR4LWFtei1tZXRhLWV4dCIsIm1wNCJdLFsiZXEiLCIkYnVja2V0IiwicmVkZGl0LXVwbG9hZGVkLXZpZGVvIl0sWyJlcSIsIiRhY2wiLCJwdWJsaWMtcmVhZCJdLFsiZXEiLCIka2V5IiwidnhvNXdkN3kwN2NmMSJdLFsiY29udGVudC1sZW5ndGgtcmFuZ2UiLCAxLCAxMDczNzQxODI0XV19'
+}
+📝 Appending: name = policy
+📝 Appending: value = eyJleHBpcmF0aW9uIjoiMjAyNS0wNy0xMVQwNzoxMjo0NC4zOThaIiwiY29uZGl0aW9ucyI6W1siZXEiLCIkeC1hbXotY3JlZGVudGlhbCIsIkFTSUFUQjQ1SUxBNVRUVzI2VUFGLzIwMjUwNzExL3VzLWVhc3QtMS9zMy9hd3M0X3JlcXVlc3QiXSxbImVxIiwiJHgtYW16LXNlY3VyaXR5LXRva2VuIiwiSVFvSmIzSnBaMmx1WDJWakVNZi8vLy8vLy8vLy93RWFDWFZ6TFdWaGMzUXRNU0pJTUVZQ0lRRGw3NFp3WmVvbmJ0N0ZTZ0ZGVGMxMnZ1TWpCdjZUZVB5dkdnUkdVcHJ5K0FJaEFNQzJUdnAwRmxLMjVPN2YrbllGcTdmWWRibU5jN3Vwb1Y1Sks2OW5ORkJBS3JBQ0NORC8vLy8vLy8vLy93RVFBQm9NTWpFd01qUTJNekkyTXpNeElnek0wU29xOEVSdU5KSXdYS29xaEFLY1ZUS0orNVlCekFEVEhoZUQ1Qlk5ZmRSMldJQVZLRS9OMjVHbHNmaVJGL202YzdwdkRFSHpWUjNRV1F0alVRN2J1dFRuMTYzUWh4N2dDNzRYa3ZGSkNGZGhDM0VmM1psTGl4T09FQURBQnBPemYxTXBnL2VjNmx2eFBqRmt4L0I2bHoyV050M2Y5WHJFUWhJK1htRE1QQUFFTEZRcDh4VyswQXZQMHB1ZUpZNzFGb2g0ZkVvaDc4K2dnSERFc0JVMStRQW5ZZTYwUFRMNE1lclRrYy9vTjJGZURZRjBZaWpsWHJ2QXFhVk1pTGFpSVNmR3dvZjlVQlJlSHVDQjk0K3p2bTBpQlVCRTZnSGgvUTdtNjU1VUpPeklUZzE1Q2hiTU54MGtqTm1uclFyNCtpZjQwYzRYc0FIbUhiQ01XTW5IQUMwWGVFRWpGNUlDWEJHUE5TR1RBZGlLRlREMDRjTERCanFjQWJLd2F4K2s5VkxEc2dQRGM2bGl0UnFGVkJnd1FVZVAvdEQrS1J1czhCVWpqZ2YyQlVla1BuTTQzMU9veUJUTjNQWlZ0OG5BaHZRYmtQOUlFNTd5UVVWVnZlV05VL05IS1Jlb1d2alZlQWt0cWJpRW0wNiszZ1lXUjQyMDJRRG9qTHJRd1ZOOEI0S0syWXBTWWhUbmpZbGdoTllkclVKNlp4WGZoU3dUbkZERzZHc3pWQXZTa1hocmU5T3VEbkxsNStObzFqSW45NHl2ekZMMWR3PT0iXSxbImVxIiwiJHgtYW16LXN0b3JhZ2UtY2xhc3MiLCJTVEFOREFSRCJdLFsiZXEiLCIkeC1hbXotZGF0ZSIsIjIwMjUwNzExVDA2NTc0NFoiXSxbImVxIiwiJHgtYW16LWFsZ29yaXRobSIsIkFXUzQtSE1BQy1TSEEyNTYiXSxbImVxIiwiJENvbnRlbnQtVHlwZSIsInZpZGVvL21wNCJdLFsiZXEiLCIkc3VjY2Vzc19hY3Rpb25fc3RhdHVzIiwiMjAxIl0sWyJlcSIsIiR4LWFtei1tZXRhLWV4dCIsIm1wNCJdLFsiZXEiLCIkYnVja2V0IiwicmVkZGl0LXVwbG9hZGVkLXZpZGVvIl0sWyJlcSIsIiRhY2wiLCJwdWJsaWMtcmVhZCJdLFsiZXEiLCIka2V5IiwidnhvNXdkN3kwN2NmMSJdLFsiY29udGVudC1sZW5ndGgtcmFuZ2UiLCAxLCAxMDczNzQxODI0XV19
+📝 Field 11: {
+  name: 'x-amz-credential',
+  value: 'ASIATB45ILA5TTW26UAF/20250711/us-east-1/s3/aws4_request'
+}
+📝 Appending: name = x-amz-credential
+📝 Appending: value = ASIATB45ILA5TTW26UAF/20250711/us-east-1/s3/aws4_request
+📝 Field 12: { name: 'Content-Type', value: 'video/mp4' }
+📝 Appending: name = Content-Type
+📝 Appending: value = video/mp4
+📤 Uploading video to Reddit S3...
+❌ Reddit native video upload failed: TypeError: Failed to parse URL from undefined
+    at node:internal/deps/undici/undici:15422:13
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2260:41)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2652:12)
+⚠️ Reddit native video upload failed, falling back to Imgur: Failed to parse URL from undefined
+    at async uploadVideoToRedditNative (/opt/render/project/src/server/routes/postRoutes.js:2118:24)
+    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2285:41)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2685:12)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
-📤 Uploading video to Imgur: Mastaziano__-Aventure _(3).mp4
-📊 Base64 video length: 2845432 characters
+    at async Promise.all (index 0)
+    at async /opt/render/project/src/server/routes/postRoutes.js:151:5 {
+  [cause]: TypeError: Invalid URL
+      at new URL (node:internal/url:826:25)
+      at new Request (node:internal/deps/undici/undici:10174:25)
+      at fetch (node:internal/deps/undici/undici:10944:25)
+      at fetch (node:internal/deps/undici/undici:15420:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:83:12)
+      at uploadVideoToRedditNative (/opt/render/project/src/server/routes/postRoutes.js:2118:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2285:41)
+      at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2685:12)
+      at async /opt/render/project/src/server/routes/postRoutes.js:118:22 {
+    code: 'ERR_INVALID_URL',
+    input: 'undefined'
+  }
+}
+📤 Uploading video to Imgur: TATI G13 - VITE (Official Audio, EP JBML #8).mp4
+📊 Base64 video length: 9618940 characters
 ❌ Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-❌ All video upload methods failed, falling back to text post: ReferenceError: mediaType is not defined
-    at uploadMediaToImgur (/opt/render/project/src/server/routes/postRoutes.js:1727:32)
+❌ Imgur video upload failed: Imgur video upload failed: 500
+❌ All video upload methods failed, falling back to text post: Error: Imgur video upload failed: 500
+    at uploadMediaToImgur (/opt/render/project/src/server/routes/postRoutes.js:1689:15)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2282:35)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2652:12)
+    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2315:35)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2685:12)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
     at async Promise.all (index 0)
     at async /opt/render/project/src/server/routes/postRoutes.js:151:5
@@ -97,13 +174,13 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
   api_type: 'json',
   kind: 'self',
   sr: 'u_suareztn',
-  title: 'test agin the video upload after the fix uploading',
-  text: 'test agin the video upload after the fix uploading\n' +
+  title: 'test video nowwwww 1',
+  text: 'test video nowwwww 1\n' +
     '\n' +
-    '**📎 Media Attachment: Mastaziano__-Aventure _(3).mp4**\n' +
+    '**📎 Media Attachment: TATI G13 - VITE (Official Audio, EP JBML #8).mp4**\n' +
     '- Type: Unknown\n' +
     '\n' +
-    '*(video upload failed: mediaType is not defined)*',
+    '*(video upload failed: Imgur video upload failed: 500)*',
   sendreplies: true,
   validate_on_submit: true
 }
@@ -115,12 +192,12 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
   connection: 'keep-alive',
   'content-encoding': 'gzip',
   'content-type': 'application/json; charset=UTF-8',
-  date: 'Fri, 11 Jul 2025 06:18:08 GMT',
+  date: 'Fri, 11 Jul 2025 06:57:45 GMT',
   expires: '-1',
   nel: '{"report_to": "w3-reporting-nel", "max_age": 14400, "include_subdomains": false, "success_fraction": 1.0, "failure_fraction": 1.0}',
   'report-to': '{"group": "w3-reporting-nel", "max_age": 14400, "include_subdomains": true,  "endpoints": [{ "url": "https://w3-reporting-nel.reddit.com/reports" }]}, {"group": "w3-reporting", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting.reddit.com/reports" }]}, {"group": "w3-reporting-csp", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting-csp.reddit.com/reports" }]}',
   server: 'snooserv',
-  'set-cookie': 'edgebucket=kVHqCs0F5QjNuD6f6n; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
+  'set-cookie': 'edgebucket=xq4t6B60KUmi9IjHu9; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
   'strict-transport-security': 'max-age=31536000; includeSubdomains',
   'transfer-encoding': 'chunked',
   vary: 'Accept-Encoding',
@@ -128,22 +205,22 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'SAMEORIGIN',
   'x-ratelimit-remaining': '998.0',
-  'x-ratelimit-reset': '111',
+  'x-ratelimit-reset': '134',
   'x-ratelimit-used': '2',
   'x-ua-compatible': 'IE=edge',
   'x-xss-protection': '1; mode=block'
 }
-📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"url": "https://www.reddit.com/r/u_suareztn/comments/1lwzktd/test_agin_the_video_upload_after_the_fix_uploading/", "drafts_count": 0, "id": "1lwzktd", "name": "t3_1lwzktd"}}}
+📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"url": "https://www.reddit.com/r/u_suareztn/comments/1lx075q/test_video_nowwwww_1/", "drafts_count": 0, "id": "1lx075q", "name": "t3_1lx075q"}}}
 📊 Reddit submit parsed data: {
   "json": {
     "errors": [],
     "data": {
-      "url": "https://www.reddit.com/r/u_suareztn/comments/1lwzktd/test_agin_the_video_upload_after_the_fix_uploading/",
+      "url": "https://www.reddit.com/r/u_suareztn/comments/1lx075q/test_video_nowwwww_1/",
       "drafts_count": 0,
-      "id": "1lwzktd",
-      "name": "t3_1lwzktd"
+      "id": "1lx075q",
+      "name": "t3_1lx075q"
     }
   }
 }
 ✅ Posted to Reddit successfully
-📊 Post details: ID=1lwzktd, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lwzktd/test_agin_the_video_upload_after_the_fix_uploading/
+📊 Post details: ID=1lx075q, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lx075q/test_video_nowwwww_1/
