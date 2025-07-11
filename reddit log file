@@ -1,7 +1,6 @@
-Auth successful for user: mibtn10@gmail.com
-📝 Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📊 Post data: {
-  "content": "test agaın for vıdeo after fıxıng",
+  "content": "test agin the video upload after the fix uploading",
   "platforms": [
     "reddit"
   ],
@@ -10,9 +9,9 @@ Auth successful for user: mibtn10@gmail.com
   ],
   "media": [
     {
-      "name": "Sanfara ft @MortadhaFtiti - Dhanbi [Official Music Video]  2025.mp4",
+      "name": "Mastaziano__-Aventure _(3).mp4",
       "type": "video",
-      "data": "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAE88bW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAL6sAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAOmV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAL4oAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAA
+      "data": "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAHgobW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAASCsAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAWiV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAASAIAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAB4AAAAQ4AAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAEgCAAACAAABAAAAAFmdbWRpYQAAACBtZGhkAAAAAAAA
     }
   ],
   "discordChannels": {
@@ -25,14 +24,14 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📎 Processed 1 media files
 🚀 Posting to reddit:suareztn...
 🔴 Posting to Reddit for account suareztn (attempt 1)
-📝 Content: test agaın for vıdeo after fıxıng
+📝 Content: test agin the video upload after the fix uploading
 📎 Media items: 1
 🔍 Parsed metadata: {}
 📊 User moderates 0 subreddits
 📊 User karma: 0 (link: 0, comment: 0)
 🎯 Posting to user profile: r/u_suareztn
 📤 Processing 1 media items for Reddit
-🔍 Checking media: Sanfara ft @MortadhaFtiti - Dhanbi [Official Music Video]  2025.mp4
+🔍 Checking media: Mastaziano__-Aventure _(3).mp4
    type: "video"
    mimeType: ""
    dataMimeType: ""
@@ -41,15 +40,15 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
    isImage: false, isVideo: true
 📷 Creating video post for Reddit
 🎬 Attempting Reddit native video upload for v.redd.it hosting...
-🔴 Uploading video to Reddit's native hosting: Sanfara ft @MortadhaFtiti - Dhanbi [Official Music Video]  2025.mp4
+🔴 Uploading video to Reddit's native hosting: Mastaziano__-Aventure _(3).mp4
 📊 Media item structure: {
   hasData: false,
   hasBuffer: true,
   dataType: 'undefined',
   dataPreview: 'NO_DATA',
-  bufferLength: 5990632
+  bufferLength: 2134072
 }
-✅ Using existing buffer: 5990632 bytes, MIME: video
+✅ Using existing buffer: 2134072 bytes, MIME: video
 📡 Requesting Reddit upload URL with MIME type: video/mp4...
 ✅ Got Reddit upload data: {
   args: {
@@ -65,42 +64,48 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
     ]
   },
   asset: {
-    asset_id: 'vrzw3o6fr6cf1',
+    asset_id: 'ru4zymrvt6cf1',
     processing_state: 'incomplete',
-    payload: {
-      filepath: 'Sanfara ft @MortadhaFtiti - Dhanbi [Official Music Video]  2025.mp4'
-    },
-    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/vrzw3o6fr6cf1?m=AQAAvKtwaCn5v8FJF7R1N46_NzLPCu1ZVpBXl7-_OIrAk96hP0tt'
+    payload: { filepath: 'Mastaziano__-Aventure _(3).mp4' },
+    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/ru4zymrvt6cf1?m=AQAA965waIE1BiHCWIJ_RX0KKLWDeXs3ByIIGDfa9_U6IlrI__P1'
   }
 }
 ❌ Reddit native video upload failed: TypeError: source.on is not a function
     at DelayedStream.create (/opt/render/project/src/server/node_modules/delayed-stream/lib/delayed_stream.js:33:10)
     at CombinedStream.append (/opt/render/project/src/server/node_modules/combined-stream/lib/combined_stream.js:45:37)
     at FormData.append (/opt/render/project/src/server/node_modules/form-data/lib/form_data.js:77:3)
-⚠️ Reddit native video upload failed, falling back to Imgur: source.on is not a function
-    at /opt/render/project/src/server/routes/postRoutes.js:2063:24
+    at /opt/render/project/src/server/routes/postRoutes.js:2087:24
     at Array.forEach (<anonymous>)
-    at uploadVideoToRedditNative (/opt/render/project/src/server/routes/postRoutes.js:2062:46)
+⚠️ Reddit native video upload failed, falling back to Imgur: source.on is not a function
+    at uploadVideoToRedditNative (/opt/render/project/src/server/routes/postRoutes.js:2086:46)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2239:41)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2624:12)
+    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2260:41)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2652:12)
     at async /opt/render/project/src/server/routes/postRoutes.js:118:22
-📤 Uploading video to Imgur: Sanfara ft @MortadhaFtiti - Dhanbi [Official Music Video]  2025.mp4
-📊 Base64 video length: 7987512 characters
-✅ Successfully uploaded video to Imgur: https://i.imgur.com/3xQS0Os.mp4
-✅ Created Imgur fallback video text post with embedded URL: https://i.imgur.com/3xQS0Os.mp4
+📤 Uploading video to Imgur: Mastaziano__-Aventure _(3).mp4
+📊 Base64 video length: 2845432 characters
+❌ Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
+❌ All video upload methods failed, falling back to text post: ReferenceError: mediaType is not defined
+    at uploadMediaToImgur (/opt/render/project/src/server/routes/postRoutes.js:1727:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2282:35)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2652:12)
+    at async /opt/render/project/src/server/routes/postRoutes.js:118:22
+    at async Promise.all (index 0)
+    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
 📤 Submitting self post to Reddit with data: {
   api_type: 'json',
   kind: 'self',
   sr: 'u_suareztn',
-  title: 'test agaın for vıdeo after fıxıng',
-  text: 'test agaın for vıdeo after fıxıng\n' +
+  title: 'test agin the video upload after the fix uploading',
+  text: 'test agin the video upload after the fix uploading\n' +
     '\n' +
-    '🎬 **Watch Video:** https://i.imgur.com/3xQS0Os.mp4',
+    '**📎 Media Attachment: Mastaziano__-Aventure _(3).mp4**\n' +
+    '- Type: Unknown\n' +
+    '\n' +
+    '*(video upload failed: mediaType is not defined)*',
   sendreplies: true,
-  validate_on_submit: true,
-  nsfw: false,
-  spoiler: false
+  validate_on_submit: true
 }
 🔑 Using access token: eyJhbGciOi...
 📊 Reddit submit response status: 200
@@ -110,12 +115,12 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
   connection: 'keep-alive',
   'content-encoding': 'gzip',
   'content-type': 'application/json; charset=UTF-8',
-  date: 'Fri, 11 Jul 2025 06:04:21 GMT',
+  date: 'Fri, 11 Jul 2025 06:18:08 GMT',
   expires: '-1',
   nel: '{"report_to": "w3-reporting-nel", "max_age": 14400, "include_subdomains": false, "success_fraction": 1.0, "failure_fraction": 1.0}',
   'report-to': '{"group": "w3-reporting-nel", "max_age": 14400, "include_subdomains": true,  "endpoints": [{ "url": "https://w3-reporting-nel.reddit.com/reports" }]}, {"group": "w3-reporting", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting.reddit.com/reports" }]}, {"group": "w3-reporting-csp", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting-csp.reddit.com/reports" }]}',
   server: 'snooserv',
-  'set-cookie': 'edgebucket=9JazATSrU6pJHXh7cG; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
+  'set-cookie': 'edgebucket=kVHqCs0F5QjNuD6f6n; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
   'strict-transport-security': 'max-age=31536000; includeSubdomains',
   'transfer-encoding': 'chunked',
   vary: 'Accept-Encoding',
@@ -123,22 +128,22 @@ Found 6 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'SAMEORIGIN',
   'x-ratelimit-remaining': '998.0',
-  'x-ratelimit-reset': '338',
+  'x-ratelimit-reset': '111',
   'x-ratelimit-used': '2',
   'x-ua-compatible': 'IE=edge',
   'x-xss-protection': '1; mode=block'
 }
-📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"url": "https://www.reddit.com/r/u_suareztn/comments/1lwzcpl/test_aga\u0131n_for_v\u0131deo_after_f\u0131x\u0131ng/", "drafts_count": 0, "id": "1lwzcpl", "name": "t3_1lwzcpl"}}}
+📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"url": "https://www.reddit.com/r/u_suareztn/comments/1lwzktd/test_agin_the_video_upload_after_the_fix_uploading/", "drafts_count": 0, "id": "1lwzktd", "name": "t3_1lwzktd"}}}
 📊 Reddit submit parsed data: {
   "json": {
     "errors": [],
     "data": {
-      "url": "https://www.reddit.com/r/u_suareztn/comments/1lwzcpl/test_agaın_for_vıdeo_after_fıxıng/",
+      "url": "https://www.reddit.com/r/u_suareztn/comments/1lwzktd/test_agin_the_video_upload_after_the_fix_uploading/",
       "drafts_count": 0,
-      "id": "1lwzcpl",
-      "name": "t3_1lwzcpl"
+      "id": "1lwzktd",
+      "name": "t3_1lwzktd"
     }
   }
 }
 ✅ Posted to Reddit successfully
-📊 Post details: ID=1lwzcpl, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lwzcpl/test_agaın_for_vıdeo_after_fıxıng/
+📊 Post details: ID=1lwzktd, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lwzktd/test_agin_the_video_upload_after_the_fix_uploading/

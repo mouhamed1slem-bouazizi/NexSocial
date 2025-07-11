@@ -1724,6 +1724,7 @@ const uploadMediaToImgur = async (mediaItem) => {
       };
       
     } catch (error) {
+      const mediaType = getMediaType(mediaItem);
       console.error(`❌ Imgur ${mediaType} upload failed: ${error.message}`);
       throw error;
     }
@@ -2075,6 +2076,13 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     const uploadData = await uploadUrlResponse.json();
     console.log(`✅ Got Reddit upload data:`, uploadData);
+    console.log(`🔍 Upload data structure:`, {
+      hasArgs: !!uploadData.args,
+      hasFields: !!uploadData.args?.fields,
+      fieldsType: typeof uploadData.args?.fields,
+      fieldsLength: uploadData.args?.fields?.length,
+      fieldsPreview: uploadData.args?.fields?.slice(0, 2)
+    });
     
     // Step 2: Upload file to the provided S3 URL using Node.js FormData
     const FormData = require('form-data');
@@ -2083,8 +2091,18 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     // Add all the form fields Reddit requires
     if (uploadData.args && uploadData.args.fields) {
-      Object.entries(uploadData.args.fields).forEach(([key, value]) => {
-        uploadFormData.append(key, value);
+      console.log(`📝 Processing ${uploadData.args.fields.length} form fields...`);
+      
+      // Reddit returns fields as an array of objects, not a single object
+      uploadData.args.fields.forEach((field, index) => {
+        console.log(`📝 Field ${index}:`, field);
+        if (field && typeof field === 'object') {
+          // Each field object has key-value pairs
+          Object.entries(field).forEach(([key, value]) => {
+            console.log(`📝 Appending: ${key} = ${value}`);
+            uploadFormData.append(key, value);
+          });
+        }
       });
     }
     
@@ -2111,10 +2129,17 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     console.log(`✅ Video uploaded to Reddit S3 successfully`);
     
-    // Step 3: Return the asset info for submission
+    // Step 3: Wait for video processing (optional but recommended)
+    console.log(`⏳ Video processing may take a moment...`);
+    
+    // Return the asset info for submission
+    const assetUrl = uploadData.asset.asset_url || uploadData.asset.asset_id;
+    console.log(`📺 Reddit video asset URL: ${assetUrl}`);
+    
     return {
-      asset_url: uploadData.asset.asset_url,
-      websocket_url: uploadData.websocket_url
+      asset_url: assetUrl,
+      asset_id: uploadData.asset.asset_id,
+      websocket_url: uploadData.websocket_url || uploadData.asset.websocket_url
     };
     
   } catch (error) {
@@ -2261,19 +2286,27 @@ const postToReddit = async (account, content, media = []) => {
               
               // Create a video post using Reddit's native asset
               postType = 'videogif';
+              
+              // Build the proper Reddit video URL
+              const redditVideoUrl = redditVideoUpload.asset_url.startsWith('http') 
+                ? redditVideoUpload.asset_url 
+                : `https://v.redd.it/${redditVideoUpload.asset_id}`;
+              
               postData = {
                 api_type: 'json',
                 kind: 'videogif',
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: redditVideoUpload.asset_url,
+                url: redditVideoUrl,
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
-                spoiler: false
+                spoiler: false,
+                video_poster_url: redditVideoUrl, // Add poster URL for thumbnail
+                extension: 'json'
               };
               
-              console.log(`✅ Created Reddit native video post with v.redd.it hosting: ${redditVideoUpload.asset_url}`);
+              console.log(`✅ Created Reddit native video post with v.redd.it hosting: ${redditVideoUrl}`);
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
