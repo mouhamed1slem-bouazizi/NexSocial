@@ -2425,8 +2425,8 @@ const postToReddit = async (account, content, media = []) => {
             try {
               const redditVideoUpload = await uploadVideoToRedditNative(mediaItem, currentAccount.access_token);
               
-              // Create a link post with native video URL for embedded player
-              postType = 'link';
+              // Create a videogif post with native video for embedded player
+              postType = 'videogif';
               
               // Build the proper Reddit video URL for poster
               const redditVideoUrl = redditVideoUpload.asset_url.startsWith('http') 
@@ -2450,13 +2450,15 @@ const postToReddit = async (account, content, media = []) => {
                 console.log(`⚠️ Video URL check failed, but proceeding with Reddit post anyway:`, videoCheckError.message);
               }
               
-              // Use link post for native Reddit videos to get embedded player
+              // Use videogif post for native Reddit videos to get embedded player
               postData = {
                 api_type: 'json',
-                kind: 'link',
+                kind: 'videogif',  // FIXED: Use videogif instead of link for proper video embedding
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: redditVideoUrl, // Direct v.redd.it URL for embedded player
+                // REMOVED: url field - not needed for videogif posts
+                // ADDED: Reddit video metadata for proper embedding
+                video_poster_url: redditVideoUrl,
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
@@ -2464,7 +2466,20 @@ const postToReddit = async (account, content, media = []) => {
                 extension: 'json'
               };
               
-              console.log(`✅ Created Reddit link post with native v.redd.it video: ${redditVideoUrl}`);
+              // Add Reddit video metadata for proper embedding
+              if (redditVideoUpload.asset_id) {
+                const mediaMetadata = {
+                  otype: 'v.redd.it',
+                  s: {
+                    y: redditVideoUpload.asset_id,
+                    gif: false
+                  }
+                };
+                postData.media = JSON.stringify(mediaMetadata);
+                console.log(`📺 Added video metadata for asset: ${redditVideoUpload.asset_id}`);
+              }
+              
+              console.log(`✅ Created Reddit videogif post with embedded video player: ${redditVideoUrl}`);
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
@@ -2730,18 +2745,10 @@ const postToReddit = async (account, content, media = []) => {
         successMessage += ` with media link`;
       } else if (postType === 'videogif') {
         successMessage += ` with native video upload (v.redd.it)`;
-      } else if (postType === 'link' && media.length > 0) {
-        const hasRedditVideo = media.some(item => {
-          const mediaType = getMediaType(item);
-          return mediaType === 'video';
-        });
-        if (hasRedditVideo) {
-          successMessage += ` with native v.redd.it video`;
-        } else {
-          successMessage += ` with link media`;
-        }
-      } else if (postType === 'self' && media.length > 0) {
+      } else if (postType === 'self') {
         successMessage += ` with embedded media`;
+      } else if (postType === 'image') {
+        successMessage += ` with image`;
       }
     }
     
