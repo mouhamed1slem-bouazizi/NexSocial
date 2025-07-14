@@ -2108,98 +2108,64 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     const uploadFormData = new FormData();
     
-    // Add all the form fields Reddit requires
+    // We'll handle form fields in the new S3FormData construction below
+    console.log(`📝 Processing ${uploadData.args.fields ? uploadData.args.fields.length : 0} form fields...`);
+    
+    // Critical fix: Use a more robust approach for S3 multipart uploads
+    // Based on AWS S3 requirements and Reddit's specific implementation
+    console.log(`📤 Preparing S3 multipart upload...`);
+    console.log(`📊 Video details: size=${videoBuffer.length} bytes, type=${mimeType}, name=${mediaItem.name}`);
+    
+    // Create a new FormData instance to ensure clean state
+    const s3FormData = new FormData();
+    
+    // Add all Reddit's required fields first
     if (uploadData.args && uploadData.args.fields) {
-      console.log(`📝 Processing ${uploadData.args.fields.length} form fields...`);
-      
-      // Reddit returns fields as an array of objects with name/value properties
       uploadData.args.fields.forEach((field, index) => {
-        console.log(`📝 Field ${index}:`, field);
         if (field && typeof field === 'object' && field.name && field.value) {
-          // Special handling for Content-Type field - don't add it as a form field
-          // because it should be set on the file itself, not as a separate field
+          console.log(`📝 Adding S3 field: ${field.name}`);
+          s3FormData.append(field.name, field.value);
+          
+          // Update mimeType from Content-Type field if present
           if (field.name.toLowerCase() === 'content-type') {
-            console.log(`📝 Skipping Content-Type field - will be set on file: ${field.value}`);
-            // Store the content type for use when attaching the file
             mimeType = field.value;
-          } else {
-            console.log(`📝 Appending: ${field.name} = ${field.value}`);
-            uploadFormData.append(field.name, field.value);
           }
         }
       });
     }
     
-    // Add the file buffer as the last field (S3 requirement)
-    // Reddit S3 expects the file field to be named "file" and be the last field
-    console.log(`📤 Attaching file to FormData...`);
+    // Create a proper file stream for S3 (Node.js compatible)
+    const { Readable } = require('stream');
+    const fileStream = Readable.from(videoBuffer);
     
-    // Try multiple approaches to ensure file attachment works
-    let fileAttached = false;
+    // Set the proper properties for S3 compatibility
+    fileStream.path = mediaItem.name;
     
-    // Approach 1: Use buffer directly with proper options
-    try {
-      uploadFormData.append('file', videoBuffer, {
-        filename: mediaItem.name,
-        contentType: mimeType,
-        knownLength: videoBuffer.length
-      });
-      fileAttached = true;
-      console.log(`📤 File attached using buffer method: ${mediaItem.name} (${videoBuffer.length} bytes)`);
-    } catch (bufferError) {
-      console.error(`❌ Buffer attachment failed:`, bufferError.message);
-    }
+    console.log(`📊 Created file stream: size=${videoBuffer.length} bytes, type=${mimeType}`);
     
-    // Approach 2: If buffer method failed, try with Readable stream
-    if (!fileAttached) {
-      try {
-        const { Readable } = require('stream');
-        const fileStream = Readable.from(videoBuffer);
-        uploadFormData.append('file', fileStream, {
-          filename: mediaItem.name,
-          contentType: mimeType,
-          knownLength: videoBuffer.length
-        });
-        fileAttached = true;
-        console.log(`📤 File attached using Readable.from(): ${mediaItem.name} (${videoBuffer.length} bytes)`);
-      } catch (streamError) {
-        console.error(`❌ Stream attachment failed:`, streamError.message);
-      }
-    }
+    // Append the file as the LAST field (S3 requirement)
+    // Use the three-parameter version: append(field, value, options)
+    s3FormData.append('file', fileStream, {
+      filename: mediaItem.name,
+      contentType: mimeType,
+      knownLength: videoBuffer.length
+    });
+    console.log(`📤 File attached as stream: ${mediaItem.name} (${videoBuffer.length} bytes)`);
     
-    // Approach 3: If both failed, try minimal options
-    if (!fileAttached) {
-      try {
-        uploadFormData.append('file', videoBuffer, {
-          filename: mediaItem.name,
-          contentType: mimeType
-        });
-        fileAttached = true;
-        console.log(`📤 File attached using minimal options: ${mediaItem.name} (${videoBuffer.length} bytes)`);
-      } catch (minimalError) {
-        console.error(`❌ Minimal attachment failed:`, minimalError.message);
-      }
-    }
+         // Verify the FormData structure
+     console.log(`📊 S3 FormData verification:`);
+     try {
+       // Use the internal properties to verify structure
+       console.log(`  - Total fields: ${s3FormData._fields ? s3FormData._fields.length : 'unknown'}`);
+       console.log(`  - Has file stream: ${fileStream ? 'YES' : 'NO'}`);
+       console.log(`  - Stream readable: ${fileStream && fileStream.readable ? 'YES' : 'NO'}`);
+       console.log(`  - FormData boundary: ${s3FormData.getBoundary ? s3FormData.getBoundary() : 'unknown'}`);
+     } catch (debugError) {
+       console.log(`  - FormData debug failed:`, debugError.message);
+     }
     
-    // Approach 4: Last resort - just buffer and filename
-    if (!fileAttached) {
-      try {
-        uploadFormData.append('file', videoBuffer, mediaItem.name);
-        fileAttached = true;
-        console.log(`📤 File attached using basic method: ${mediaItem.name} (${videoBuffer.length} bytes)`);
-      } catch (basicError) {
-        console.error(`❌ Basic attachment failed:`, basicError.message);
-      }
-    }
-    
-    if (!fileAttached) {
-      throw new Error('Failed to attach file to FormData using any method');
-    }
-    
-    // Verify FormData has the file
-    console.log(`📊 FormData _fields length: ${uploadFormData._fields ? uploadFormData._fields.length : 'unknown'}`);
-    console.log(`📊 FormData _overheadLength: ${uploadFormData._overheadLength || 'unknown'}`);
-    console.log(`📊 FormData _valueLength: ${uploadFormData._valueLength || 'unknown'}`)
+    // Replace the original FormData with our properly constructed one
+    uploadFormData = s3FormData;
     
     console.log(`📤 Uploading video to Reddit S3...`);
     
