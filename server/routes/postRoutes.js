@@ -2203,6 +2203,9 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
     console.log(`⏳ Video processing wait completed`);
     
+    // Extract asset ID for URL construction
+    const assetId = uploadData.asset.asset_id;
+    
     // Test if the v.redd.it URL is accessible
     try {
       const redditVideoUrl = `https://v.redd.it/${assetId}`;
@@ -2215,7 +2218,6 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     // Return the asset info for submission
     // For Reddit native videos, the asset_id is what we need
-    const assetId = uploadData.asset.asset_id;
     const redditVideoUrl = `https://v.redd.it/${assetId}`;
     console.log(`📺 Reddit video asset ID: ${assetId}`);
     console.log(`📺 Reddit video URL: ${redditVideoUrl}`);
@@ -2368,22 +2370,36 @@ const postToReddit = async (account, content, media = []) => {
             try {
               const redditVideoUpload = await uploadVideoToRedditNative(mediaItem, currentAccount.access_token);
               
-              // Create a native video post using Reddit's asset (not a link post)
-              postType = 'video';
+              // Create a self post with embedded video URL
+              postType = 'self';
               
               // Build the proper Reddit video URL for poster
               const redditVideoUrl = redditVideoUpload.asset_url.startsWith('http') 
                 ? redditVideoUpload.asset_url 
                 : `https://v.redd.it/${redditVideoUpload.asset_id}`;
               
-              // For Reddit native videos, use videogif kind with proper parameters
+              // For Reddit native videos, wait longer for processing then use proper submission format
+              console.log(`⏳ Waiting additional time for Reddit video processing...`);
+              await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 more seconds
+              
+              // Try accessing the video URL to ensure it's ready
+              try {
+                const videoCheckResponse = await fetch(redditVideoUrl, { method: 'HEAD' });
+                console.log(`📺 Video URL check status: ${videoCheckResponse.status}`);
+                if (videoCheckResponse.status !== 200) {
+                  console.log(`⚠️ Video URL not yet accessible, proceeding anyway`);
+                }
+              } catch (videoCheckError) {
+                console.log(`⚠️ Video URL check failed, proceeding anyway:`, videoCheckError.message);
+              }
+              
+              // Use self post with video embedded - more reliable for v.redd.it
               postData = {
                 api_type: 'json',
-                kind: 'videogif', // videogif kind for native video posts
+                kind: 'self',
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: redditVideoUrl, // The v.redd.it URL
-                video_poster_url: redditVideoUrl, // Same URL for poster/thumbnail
+                text: `${content}\n\n${redditVideoUrl}`, // Include video URL in post text
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
@@ -2391,7 +2407,7 @@ const postToReddit = async (account, content, media = []) => {
                 extension: 'json'
               };
               
-              console.log(`✅ Created Reddit native video post with v.redd.it hosting: ${redditVideoUrl}`);
+              console.log(`✅ Created Reddit self post with embedded v.redd.it video: ${redditVideoUrl}`);
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
@@ -2618,11 +2634,32 @@ const postToReddit = async (account, content, media = []) => {
       throw new Error('Reddit post submission failed - no response data');
     }
     
-    // Construct the Reddit URL
-    const redditUrl = `https://reddit.com${postInfo.url}`;
+    // Construct the Reddit URL with proper handling for missing fields
+    let redditUrl = 'https://reddit.com';
+    let postId = 'unknown';
+    
+    if (postInfo.url) {
+      // Standard response with URL
+      redditUrl = `https://reddit.com${postInfo.url}`;
+      postId = postInfo.id || 'unknown';
+    } else if (postInfo.user_submitted_page) {
+      // Video posts sometimes return user_submitted_page instead
+      redditUrl = postInfo.user_submitted_page;
+      // Extract potential post ID from user_submitted_page if possible
+      const urlMatch = postInfo.user_submitted_page.match(/\/comments\/([a-z0-9]+)\//);
+      if (urlMatch) {
+        postId = urlMatch[1];
+      }
+    } else {
+      // Fallback: construct URL based on submission details
+      const subredditPath = targetSubreddit.startsWith('u_') 
+        ? `/user/${targetSubreddit.substring(2)}/submitted/` 
+        : `/r/${targetSubreddit}/new/`;
+      redditUrl = `https://reddit.com${subredditPath}`;
+    }
     
     console.log(`✅ Posted to Reddit successfully`);
-    console.log(`📊 Post details: ID=${postInfo.id}, URL=${redditUrl}`);
+    console.log(`📊 Post details: ID=${postId}, URL=${redditUrl}`);
     
     // Determine success message based on post type and media
     let successMessage = `Posted to Reddit r/${targetSubreddit} successfully`;
@@ -2632,21 +2669,29 @@ const postToReddit = async (account, content, media = []) => {
       } else if (postType === 'videogif') {
         successMessage += ` with native video upload (v.redd.it)`;
       } else if (postType === 'self' && media.length > 0) {
-        successMessage += ` with embedded media`;
+        const hasRedditVideo = supportedMedia.some(item => {
+          const mediaType = getMediaType(item);
+          return mediaType === 'video';
+        });
+        if (hasRedditVideo) {
+          successMessage += ` with embedded v.redd.it video`;
+        } else {
+          successMessage += ` with embedded media`;
+        }
       }
     }
     
     return {
       success: true,
-      postId: postInfo.id,
+      postId: postId,
       platform: 'reddit',
       message: successMessage,
       details: {
         subreddit: targetSubreddit,
         postType: postType,
         postUrl: redditUrl,
-        permalink: postInfo.url,
-        fullname: postInfo.name,
+        permalink: postInfo.url || redditUrl,
+        fullname: postInfo.name || 'unknown',
         mediaCount: media.length,
         mediaUploaded: postType === 'image',
         postedToProfile: postToProfile,
