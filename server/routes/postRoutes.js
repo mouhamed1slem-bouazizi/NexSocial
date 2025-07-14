@@ -2150,22 +2150,36 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     console.log(`📤 Upload URL: ${uploadUrl}`);
     
-    // Use FormData's default headers (following proven GitHub repository approach)
+    // Use axios for better FormData compatibility (following proven GitHub approach)
     console.log(`📊 Video buffer size: ${videoBuffer.length} bytes`);
-    const formHeaders = uploadFormData.getHeaders();
-    console.log(`📊 FormData headers:`, formHeaders);
-    console.log(`📤 Sending multipart form data to S3...`);
+    console.log(`📤 Sending multipart form data to S3 using axios...`);
     
-    const s3Response = await fetch(uploadUrl, {
-      method: 'POST',
-      body: uploadFormData,
-      headers: formHeaders
-    });
+    // Use axios for more reliable FormData handling
+    const axios = require('axios');
+    let s3Response;
     
-    if (!s3Response.ok) {
-      const errorText = await s3Response.text();
-      console.error(`❌ S3 upload failed (${s3Response.status}):`, errorText);
-      console.error(`❌ S3 response headers:`, Object.fromEntries(s3Response.headers.entries()));
+    try {
+      s3Response = await axios.post(uploadUrl, uploadFormData, {
+        headers: uploadFormData.getHeaders(),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        validateStatus: () => true // Don't throw on non-2xx status
+      });
+    } catch (axiosError) {
+      console.error(`❌ Axios request failed:`, axiosError.message);
+      console.error(`❌ Debug info:`, {
+        uploadUrl: uploadUrl,
+        bufferSize: videoBuffer.length,
+        filename: mediaItem.name,
+        mimeType: mimeType
+      });
+      throw new Error(`S3 upload request failed: ${axiosError.message}`);
+    }
+    
+    // Check if request was successful (status 2xx)
+    if (s3Response.status < 200 || s3Response.status >= 300) {
+      console.error(`❌ S3 upload failed (${s3Response.status}):`, s3Response.data);
+      console.error(`❌ S3 response headers:`, s3Response.headers);
       
       // Log FormData debug info for troubleshooting
       console.error(`❌ Debug info:`, {
@@ -2175,10 +2189,11 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
         mimeType: mimeType
       });
       
-      throw new Error(`S3 upload failed: ${s3Response.status} - ${errorText}`);
+      throw new Error(`S3 upload failed: ${s3Response.status} - ${JSON.stringify(s3Response.data)}`);
     }
     
     console.log(`✅ Video uploaded to Reddit S3 successfully`);
+    console.log(`📊 S3 response:`, s3Response.data);
     
     // Step 3: Wait for video processing (optional but recommended)
     console.log(`⏳ Video processing may take a moment...`);
