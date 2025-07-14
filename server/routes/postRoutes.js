@@ -2697,8 +2697,12 @@ const postToReddit = async (account, content, media = []) => {
     let postId = 'unknown';
     
     if (postInfo.url) {
-      // Standard response with URL
-      redditUrl = `https://reddit.com${postInfo.url}`;
+      // Check if URL is already full (starts with http) or relative
+      if (postInfo.url.startsWith('http')) {
+        redditUrl = postInfo.url;
+      } else {
+        redditUrl = `https://reddit.com${postInfo.url}`;
+      }
       postId = postInfo.id || 'unknown';
     } else if (postInfo.user_submitted_page) {
       // Video posts sometimes return user_submitted_page instead
@@ -2839,7 +2843,7 @@ const postToReddit = async (account, content, media = []) => {
           
           if (fallbackResponse.ok && fallbackParsedData.json?.data) {
             const postInfo = fallbackParsedData.json.data;
-            const redditUrl = `https://reddit.com${postInfo.url}`;
+            const redditUrl = postInfo.url.startsWith('http') ? postInfo.url : `https://reddit.com${postInfo.url}`;
             
             console.log(`✅ Fallback text post succeeded: ${redditUrl}`);
             
