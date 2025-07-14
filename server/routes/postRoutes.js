@@ -2195,16 +2195,34 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     console.log(`✅ Video uploaded to Reddit S3 successfully`);
     console.log(`📊 S3 response:`, s3Response.data);
     
-    // Step 3: Wait for video processing (optional but recommended)
+    // Step 3: Wait for video processing (recommended)
     console.log(`⏳ Video processing may take a moment...`);
     
+    // Give Reddit some time to process the video before submitting the post
+    // This helps ensure the v.redd.it URL is accessible when the post is created
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+    console.log(`⏳ Video processing wait completed`);
+    
+    // Test if the v.redd.it URL is accessible
+    try {
+      const redditVideoUrl = `https://v.redd.it/${assetId}`;
+      const testResponse = await axios.head(redditVideoUrl);
+      console.log(`✅ v.redd.it URL is accessible: ${testResponse.status}`);
+    } catch (testError) {
+      console.log(`⚠️ v.redd.it URL test failed:`, testError.message);
+      // Continue anyway - the URL might still work for posts
+    }
+    
     // Return the asset info for submission
-    const assetUrl = uploadData.asset.asset_url || uploadData.asset.asset_id;
-    console.log(`📺 Reddit video asset URL: ${assetUrl}`);
+    // For Reddit native videos, the asset_id is what we need
+    const assetId = uploadData.asset.asset_id;
+    const redditVideoUrl = `https://v.redd.it/${assetId}`;
+    console.log(`📺 Reddit video asset ID: ${assetId}`);
+    console.log(`📺 Reddit video URL: ${redditVideoUrl}`);
     
     return {
-      asset_url: assetUrl,
-      asset_id: uploadData.asset.asset_id,
+      asset_url: redditVideoUrl,
+      asset_id: assetId,
       websocket_url: uploadData.websocket_url || uploadData.asset.websocket_url
     };
     
@@ -2350,25 +2368,26 @@ const postToReddit = async (account, content, media = []) => {
             try {
               const redditVideoUpload = await uploadVideoToRedditNative(mediaItem, currentAccount.access_token);
               
-              // Create a video post using Reddit's native asset
-              postType = 'videogif';
+              // Create a native video post using Reddit's asset (not a link post)
+              postType = 'video';
               
-              // Build the proper Reddit video URL
+              // Build the proper Reddit video URL for poster
               const redditVideoUrl = redditVideoUpload.asset_url.startsWith('http') 
                 ? redditVideoUpload.asset_url 
                 : `https://v.redd.it/${redditVideoUpload.asset_id}`;
               
+              // For Reddit native videos, use videogif kind with proper parameters
               postData = {
                 api_type: 'json',
-                kind: 'videogif',
+                kind: 'videogif', // videogif kind for native video posts
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: redditVideoUrl,
+                url: redditVideoUrl, // The v.redd.it URL
+                video_poster_url: redditVideoUrl, // Same URL for poster/thumbnail
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
                 spoiler: false,
-                video_poster_url: redditVideoUrl, // Add poster URL for thumbnail
                 extension: 'json'
               };
               
