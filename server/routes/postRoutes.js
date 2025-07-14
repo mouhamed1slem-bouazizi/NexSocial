@@ -2425,8 +2425,8 @@ const postToReddit = async (account, content, media = []) => {
             try {
               const redditVideoUpload = await uploadVideoToRedditNative(mediaItem, currentAccount.access_token);
               
-              // Create a self post with embedded video URL
-              postType = 'self';
+              // Create a link post with native video URL for embedded player
+              postType = 'link';
               
               // Build the proper Reddit video URL for poster
               const redditVideoUrl = redditVideoUpload.asset_url.startsWith('http') 
@@ -2450,13 +2450,13 @@ const postToReddit = async (account, content, media = []) => {
                 console.log(`⚠️ Video URL check failed, but proceeding with Reddit post anyway:`, videoCheckError.message);
               }
               
-              // Use self post with video embedded - more reliable for v.redd.it
+              // Use link post for native Reddit videos to get embedded player
               postData = {
                 api_type: 'json',
-                kind: 'self',
+                kind: 'link',
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                text: `${content}\n\n${redditVideoUrl}`, // Include video URL in post text
+                url: redditVideoUrl, // Direct v.redd.it URL for embedded player
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
@@ -2464,7 +2464,7 @@ const postToReddit = async (account, content, media = []) => {
                 extension: 'json'
               };
               
-              console.log(`✅ Created Reddit self post with embedded v.redd.it video: ${redditVideoUrl}`);
+              console.log(`✅ Created Reddit link post with native v.redd.it video: ${redditVideoUrl}`);
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
@@ -2730,16 +2730,18 @@ const postToReddit = async (account, content, media = []) => {
         successMessage += ` with media link`;
       } else if (postType === 'videogif') {
         successMessage += ` with native video upload (v.redd.it)`;
-      } else if (postType === 'self' && media.length > 0) {
+      } else if (postType === 'link' && media.length > 0) {
         const hasRedditVideo = media.some(item => {
           const mediaType = getMediaType(item);
           return mediaType === 'video';
         });
         if (hasRedditVideo) {
-          successMessage += ` with embedded v.redd.it video`;
+          successMessage += ` with native v.redd.it video`;
         } else {
-          successMessage += ` with embedded media`;
+          successMessage += ` with link media`;
         }
+      } else if (postType === 'self' && media.length > 0) {
+        successMessage += ` with embedded media`;
       }
     }
     
