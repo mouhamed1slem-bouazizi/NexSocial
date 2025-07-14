@@ -1,73 +1,111 @@
-Attaching file to FormData...
-📤 File attached using buffer method: TATI G13 - VITE (Official Audio, EP JBML #8).mp4 (7214203 bytes)
-📊 FormData _fields length: unknown
-📊 FormData _overheadLength: 1525
-📊 FormData _valueLength: 7216893
+Publishing to 1 accounts: [ 'reddit:suareztn' ]
+📎 Processed 1 media files
+🚀 Posting to reddit:suareztn...
+🔴 Posting to Reddit for account suareztn (attempt 1)
+📝 Content: test video kaso
+📎 Media items: 1
+🔍 Parsed metadata: {}
+📊 User moderates 0 subreddits
+📊 User karma: 0 (link: 0, comment: 0)
+🎯 Posting to user profile: r/u_suareztn
+📤 Processing 1 media items for Reddit
+🔍 Checking media: KASO - ENNARD(5).mp4
+   type: "video"
+   mimeType: ""
+   dataMimeType: ""
+   data preview: "NO_DATA"
+   data starts with 'data:': undefined
+   isImage: false, isVideo: true
+📷 Creating video post for Reddit
+🎬 Attempting Reddit native video upload for v.redd.it hosting...
+🔴 Uploading video to Reddit's native hosting: KASO - ENNARD(5).mp4
+📊 Media item structure: {
+  hasData: false,
+  hasBuffer: true,
+  dataType: 'undefined',
+  dataPreview: 'NO_DATA',
+  bufferLength: 11253518
+}
+✅ Using existing buffer: 11253518 bytes, MIME: video
+📊 Video validation: Size=11MB, Format=video/mp4
+📡 Requesting Reddit upload URL with MIME type: video/mp4...
+✅ Got Reddit upload data: {
+  args: {
+    action: '//reddit-uploaded-video.s3-accelerate.amazonaws.com',
+    fields: [
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object]
+    ]
+  },
+  asset: {
+    asset_id: '65dlvnhvftcf1',
+    processing_state: 'incomplete',
+    payload: { filepath: 'KASO - ENNARD(5).mp4' },
+    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/65dlvnhvftcf1?m=AQAAS9x0aNny9L95bm8u2csy1xRTWNTXozEK_On6yamhKBLo85BW'
+  }
+}
+🔍 Upload data structure: {
+  hasArgs: true,
+  hasFields: true,
+  fieldsType: 'object',
+  fieldsLength: 13,
+  fieldsPreview: [
+    { name: 'x-amz-algorithm', value: 'AWS4-HMAC-SHA256' },
+    {
+      name: 'x-amz-credential',
+      value: 'ASIATB45ILA5TQLV5FZU/20250714/us-east-1/s3/aws4_request'
+    }
+  ]
+}
+📝 Processing 13 form fields...
+📊 Video details: size=11253518 bytes, type=video/mp4, name=KASO - ENNARD(5).mp4
+📝 Adding S3 field: x-amz-algorithm
+📝 Adding S3 field: x-amz-credential
+📝 Adding S3 field: x-amz-date
+📝 Adding S3 field: x-amz-storage-class
+📝 Adding S3 field: success_action_status
+📝 Adding S3 field: bucket
+📝 Adding S3 field: acl
+📝 Adding S3 field: x-amz-signature
+📝 Adding S3 field: key
+📝 Adding S3 field: x-amz-meta-ext
+📝 Adding S3 field: policy
+📝 Adding S3 field: x-amz-security-token
+📝 Adding S3 field: Content-Type
+📤 File attached: KASO - ENNARD(5).mp4 (11253518 bytes)
+📊 FormData verification: unknown total fields
 📤 Uploading video to Reddit S3...
 📤 Upload URL: https://reddit-uploaded-video.s3-accelerate.amazonaws.com
-📊 FormData fields count: unknown
-📊 Video buffer size: 7214203 bytes
-📊 FormData headers: {
-  'content-type': 'multipart/form-data; boundary=--------------------------001629570060879656430285'
-}
-📤 Sending multipart form data to S3...
-❌ S3 upload failed (400): <?xml version="1.0" encoding="UTF-8"?>
-<Error><Code>InvalidArgument</Code><Message>POST requires exactly one file upload per request.</Message><ArgumentName>file</ArgumentName><ArgumentValue>0</ArgumentValue><RequestId>K3BSTKF571DP0DQW</RequestId><HostId>o4k5gMOjY/oT0rwJIa2YB8CT0ntXF3iG1TD2TWK5XLzaqdtU75cEkLREXEsFijwrFkczLflmp1kmXw5GkT8xEykMNMEj0UMfPGcmpT+HdqA=</HostId></Error>
-❌ S3 response headers: {
-  connection: 'keep-alive',
-  'content-type': 'application/xml',
-  date: 'Mon, 14 Jul 2025 08:23:59 GMT',
-  server: 'AmazonS3',
-  'transfer-encoding': 'chunked',
-  via: '1.1 4c7fd3c8d1d5afb1ce8ed03385580c2e.cloudfront.net (CloudFront)',
-  'x-amz-cf-id': 'yQtqn1Lun6-wQAMUncPmRyi5-zfHeI9uDfSkfHcqcgNVzIXdbNXSVg==',
-  'x-amz-cf-pop': 'HIO50-C2',
-  'x-amz-id-2': 'o4k5gMOjY/oT0rwJIa2YB8CT0ntXF3iG1TD2TWK5XLzaqdtU75cEkLREXEsFijwrFkczLflmp1kmXw5GkT8xEykMNMEj0UMfPGcmpT+HdqA=',
-  'x-amz-request-id': 'K3BSTKF571DP0DQW',
-  'x-cache': 'Error from cloudfront'
-}
-❌ Debug info: {
-  uploadUrl: 'https://reddit-uploaded-video.s3-accelerate.amazonaws.com',
-  bufferSize: 7214203,
-  filename: 'TATI G13 - VITE (Official Audio, EP JBML #8).mp4',
-  mimeType: 'video/mp4'
-}
-❌ Reddit native video upload failed: Error: S3 upload failed: 400 - <?xml version="1.0" encoding="UTF-8"?>
-<Error><Code>InvalidArgument</Code><Message>POST requires exactly one file upload per request.</Message><ArgumentName>file</ArgumentName><ArgumentValue>0</ArgumentValue><RequestId>K3BSTKF571DP0DQW</RequestId><HostId>o4k5gMOjY/oT0rwJIa2YB8CT0ntXF3iG1TD2TWK5XLzaqdtU75cEkLREXEsFijwrFkczLflmp1kmXw5GkT8xEykMNMEj0UMfPGcmpT+HdqA=</HostId></Error>
-    at uploadVideoToRedditNative (/opt/render/project/src/server/routes/postRoutes.js:2245:13)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2403:41)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2803:12)
-    at async /opt/render/project/src/server/routes/postRoutes.js:118:22
-⚠️ Reddit native video upload failed, falling back to Imgur: S3 upload failed: 400 - <?xml version="1.0" encoding="UTF-8"?>
-    at async Promise.all (index 0)
-    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
-<Error><Code>InvalidArgument</Code><Message>POST requires exactly one file upload per request.</Message><ArgumentName>file</ArgumentName><ArgumentValue>0</ArgumentValue><RequestId>K3BSTKF571DP0DQW</RequestId><HostId>o4k5gMOjY/oT0rwJIa2YB8CT0ntXF3iG1TD2TWK5XLzaqdtU75cEkLREXEsFijwrFkczLflmp1kmXw5GkT8xEykMNMEj0UMfPGcmpT+HdqA=</HostId></Error>
-📤 Uploading video to Imgur: TATI G13 - VITE (Official Audio, EP JBML #8).mp4
-📊 Base64 video length: 9618940 characters
-❌ Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-❌ Imgur video upload failed: Imgur video upload failed: 500
-❌ All video upload methods failed, falling back to text post: Error: Imgur video upload failed: 500
-    at uploadMediaToImgur (/opt/render/project/src/server/routes/postRoutes.js:1695:15)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2433:35)
-    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2803:12)
-    at async /opt/render/project/src/server/routes/postRoutes.js:118:22
-    at async Promise.all (index 0)
-    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
+📊 Video buffer size: 11253518 bytes
+📤 Sending multipart form data to S3 using axios...
+✅ Video uploaded to Reddit S3 successfully
+📊 S3 response: <?xml version="1.0" encoding="UTF-8"?>
+<PostResponse><Location>https://reddit-uploaded-video.s3-accelerate.amazonaws.com/65dlvnhvftcf1</Location><Bucket>reddit-uploaded-video</Bucket><Key>65dlvnhvftcf1</Key><ETag>"8f86c816ee4c645a899ebc558a88f0ff"</ETag></PostResponse>
+⏳ Video processing may take a moment...
+⏳ Video processing wait completed
+⚠️ v.redd.it URL test failed: Request failed with status code 403
+📺 Reddit video asset ID: 65dlvnhvftcf1
+📺 Reddit video URL: https://v.redd.it/65dlvnhvftcf1
+⏳ Waiting additional time for Reddit video processing...
+📺 Video URL check status: 403
+⚠️ Video URL not yet accessible, proceeding anyway
+✅ Created Reddit self post with embedded v.redd.it video: https://v.redd.it/65dlvnhvftcf1
 📤 Submitting self post to Reddit with data: {
   api_type: 'json',
   kind: 'self',
   sr: 'u_suareztn',
-  title: 'test tes test videoo ideo',
-  text: 'test tes test videoo ideo\n' +
-    '\n' +
-    '**📎 Media Attachment: TATI G13 - VITE (Official Audio, EP JBML #8).mp4**\n' +
-    '- Type: Unknown\n' +
-    '\n' +
-    '*(video upload failed: Imgur video upload failed: 500)*',
+  title: 'test video kaso',
+  text: 'test video kaso\n\nhttps://v.redd.it/65dlvnhvftcf1',
   sendreplies: true,
-  validate_on_submit: true
+  validate_on_submit: true,
+  nsfw: false,
+  spoiler: false,
+  extension: 'json'
 }
 🔑 Using access token: eyJhbGciOi...
 📊 Reddit submit response status: 200
@@ -77,12 +115,12 @@ Attaching file to FormData...
   connection: 'keep-alive',
   'content-encoding': 'gzip',
   'content-type': 'application/json; charset=UTF-8',
-  date: 'Mon, 14 Jul 2025 08:24:01 GMT',
+  date: 'Mon, 14 Jul 2025 10:20:44 GMT',
   expires: '-1',
   nel: '{"report_to": "w3-reporting-nel", "max_age": 14400, "include_subdomains": false, "success_fraction": 1.0, "failure_fraction": 1.0}',
   'report-to': '{"group": "w3-reporting-nel", "max_age": 14400, "include_subdomains": true,  "endpoints": [{ "url": "https://w3-reporting-nel.reddit.com/reports" }]}, {"group": "w3-reporting", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting.reddit.com/reports" }]}, {"group": "w3-reporting-csp", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting-csp.reddit.com/reports" }]}',
   server: 'snooserv',
-  'set-cookie': 'edgebucket=NPdjtYcLxIcXtYpg7x; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
+  'set-cookie': 'edgebucket=mt5mleQoz27kivGAE0; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
   'strict-transport-security': 'max-age=31536000; includeSubdomains',
   'transfer-encoding': 'chunked',
   vary: 'Accept-Encoding',
@@ -90,22 +128,38 @@ Attaching file to FormData...
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'SAMEORIGIN',
   'x-ratelimit-remaining': '998.0',
-  'x-ratelimit-reset': '358',
+  'x-ratelimit-reset': '555',
   'x-ratelimit-used': '2',
   'x-ua-compatible': 'IE=edge',
   'x-xss-protection': '1; mode=block'
 }
-📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"url": "https://www.reddit.com/r/u_suareztn/comments/1lzgxg8/test_tes_test_videoo_ideo/", "drafts_count": 0, "id": "1lzgxg8", "name": "t3_1lzgxg8"}}}
+📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"url": "https://www.reddit.com/r/u_suareztn/comments/1lziq16/test_video_kaso/", "drafts_count": 0, "id": "1lziq16", "name": "t3_1lziq16"}}}
 📊 Reddit submit parsed data: {
   "json": {
     "errors": [],
     "data": {
-      "url": "https://www.reddit.com/r/u_suareztn/comments/1lzgxg8/test_tes_test_videoo_ideo/",
+      "url": "https://www.reddit.com/r/u_suareztn/comments/1lziq16/test_video_kaso/",
       "drafts_count": 0,
-      "id": "1lzgxg8",
-      "name": "t3_1lzgxg8"
+      "id": "1lziq16",
+      "name": "t3_1lziq16"
     }
   }
 }
 ✅ Posted to Reddit successfully
-📊 Post details: ID=1lzgxg8, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lzgxg8/test_tes_test_videoo_ideo/
+📊 Post details: ID=1lziq16, URL=https://reddit.comhttps://www.reddit.com/r/u_suareztn/comments/1lziq16/test_video_kaso/
+❌ Reddit posting attempt failed: ReferenceError: supportedMedia is not defined
+    at attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2672:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2815:12)
+    at async /opt/render/project/src/server/routes/postRoutes.js:118:22
+    at async Promise.all (index 0)
+    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
+❌ Error posting to Reddit: ReferenceError: supportedMedia is not defined
+    at attemptRedditPost (/opt/render/project/src/server/routes/postRoutes.js:2672:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async postToReddit (/opt/render/project/src/server/routes/postRoutes.js:2815:12)
+    at async /opt/render/project/src/server/routes/postRoutes.js:118:22
+    at async Promise.all (index 0)
+    at async /opt/render/project/src/server/routes/postRoutes.js:151:5
+❌ Failed to post to reddit:suareztn - supportedMedia is not defined
+📊 Posting complete: 0/1 successful

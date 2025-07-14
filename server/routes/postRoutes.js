@@ -2382,15 +2382,25 @@ const postToReddit = async (account, content, media = []) => {
               console.log(`⏳ Waiting additional time for Reddit video processing...`);
               await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 more seconds
               
-              // Try accessing the video URL to ensure it's ready
+              // Check if the video URL is accessible
+              let videoAccessible = false;
               try {
                 const videoCheckResponse = await fetch(redditVideoUrl, { method: 'HEAD' });
                 console.log(`📺 Video URL check status: ${videoCheckResponse.status}`);
-                if (videoCheckResponse.status !== 200) {
-                  console.log(`⚠️ Video URL not yet accessible, proceeding anyway`);
+                if (videoCheckResponse.status === 200) {
+                  videoAccessible = true;
+                  console.log(`✅ Video URL is accessible`);
+                } else {
+                  console.log(`⚠️ Video URL not accessible (${videoCheckResponse.status}), will fallback to Imgur`);
                 }
               } catch (videoCheckError) {
-                console.log(`⚠️ Video URL check failed, proceeding anyway:`, videoCheckError.message);
+                console.log(`⚠️ Video URL check failed, will fallback to Imgur:`, videoCheckError.message);
+              }
+              
+              // If Reddit video isn't accessible, fallback to Imgur
+              if (!videoAccessible) {
+                console.log(`🔄 Reddit video not accessible, falling back to Imgur upload...`);
+                throw new Error('Reddit video URL not accessible, using Imgur fallback');
               }
               
               // Use self post with video embedded - more reliable for v.redd.it
@@ -2412,7 +2422,8 @@ const postToReddit = async (account, content, media = []) => {
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
               
-              // Fallback to Imgur approach
+              // Fallback to Imgur approach for more reliable video hosting
+              console.log(`📤 Uploading video to Imgur as fallback...`);
               const imgurUpload = await uploadMediaToImgur(mediaItem);
               
               if (imgurUpload && imgurUpload.url) {
@@ -2669,7 +2680,7 @@ const postToReddit = async (account, content, media = []) => {
       } else if (postType === 'videogif') {
         successMessage += ` with native video upload (v.redd.it)`;
       } else if (postType === 'self' && media.length > 0) {
-        const hasRedditVideo = supportedMedia.some(item => {
+        const hasRedditVideo = media.some(item => {
           const mediaType = getMediaType(item);
           return mediaType === 'video';
         });
