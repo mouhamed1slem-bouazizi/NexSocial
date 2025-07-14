@@ -2450,14 +2450,13 @@ const postToReddit = async (account, content, media = []) => {
                 console.log(`⚠️ Video URL check failed, but proceeding with Reddit post anyway:`, videoCheckError.message);
               }
               
-              // Use videogif post for native Reddit videos to get embedded player
+              // Use standard videogif approach with simpler parameters
               postData = {
                 api_type: 'json',
-                kind: 'videogif',  // FIXED: Use videogif instead of link for proper video embedding
+                kind: 'videogif',
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: redditVideoUrl, // FIXED: Reddit requires url field even for videogif posts
-                video_poster_url: redditVideoUrl, // Video thumbnail
+                url: redditVideoUrl,  // Required v.redd.it URL
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
@@ -2465,20 +2464,7 @@ const postToReddit = async (account, content, media = []) => {
                 extension: 'json'
               };
               
-              // Add Reddit video metadata for proper embedding
-              if (redditVideoUpload.asset_id) {
-                const mediaMetadata = {
-                  otype: 'v.redd.it',
-                  s: {
-                    y: redditVideoUpload.asset_id,
-                    gif: false
-                  }
-                };
-                postData.media = JSON.stringify(mediaMetadata);
-                console.log(`📺 Added video metadata for asset: ${redditVideoUpload.asset_id}`);
-              }
-              
-              console.log(`✅ Created Reddit videogif post with URL and metadata: ${redditVideoUrl}`);
+              console.log(`✅ Created Reddit videogif post with v.redd.it URL: ${redditVideoUrl}`);
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
@@ -2719,12 +2705,61 @@ const postToReddit = async (account, content, media = []) => {
       }
       postId = postInfo.id || 'unknown';
     } else if (postInfo.user_submitted_page) {
-      // Video posts sometimes return user_submitted_page instead
-      redditUrl = postInfo.user_submitted_page;
-      // Extract potential post ID from user_submitted_page if possible
-      const urlMatch = postInfo.user_submitted_page.match(/\/comments\/([a-z0-9]+)\//);
-      if (urlMatch) {
-        postId = urlMatch[1];
+      // Video posts sometimes return user_submitted_page instead of direct post URL
+      console.log(`🔍 Reddit returned user_submitted_page for video post: ${postInfo.user_submitted_page}`);
+      
+      // For video posts, try to get the actual post from user's recent submissions
+      if (postInfo.websocket_url && media.length > 0) {
+        console.log(`📺 Video post detected with websocket: ${postInfo.websocket_url}`);
+        
+        // Wait a moment for Reddit to process the video post
+        console.log(`⏳ Waiting for Reddit video post processing...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Try to fetch the user's recent submissions to find our post
+        try {
+          const userSubmissionsResponse = await fetch(`https://oauth.reddit.com/user/${currentAccount.username}/submitted?limit=5`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${currentAccount.access_token}`,
+              'User-Agent': 'NexSocial/1.0'
+            }
+          });
+          
+          if (userSubmissionsResponse.ok) {
+            const submissionsData = await userSubmissionsResponse.json();
+            const recentPosts = submissionsData.data?.children || [];
+            
+            // Look for the most recent video post
+            const videoPost = recentPosts.find(post => 
+              post.data && 
+              (post.data.is_video || post.data.url?.includes('v.redd.it')) &&
+              post.data.title?.includes(content.substring(0, 20)) // Match title
+            );
+            
+            if (videoPost) {
+              redditUrl = `https://reddit.com${videoPost.data.permalink}`;
+              postId = videoPost.data.id;
+              console.log(`✅ Found video post: ${redditUrl}`);
+            } else {
+              console.log(`⚠️ Could not find recent video post in submissions`);
+              redditUrl = postInfo.user_submitted_page;
+            }
+          } else {
+            console.log(`⚠️ Could not fetch user submissions: ${userSubmissionsResponse.status}`);
+            redditUrl = postInfo.user_submitted_page;
+          }
+        } catch (fetchError) {
+          console.log(`⚠️ Error fetching user submissions: ${fetchError.message}`);
+          redditUrl = postInfo.user_submitted_page;
+        }
+      } else {
+        redditUrl = postInfo.user_submitted_page;
+        // Extract potential post ID from user_submitted_page if possible
+        const urlMatch = postInfo.user_submitted_page.match(/\/comments\/([a-z0-9]+)\//);
+        if (urlMatch) {
+          postId = urlMatch[1];
+        }
       }
     } else {
       // Fallback: construct URL based on submission details
@@ -2744,6 +2779,8 @@ const postToReddit = async (account, content, media = []) => {
         successMessage += ` with media link`;
       } else if (postType === 'videogif') {
         successMessage += ` with native video upload (v.redd.it)`;
+      } else if (postType === 'video') {
+        successMessage += ` with native video player (v.redd.it)`;
       } else if (postType === 'self') {
         successMessage += ` with embedded media`;
       } else if (postType === 'image') {
