@@ -2116,35 +2116,90 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
       uploadData.args.fields.forEach((field, index) => {
         console.log(`📝 Field ${index}:`, field);
         if (field && typeof field === 'object' && field.name && field.value) {
-          console.log(`📝 Appending: ${field.name} = ${field.value}`);
-          uploadFormData.append(field.name, field.value);
+          // Special handling for Content-Type field - don't add it as a form field
+          // because it should be set on the file itself, not as a separate field
+          if (field.name.toLowerCase() === 'content-type') {
+            console.log(`📝 Skipping Content-Type field - will be set on file: ${field.value}`);
+            // Store the content type for use when attaching the file
+            mimeType = field.value;
+          } else {
+            console.log(`📝 Appending: ${field.name} = ${field.value}`);
+            uploadFormData.append(field.name, field.value);
+          }
         }
       });
     }
     
     // Add the file buffer as the last field (S3 requirement)
-    // Try multiple approaches for file attachment
-    const { Readable } = require('stream');
+    // Reddit S3 expects the file field to be named "file" and be the last field
+    console.log(`📤 Attaching file to FormData...`);
     
+    // Try multiple approaches to ensure file attachment works
+    let fileAttached = false;
+    
+    // Approach 1: Use buffer directly with proper options
     try {
-      // Approach 1: Use Readable.from() (Node.js 12.3+)
-      const fileStream = Readable.from(videoBuffer);
-      uploadFormData.append('file', fileStream, {
-        filename: mediaItem.name,
-        contentType: mimeType,
-        knownLength: videoBuffer.length
-      });
-      console.log(`📤 File attached using Readable.from(): ${mediaItem.name} (${videoBuffer.length} bytes)`);
-    } catch (streamError) {
-      console.log(`⚠️ Readable.from() failed, trying buffer directly...`);
-      // Approach 2: Use buffer directly
       uploadFormData.append('file', videoBuffer, {
         filename: mediaItem.name,
         contentType: mimeType,
         knownLength: videoBuffer.length
       });
-      console.log(`📤 File attached using buffer: ${mediaItem.name} (${videoBuffer.length} bytes)`);
+      fileAttached = true;
+      console.log(`📤 File attached using buffer method: ${mediaItem.name} (${videoBuffer.length} bytes)`);
+    } catch (bufferError) {
+      console.error(`❌ Buffer attachment failed:`, bufferError.message);
     }
+    
+    // Approach 2: If buffer method failed, try with Readable stream
+    if (!fileAttached) {
+      try {
+        const { Readable } = require('stream');
+        const fileStream = Readable.from(videoBuffer);
+        uploadFormData.append('file', fileStream, {
+          filename: mediaItem.name,
+          contentType: mimeType,
+          knownLength: videoBuffer.length
+        });
+        fileAttached = true;
+        console.log(`📤 File attached using Readable.from(): ${mediaItem.name} (${videoBuffer.length} bytes)`);
+      } catch (streamError) {
+        console.error(`❌ Stream attachment failed:`, streamError.message);
+      }
+    }
+    
+    // Approach 3: If both failed, try minimal options
+    if (!fileAttached) {
+      try {
+        uploadFormData.append('file', videoBuffer, {
+          filename: mediaItem.name,
+          contentType: mimeType
+        });
+        fileAttached = true;
+        console.log(`📤 File attached using minimal options: ${mediaItem.name} (${videoBuffer.length} bytes)`);
+      } catch (minimalError) {
+        console.error(`❌ Minimal attachment failed:`, minimalError.message);
+      }
+    }
+    
+    // Approach 4: Last resort - just buffer and filename
+    if (!fileAttached) {
+      try {
+        uploadFormData.append('file', videoBuffer, mediaItem.name);
+        fileAttached = true;
+        console.log(`📤 File attached using basic method: ${mediaItem.name} (${videoBuffer.length} bytes)`);
+      } catch (basicError) {
+        console.error(`❌ Basic attachment failed:`, basicError.message);
+      }
+    }
+    
+    if (!fileAttached) {
+      throw new Error('Failed to attach file to FormData using any method');
+    }
+    
+    // Verify FormData has the file
+    console.log(`📊 FormData _fields length: ${uploadFormData._fields ? uploadFormData._fields.length : 'unknown'}`);
+    console.log(`📊 FormData _overheadLength: ${uploadFormData._overheadLength || 'unknown'}`);
+    console.log(`📊 FormData _valueLength: ${uploadFormData._valueLength || 'unknown'}`)
     
     console.log(`📤 Uploading video to Reddit S3...`);
     
@@ -2156,13 +2211,17 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     console.log(`📤 Upload URL: ${uploadUrl}`);
     
-    // Debug FormData contents
+    // Debug FormData contents - more detailed
     console.log(`📊 FormData fields count: ${uploadFormData._fields?.length || 'unknown'}`);
     console.log(`📊 Video buffer size: ${videoBuffer.length} bytes`);
     
-    // Get headers but ensure they're properly formatted
+    // Get headers and remove conflicting Content-Type if present
     const formHeaders = uploadFormData.getHeaders();
     console.log(`📊 FormData headers:`, formHeaders);
+    
+    // Note: Don't manually set Content-Type for multipart uploads, let FormData handle it
+    // The FormData library will set the correct boundary
+    console.log(`📤 Sending multipart form data to S3...`);
     
     const s3Response = await fetch(uploadUrl, {
       method: 'POST',
