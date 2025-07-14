@@ -2106,27 +2106,21 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     // Step 2: Upload file to the provided S3 URL using Node.js FormData
     const FormData = require('form-data');
     
-    const uploadFormData = new FormData();
+    let uploadFormData = new FormData();
     
     // We'll handle form fields in the new S3FormData construction below
+    // Following the proven approach from github.com/VityaSchel/reddit-api-image-upload
     console.log(`📝 Processing ${uploadData.args.fields ? uploadData.args.fields.length : 0} form fields...`);
-    
-    // Critical fix: Use a more robust approach for S3 multipart uploads
-    // Based on AWS S3 requirements and Reddit's specific implementation
-    console.log(`📤 Preparing S3 multipart upload...`);
     console.log(`📊 Video details: size=${videoBuffer.length} bytes, type=${mimeType}, name=${mediaItem.name}`);
     
-    // Create a new FormData instance to ensure clean state
-    const s3FormData = new FormData();
-    
-    // Add all Reddit's required fields first
+    // Add all Reddit's required fields to FormData (ALL fields must be included)
     if (uploadData.args && uploadData.args.fields) {
       uploadData.args.fields.forEach((field, index) => {
         if (field && typeof field === 'object' && field.name && field.value) {
           console.log(`📝 Adding S3 field: ${field.name}`);
-          s3FormData.append(field.name, field.value);
+          uploadFormData.append(field.name, field.value);
           
-          // Update mimeType from Content-Type field if present
+          // Track Content-Type for file attachment
           if (field.name.toLowerCase() === 'content-type') {
             mimeType = field.value;
           }
@@ -2134,38 +2128,17 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
       });
     }
     
-    // Create a proper file stream for S3 (Node.js compatible)
-    const { Readable } = require('stream');
-    const fileStream = Readable.from(videoBuffer);
-    
-    // Set the proper properties for S3 compatibility
-    fileStream.path = mediaItem.name;
-    
-    console.log(`📊 Created file stream: size=${videoBuffer.length} bytes, type=${mimeType}`);
-    
-    // Append the file as the LAST field (S3 requirement)
-    // Use the three-parameter version: append(field, value, options)
-    s3FormData.append('file', fileStream, {
+    // Add the file as the LAST field (S3 requirement)
+    // Following the working pattern from the reference implementation
+    uploadFormData.append('file', videoBuffer, {
       filename: mediaItem.name,
-      contentType: mimeType,
-      knownLength: videoBuffer.length
+      contentType: mimeType
     });
-    console.log(`📤 File attached as stream: ${mediaItem.name} (${videoBuffer.length} bytes)`);
     
-         // Verify the FormData structure
-     console.log(`📊 S3 FormData verification:`);
-     try {
-       // Use the internal properties to verify structure
-       console.log(`  - Total fields: ${s3FormData._fields ? s3FormData._fields.length : 'unknown'}`);
-       console.log(`  - Has file stream: ${fileStream ? 'YES' : 'NO'}`);
-       console.log(`  - Stream readable: ${fileStream && fileStream.readable ? 'YES' : 'NO'}`);
-       console.log(`  - FormData boundary: ${s3FormData.getBoundary ? s3FormData.getBoundary() : 'unknown'}`);
-     } catch (debugError) {
-       console.log(`  - FormData debug failed:`, debugError.message);
-     }
+    console.log(`📤 File attached: ${mediaItem.name} (${videoBuffer.length} bytes)`);
     
-    // Replace the original FormData with our properly constructed one
-    uploadFormData = s3FormData;
+    // Verify FormData structure
+    console.log(`📊 FormData verification: ${uploadFormData._fields ? uploadFormData._fields.length : 'unknown'} total fields`);
     
     console.log(`📤 Uploading video to Reddit S3...`);
     
@@ -2177,16 +2150,10 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
     console.log(`📤 Upload URL: ${uploadUrl}`);
     
-    // Debug FormData contents - more detailed
-    console.log(`📊 FormData fields count: ${uploadFormData._fields?.length || 'unknown'}`);
+    // Use FormData's default headers (following proven GitHub repository approach)
     console.log(`📊 Video buffer size: ${videoBuffer.length} bytes`);
-    
-    // Get headers and remove conflicting Content-Type if present
     const formHeaders = uploadFormData.getHeaders();
     console.log(`📊 FormData headers:`, formHeaders);
-    
-    // Note: Don't manually set Content-Type for multipart uploads, let FormData handle it
-    // The FormData library will set the correct boundary
     console.log(`📤 Sending multipart form data to S3...`);
     
     const s3Response = await fetch(uploadUrl, {
