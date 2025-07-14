@@ -2450,21 +2450,53 @@ const postToReddit = async (account, content, media = []) => {
                 console.log(`⚠️ Video URL check failed, but proceeding with Reddit post anyway:`, videoCheckError.message);
               }
               
-              // Use standard videogif approach with simpler parameters
-              postData = {
-                api_type: 'json',
-                kind: 'videogif',
-                sr: targetSubreddit,
-                title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                url: redditVideoUrl,  // Required v.redd.it URL
-                sendreplies: true,
-                validate_on_submit: true,
-                nsfw: false,
-                spoiler: false,
-                extension: 'json'
-              };
+              // HYBRID APPROACH: Upload to Imgur for accessible poster URL
+              console.log(`🎯 Using hybrid approach: Reddit S3 for video + Imgur for poster`);
               
-              console.log(`✅ Created Reddit videogif post with v.redd.it URL: ${redditVideoUrl}`);
+              try {
+                console.log(`📤 Uploading video to Imgur for accessible poster URL...`);
+                const imgurUpload = await uploadMediaToImgur(mediaItem);
+                console.log(`✅ Imgur upload successful: ${imgurUpload.link}`);
+                
+                // Use hybrid URLs: Reddit for video, Imgur for poster
+                postData = {
+                  api_type: 'json',
+                  kind: 'videogif',
+                  sr: targetSubreddit,
+                  title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                  url: redditVideoUrl,           // Reddit S3 for fast video hosting
+                  video_poster_url: imgurUpload.link, // Imgur for accessible thumbnail
+                  sendreplies: true,
+                  validate_on_submit: true,
+                  nsfw: false,
+                  spoiler: false,
+                  extension: 'json'
+                };
+                
+                console.log(`✅ Created hybrid videogif post:`);
+                console.log(`📺 Video URL (Reddit): ${redditVideoUrl}`);
+                console.log(`🖼️ Poster URL (Imgur): ${imgurUpload.link}`);
+                
+              } catch (imgurError) {
+                console.log(`⚠️ Imgur upload failed, using Reddit-only approach: ${imgurError.message}`);
+                
+                // Fallback: Use empty poster URL if Imgur fails
+                postData = {
+                  api_type: 'json',
+                  kind: 'videogif',
+                  sr: targetSubreddit,
+                  title: content.length > 300 ? content.substring(0, 297) + '...' : content,
+                  url: redditVideoUrl,
+                  // video_poster_url: '', // Leave empty if Imgur fails
+                  sendreplies: true,
+                  validate_on_submit: true,
+                  nsfw: false,
+                  spoiler: false,
+                  extension: 'json'
+                };
+                
+                console.log(`✅ Created Reddit-only videogif post: ${redditVideoUrl}`);
+              }
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
