@@ -1659,10 +1659,15 @@ const uploadMediaToImgur = async (mediaItem) => {
       
       console.log(`📊 Base64 ${mediaType} length: ${base64Media.length} characters`);
       
-      // Imgur has size limits - warn if file is very large
+      // Imgur has size limits - check file size
       const estimatedSizeMB = Math.round((base64Media.length * 3) / 4 / 1024 / 1024); // Base64 to bytes conversion
+      console.log(`📊 Estimated file size: ${estimatedSizeMB}MB`);
+      
       if (estimatedSizeMB > 200) {
-        console.warn(`⚠️ Large ${mediaType} file (${estimatedSizeMB}MB) may fail on Imgur. Consider compressing.`);
+        console.warn(`⚠️ File too large (${estimatedSizeMB}MB) for Imgur (200MB limit)`);
+        throw new Error(`File too large for Imgur: ${estimatedSizeMB}MB (limit: 200MB)`);
+      } else if (estimatedSizeMB > 100) {
+        console.warn(`⚠️ Large ${mediaType} file (${estimatedSizeMB}MB) may be slow to upload to Imgur`);
       }
     
           // Upload to Imgur (supports both images and videos)
@@ -1680,19 +1685,53 @@ const uploadMediaToImgur = async (mediaItem) => {
         uploadData.album = null; // Don't add to album
       }
       
-      const response = await fetch(uploadEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(uploadData)
-      });
-    
-          if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Imgur ${mediaType} upload failed: ${response.status} - ${errorText}`);
-        throw new Error(`Imgur ${mediaType} upload failed: ${response.status}`);
+      // Retry logic for server errors
+      let lastError;
+      let response;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`📤 Imgur upload attempt ${attempt}/3...`);
+          
+          response = await fetch(uploadEndpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(uploadData)
+          });
+          
+          if (response.ok) {
+            console.log(`✅ Imgur upload successful on attempt ${attempt}`);
+            break; // Success, exit retry loop
+          } else if (response.status >= 500 && attempt < 3) {
+            // Server error, retry
+            const errorText = await response.text();
+            console.log(`⚠️ Imgur server error (${response.status}) on attempt ${attempt}, retrying... Error: ${errorText}`);
+            lastError = `${response.status} - ${errorText}`;
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+            continue;
+          } else {
+            // Client error or final attempt failed
+            const errorText = await response.text();
+            console.error(`❌ Imgur ${mediaType} upload failed: ${response.status} - ${errorText}`);
+            throw new Error(`Imgur ${mediaType} upload failed: ${response.status} - ${errorText}`);
+          }
+        } catch (networkError) {
+          lastError = networkError.message;
+          if (attempt < 3) {
+            console.log(`⚠️ Imgur network error on attempt ${attempt}, retrying... Error: ${networkError.message}`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+            continue;
+          } else {
+            throw new Error(`Imgur upload failed after ${attempt} attempts: ${networkError.message}`);
+          }
+        }
+      }
+      
+      if (!response || !response.ok) {
+        throw new Error(`Imgur ${mediaType} upload failed after 3 attempts: ${lastError}`);
       }
       
       const result = await response.json();
@@ -1968,7 +2007,7 @@ const uploadImageToReddit = async (mediaItem, accessToken) => {
 };
 
 // Helper function to create media reference as fallback
-const createRedditMediaReference = async (mediaItem) => {
+const createRedditMediaReference = async (mediaItem, uploadError = null) => {
   const mediaInfo = {
     name: mediaItem.name || 'Media File',
     type: 'Unknown',
@@ -1979,8 +2018,18 @@ const createRedditMediaReference = async (mediaItem) => {
   if (mediaItem.data?.startsWith('data:image/')) mediaInfo.type = 'Image';
   else if (mediaItem.data?.startsWith('data:video/')) mediaInfo.type = 'Video';
   
+  // Try to extract Reddit asset info from upload error if available
+  let additionalInfo = '';
+  if (uploadError && uploadError.message) {
+    const redditAssetMatch = uploadError.message.match(/asset_id:\s*([a-z0-9]+)/i);
+    if (redditAssetMatch) {
+      const assetId = redditAssetMatch[1];
+      additionalInfo = `\n- Reddit Asset ID: ${assetId}\n- v.redd.it URL: https://v.redd.it/${assetId} (may become available later)`;
+    }
+  }
+  
   return {
-    reference: `**📎 Media Attachment: ${mediaInfo.name}**\n- Type: ${mediaInfo.type}`,
+    reference: `**📎 Media Attachment: ${mediaInfo.name}**\n- Type: ${mediaInfo.type}${additionalInfo}`,
     mediaInfo,
     success: true
   };
@@ -2230,6 +2279,12 @@ const uploadVideoToRedditNative = async (mediaItem, accessToken) => {
     
   } catch (error) {
     console.error('❌ Reddit native video upload failed:', error);
+    // Include asset ID in error if we got that far
+    if (uploadData && uploadData.asset && uploadData.asset.asset_id) {
+      const enhancedError = new Error(`${error.message} (asset_id: ${uploadData.asset.asset_id})`);
+      enhancedError.asset_id = uploadData.asset.asset_id;
+      throw enhancedError;
+    }
     throw error;
   }
 };
@@ -2382,25 +2437,17 @@ const postToReddit = async (account, content, media = []) => {
               console.log(`⏳ Waiting additional time for Reddit video processing...`);
               await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 more seconds
               
-              // Check if the video URL is accessible
-              let videoAccessible = false;
+              // Check if the video URL is accessible (but don't fail if it's not)
               try {
                 const videoCheckResponse = await fetch(redditVideoUrl, { method: 'HEAD' });
                 console.log(`📺 Video URL check status: ${videoCheckResponse.status}`);
                 if (videoCheckResponse.status === 200) {
-                  videoAccessible = true;
                   console.log(`✅ Video URL is accessible`);
                 } else {
-                  console.log(`⚠️ Video URL not accessible (${videoCheckResponse.status}), will fallback to Imgur`);
+                  console.log(`⚠️ Video URL returns ${videoCheckResponse.status}, but proceeding with Reddit post (videos may process asynchronously)`);
                 }
               } catch (videoCheckError) {
-                console.log(`⚠️ Video URL check failed, will fallback to Imgur:`, videoCheckError.message);
-              }
-              
-              // If Reddit video isn't accessible, fallback to Imgur
-              if (!videoAccessible) {
-                console.log(`🔄 Reddit video not accessible, falling back to Imgur upload...`);
-                throw new Error('Reddit video URL not accessible, using Imgur fallback');
+                console.log(`⚠️ Video URL check failed, but proceeding with Reddit post anyway:`, videoCheckError.message);
               }
               
               // Use self post with video embedded - more reliable for v.redd.it
@@ -2479,9 +2526,9 @@ const postToReddit = async (account, content, media = []) => {
         } catch (uploadError) {
           console.error(`❌ All ${mediaType} upload methods failed, falling back to text post:`, uploadError);
           
-          // Fall back to text post with media reference
+          // Fall back to text post with media reference (include Reddit asset info if available)
           try {
-            const mediaRef = await createRedditMediaReference(mediaItem);
+            const mediaRef = await createRedditMediaReference(mediaItem, uploadError);
             postType = 'self';
             postData = {
               api_type: 'json',
