@@ -2456,9 +2456,8 @@ const postToReddit = async (account, content, media = []) => {
                 kind: 'videogif',  // FIXED: Use videogif instead of link for proper video embedding
                 sr: targetSubreddit,
                 title: content.length > 300 ? content.substring(0, 297) + '...' : content,
-                // REMOVED: url field - not needed for videogif posts
-                // ADDED: Reddit video metadata for proper embedding
-                video_poster_url: redditVideoUrl,
+                url: redditVideoUrl, // FIXED: Reddit requires url field even for videogif posts
+                video_poster_url: redditVideoUrl, // Video thumbnail
                 sendreplies: true,
                 validate_on_submit: true,
                 nsfw: false,
@@ -2479,7 +2478,7 @@ const postToReddit = async (account, content, media = []) => {
                 console.log(`📺 Added video metadata for asset: ${redditVideoUpload.asset_id}`);
               }
               
-              console.log(`✅ Created Reddit videogif post with embedded video player: ${redditVideoUrl}`);
+              console.log(`✅ Created Reddit videogif post with URL and metadata: ${redditVideoUrl}`);
               
             } catch (redditVideoError) {
               console.log(`⚠️ Reddit native video upload failed, falling back to Imgur: ${redditVideoError.message}`);
