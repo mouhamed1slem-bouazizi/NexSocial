@@ -301,7 +301,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
           bufferSize: mediaItem.buffer ? mediaItem.buffer.length : 0
         });
         
-        const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
+        const isVideo = mediaItem.type && (mediaItem.type.startsWith('video/') || mediaItem.type === 'video');
         console.log(`🔍 Video detection result: ${isVideo} (type: "${mediaItem.type}")`);
         
         if (isVideo) {
