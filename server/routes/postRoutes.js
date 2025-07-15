@@ -2442,8 +2442,8 @@ const postToReddit = async (account, content, media = []) => {
             try {
               const redditVideoUpload = await uploadVideoToRedditNative(mediaItem, currentAccount.access_token);
               
-              // Create a videogif post with native video for embedded player
-              postType = 'videogif';
+              // Create a video post with native video for embedded player
+              postType = 'video'; // Changed from 'videogif' to 'video' for better embedding
               
               // Build the proper Reddit video URL for poster
               const redditVideoUrl = redditVideoUpload.asset_url.startsWith('http') 
@@ -2491,10 +2491,10 @@ const postToReddit = async (account, content, media = []) => {
                 const imgurUpload = await uploadMediaToImgur(mediaItem);
                 console.log(`✅ Imgur upload successful: ${imgurUpload.link}`);
                 
-                // Use hybrid URLs: Reddit for video, Imgur for poster
+                // Use hybrid URLs: Reddit for video, Imgur for poster (use 'video' type for better embedding)
                 postData = {
                   api_type: 'json',
-                  kind: 'videogif',
+                  kind: 'video',  // Changed from 'videogif' to 'video' for better embedding
                   sr: targetSubreddit,
                   title: content.length > 300 ? content.substring(0, 297) + '...' : content,
                   url: redditVideoUrl,           // Reddit S3 for fast video hosting
@@ -2506,7 +2506,7 @@ const postToReddit = async (account, content, media = []) => {
                   extension: 'json'
                 };
                 
-                console.log(`✅ Created hybrid videogif post:`);
+                console.log(`✅ Created hybrid video post:`);
                 console.log(`📺 Video URL (Reddit): ${redditVideoUrl}`);
                 console.log(`🖼️ Poster URL (Imgur): ${imgurUpload.link}`);
                 
@@ -2533,10 +2533,17 @@ const postToReddit = async (account, content, media = []) => {
                     const testUrl = alternativeUrls[i];
                     try {
                       console.log(`🔍 Testing poster URL ${i + 1}/${alternativeUrls.length}: ${testUrl}`);
+                      
+                      // Create AbortController for timeout
+                      const controller = new AbortController();
+                      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+                      
                       const posterTestResponse = await fetch(testUrl, { 
                         method: 'HEAD',
-                        timeout: 5000 // 5 second timeout
+                        signal: controller.signal
                       });
+                      
+                      clearTimeout(timeoutId);
                       
                       if (posterTestResponse.status === 200) {
                         posterUrl = testUrl;
@@ -2559,14 +2566,17 @@ const postToReddit = async (account, content, media = []) => {
                   posterUrl = redditVideoUrl; // Ultimate fallback
                 }
                 
-                // Fallback: Use v.redd.it URL as poster URL (Reddit accepts this)
+                // Try multiple post formats for better embedding
+                console.log(`🔄 Trying Reddit native video post format...`);
+                
+                // Strategy 1: Pure video post (let Reddit handle poster)
                 postData = {
                   api_type: 'json',
-                  kind: 'videogif',
+                  kind: 'video',
                   sr: targetSubreddit,
                   title: content.length > 300 ? content.substring(0, 297) + '...' : content,
                   url: redditVideoUrl,
-                  video_poster_url: posterUrl, // Use best available poster URL
+                  // Don't specify video_poster_url - let Reddit generate it
                   sendreplies: true,
                   validate_on_submit: true,
                   nsfw: false,
@@ -2574,7 +2584,7 @@ const postToReddit = async (account, content, media = []) => {
                   extension: 'json'
                 };
                 
-                console.log(`✅ Created Reddit-only videogif post: ${redditVideoUrl}`);
+                console.log(`✅ Created Reddit native video post: ${redditVideoUrl}`);
               }
               
             } catch (redditVideoError) {
@@ -2712,13 +2722,14 @@ const postToReddit = async (account, content, media = []) => {
       console.log(`🔑 Using access token: ${currentAccount.access_token ? `${currentAccount.access_token.substring(0, 10)}...` : 'MISSING'}`);
       
       // Enhanced logging for video posts
-      if (postType === 'videogif') {
+      if (postType === 'videogif' || postType === 'video' || postData.kind === 'video' || postData.kind === 'videogif') {
         console.log(`🎬 Video post submission details:`, {
           url: postData.url,
           poster_url: postData.video_poster_url,
           kind: postData.kind,
           subreddit: postData.sr,
-          title_length: postData.title.length
+          title_length: postData.title.length,
+          has_poster: !!postData.video_poster_url
         });
       }
       
@@ -2834,9 +2845,9 @@ const postToReddit = async (account, content, media = []) => {
       if (postInfo.websocket_url && media.length > 0) {
         console.log(`📺 Video post detected with websocket: ${postInfo.websocket_url}`);
         
-        // Wait a moment for Reddit to process the video post
-        console.log(`⏳ Waiting for Reddit video post processing...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Wait longer for Reddit to process and embed the video post
+        console.log(`⏳ Waiting for Reddit video post processing and embedding...`);
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Increased from 3s to 10s
         
         // Try to fetch the user's recent submissions to find our post
         try {
@@ -2894,21 +2905,34 @@ const postToReddit = async (account, content, media = []) => {
     console.log(`✅ Posted to Reddit successfully`);
     console.log(`📊 Post details: ID=${postId}, URL=${redditUrl}`);
     
-    // Determine success message based on post type and media
-    let successMessage = `Posted to Reddit r/${targetSubreddit} successfully`;
-    if (media.length > 0) {
-      if (postType === 'link') {
-        successMessage += ` with media link`;
-      } else if (postType === 'videogif') {
-        successMessage += ` with native video upload (v.redd.it)`;
-      } else if (postType === 'video') {
-        successMessage += ` with native video player (v.redd.it)`;
-      } else if (postType === 'self') {
-        successMessage += ` with embedded media`;
-      } else if (postType === 'image') {
-        successMessage += ` with image`;
+          // Determine success message based on post type and media
+      let successMessage = `Posted to Reddit r/${targetSubreddit} successfully`;
+      if (media.length > 0) {
+        if (postType === 'link') {
+          successMessage += ` with media link`;
+        } else if (postType === 'videogif') {
+          successMessage += ` with native video upload (v.redd.it)`;
+        } else if (postType === 'video') {
+          successMessage += ` with native video player (v.redd.it)`;
+        } else if (postData && postData.kind === 'video') {
+          successMessage += ` with Reddit native video (v.redd.it)`;
+        } else if (postData && postData.kind === 'videogif') {
+          successMessage += ` with Reddit videogif (v.redd.it)`;
+        } else if (postType === 'self') {
+          successMessage += ` with embedded media`;
+        } else if (postType === 'image') {
+          successMessage += ` with image`;
+        }
       }
-    }
+      
+      // Add video processing status to message for debugging
+      if (postData && (postData.kind === 'video' || postData.kind === 'videogif')) {
+        if (postData.video_poster_url) {
+          successMessage += ` (with poster)`;
+        } else {
+          successMessage += ` (Reddit-generated poster)`;
+        }
+      }
     
     return {
       success: true,
