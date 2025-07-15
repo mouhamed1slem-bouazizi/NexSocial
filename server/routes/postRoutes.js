@@ -131,7 +131,12 @@ const solution2_MinimalNative = async (videoBuffer, title, accessToken, subreddi
     });
     form.append('file', videoBuffer, { filename: 'video.mp4' });
     
-    await axios.post(uploadData.args.action, form, {
+    // Fix URL: Reddit returns protocol-relative URLs (//...) but axios needs full URLs
+    const uploadUrl = uploadData.args.action.startsWith('//') 
+      ? `https:${uploadData.args.action}` 
+      : uploadData.args.action;
+    
+    await axios.post(uploadUrl, form, {
       headers: form.getHeaders()
     });
     
@@ -184,7 +189,12 @@ const solution3_FullNative = async (videoBuffer, title, accessToken, subreddit) 
     });
     form.append('file', videoBuffer, { filename: 'video.mp4' });
     
-    await axios.post(uploadData.args.action, form, {
+    // Fix URL: Reddit returns protocol-relative URLs (//...) but axios needs full URLs
+    const uploadUrl = uploadData.args.action.startsWith('//') 
+      ? `https:${uploadData.args.action}` 
+      : uploadData.args.action;
+    
+    await axios.post(uploadUrl, form, {
       headers: form.getHeaders()
     });
     
@@ -247,7 +257,12 @@ const solution4_VideoGif = async (videoBuffer, title, accessToken, subreddit) =>
     });
     form.append('file', videoBuffer, { filename: 'video.mp4' });
     
-    await axios.post(uploadData.args.action, form, {
+    // Fix URL: Reddit returns protocol-relative URLs (//...) but axios needs full URLs
+    const uploadUrl = uploadData.args.action.startsWith('//') 
+      ? `https:${uploadData.args.action}` 
+      : uploadData.args.action;
+    
+    await axios.post(uploadUrl, form, {
       headers: form.getHeaders()
     });
     
@@ -394,7 +409,12 @@ const solution7_OfficialFlow = async (videoBuffer, title, accessToken, subreddit
       contentType: 'video/mp4'
     });
     
-    await axios.post(leaseData.args.action, form, {
+    // Fix URL: Reddit returns protocol-relative URLs (//...) but axios needs full URLs
+    const uploadUrl = leaseData.args.action.startsWith('//') 
+      ? `https:${leaseData.args.action}` 
+      : leaseData.args.action;
+    
+    await axios.post(uploadUrl, form, {
       headers: form.getHeaders()
     });
     
@@ -2881,6 +2901,10 @@ const postToReddit = async (account, content, media = []) => {
       console.log(`📝 Content: ${content}`);
       console.log(`📎 Media items: ${media.length}`);
     
+    // Declare variables for response handling to avoid scope issues
+    let response;
+    let responseText;
+    
     // Parse metadata to get Reddit-specific info
     let metadata = {};
     try {
@@ -3223,7 +3247,7 @@ const postToReddit = async (account, content, media = []) => {
           });
         }
         
-        const response = await fetch('https://oauth.reddit.com/api/submit', {
+        response = await fetch('https://oauth.reddit.com/api/submit', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${currentAccount.access_token}`,
@@ -3233,7 +3257,7 @@ const postToReddit = async (account, content, media = []) => {
           body: new URLSearchParams(postData)
         });
         
-        var responseText = await response.text();
+        responseText = await response.text();
       }
     console.log(`📊 Reddit submit response status: ${response.status}`);
     console.log(`📊 Reddit submit response headers:`, Object.fromEntries(response.headers.entries()));
