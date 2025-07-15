@@ -1685,13 +1685,14 @@ const uploadMediaToImgur = async (mediaItem) => {
         uploadData.album = null; // Don't add to album
       }
       
-      // Retry logic for server errors
+      // Enhanced retry logic for server errors with longer waits
       let lastError;
       let response;
+      const maxRetries = 5; // Increased from 3 to 5
       
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          console.log(`📤 Imgur upload attempt ${attempt}/3...`);
+          console.log(`📤 Imgur upload attempt ${attempt}/${maxRetries}...`);
           
           response = await fetch(uploadEndpoint, {
             method: 'POST',
@@ -1705,12 +1706,16 @@ const uploadMediaToImgur = async (mediaItem) => {
           if (response.ok) {
             console.log(`✅ Imgur upload successful on attempt ${attempt}`);
             break; // Success, exit retry loop
-          } else if (response.status >= 500 && attempt < 3) {
-            // Server error, retry
+          } else if (response.status >= 500 && attempt < maxRetries) {
+            // Server error, retry with longer delays
             const errorText = await response.text();
             console.log(`⚠️ Imgur server error (${response.status}) on attempt ${attempt}, retrying... Error: ${errorText}`);
             lastError = `${response.status} - ${errorText}`;
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+            
+            // Enhanced exponential backoff: 2s, 5s, 10s, 20s for 500 errors
+            const delayMs = attempt <= 2 ? 2000 * attempt : 5000 * attempt;
+            console.log(`⏳ Waiting ${delayMs/1000}s before retry due to server error...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
             continue;
           } else {
             // Client error or final attempt failed
@@ -1720,9 +1725,10 @@ const uploadMediaToImgur = async (mediaItem) => {
           }
         } catch (networkError) {
           lastError = networkError.message;
-          if (attempt < 3) {
+          if (attempt < maxRetries) {
             console.log(`⚠️ Imgur network error on attempt ${attempt}, retrying... Error: ${networkError.message}`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+            // Standard exponential backoff for network errors
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             continue;
           } else {
             throw new Error(`Imgur upload failed after ${attempt} attempts: ${networkError.message}`);
@@ -1731,7 +1737,7 @@ const uploadMediaToImgur = async (mediaItem) => {
       }
       
       if (!response || !response.ok) {
-        throw new Error(`Imgur ${mediaType} upload failed after 3 attempts: ${lastError}`);
+        throw new Error(`Imgur ${mediaType} upload failed after ${maxRetries} attempts: ${lastError}`);
       }
       
       const result = await response.json();
@@ -2433,21 +2439,37 @@ const postToReddit = async (account, content, media = []) => {
                 ? redditVideoUpload.asset_url 
                 : `https://v.redd.it/${redditVideoUpload.asset_id}`;
               
-              // For Reddit native videos, wait longer for processing then use proper submission format
-              console.log(`⏳ Waiting additional time for Reddit video processing...`);
-              await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 more seconds
+              // Enhanced Reddit video processing wait with polling
+              console.log(`⏳ Waiting for Reddit video processing to complete...`);
+              let videoAccessible = false;
+              const maxWaitTime = 30000; // 30 seconds max wait
+              const pollInterval = 3000; // Check every 3 seconds
+              const startTime = Date.now();
               
-              // Check if the video URL is accessible (but don't fail if it's not)
-              try {
-                const videoCheckResponse = await fetch(redditVideoUrl, { method: 'HEAD' });
-                console.log(`📺 Video URL check status: ${videoCheckResponse.status}`);
-                if (videoCheckResponse.status === 200) {
-                  console.log(`✅ Video URL is accessible`);
-                } else {
-                  console.log(`⚠️ Video URL returns ${videoCheckResponse.status}, but proceeding with Reddit post (videos may process asynchronously)`);
+              while (!videoAccessible && (Date.now() - startTime) < maxWaitTime) {
+                try {
+                  const videoCheckResponse = await fetch(redditVideoUrl, { method: 'HEAD' });
+                  console.log(`📺 Video URL check status: ${videoCheckResponse.status}`);
+                  
+                  if (videoCheckResponse.status === 200) {
+                    console.log(`✅ Video URL is accessible after ${Math.round((Date.now() - startTime)/1000)}s`);
+                    videoAccessible = true;
+                    break;
+                  } else if (videoCheckResponse.status === 403) {
+                    console.log(`⏳ Video still processing (403), waiting ${pollInterval/1000}s more...`);
+                    await new Promise(resolve => setTimeout(resolve, pollInterval));
+                  } else {
+                    console.log(`⚠️ Video URL returns ${videoCheckResponse.status}, continuing with post anyway`);
+                    break;
+                  }
+                } catch (videoCheckError) {
+                  console.log(`⚠️ Video URL check failed: ${videoCheckError.message}, waiting ${pollInterval/1000}s more...`);
+                  await new Promise(resolve => setTimeout(resolve, pollInterval));
                 }
-              } catch (videoCheckError) {
-                console.log(`⚠️ Video URL check failed, but proceeding with Reddit post anyway:`, videoCheckError.message);
+              }
+              
+              if (!videoAccessible) {
+                console.log(`⚠️ Video URL not accessible after ${maxWaitTime/1000}s, proceeding anyway (Reddit may process asynchronously)`);
               }
               
               // HYBRID APPROACH: Upload to Imgur for accessible poster URL
@@ -2478,7 +2500,31 @@ const postToReddit = async (account, content, media = []) => {
                 console.log(`🖼️ Poster URL (Imgur): ${imgurUpload.link}`);
                 
               } catch (imgurError) {
-                console.log(`⚠️ Imgur upload failed, using Reddit-only approach: ${imgurError.message}`);
+                console.log(`⚠️ Imgur upload failed, trying alternative poster URL strategies: ${imgurError.message}`);
+                
+                // Alternative Strategy 1: Try a different image hosting approach
+                let posterUrl = redditVideoUrl; // Default fallback
+                
+                try {
+                  // Strategy: Extract video thumbnail using different method
+                  console.log(`🔄 Attempting alternative poster URL generation...`);
+                  
+                  // For v.redd.it videos, Reddit sometimes provides preview URLs
+                  // Try constructing a preview URL (this is experimental)
+                  const assetId = redditVideoUpload.asset_id;
+                  const alternativePosterUrl = `https://external-preview.redd.it/${assetId}/preview.jpg`;
+                  
+                  // Test if the alternative poster URL works
+                  const posterTestResponse = await fetch(alternativePosterUrl, { method: 'HEAD' });
+                  if (posterTestResponse.status === 200) {
+                    posterUrl = alternativePosterUrl;
+                    console.log(`✅ Alternative poster URL found: ${posterUrl}`);
+                  } else {
+                    console.log(`⚠️ Alternative poster URL not available (${posterTestResponse.status}), using video URL as poster`);
+                  }
+                } catch (altPosterError) {
+                  console.log(`⚠️ Alternative poster URL generation failed: ${altPosterError.message}`);
+                }
                 
                 // Fallback: Use v.redd.it URL as poster URL (Reddit accepts this)
                 postData = {
@@ -2487,7 +2533,7 @@ const postToReddit = async (account, content, media = []) => {
                   sr: targetSubreddit,
                   title: content.length > 300 ? content.substring(0, 297) + '...' : content,
                   url: redditVideoUrl,
-                  video_poster_url: redditVideoUrl, // FIXED: Use same URL as poster
+                  video_poster_url: posterUrl, // Use best available poster URL
                   sendreplies: true,
                   validate_on_submit: true,
                   nsfw: false,
@@ -2631,6 +2677,17 @@ const postToReddit = async (account, content, media = []) => {
       // Make the post
       console.log(`📤 Submitting ${postType} post to Reddit with data:`, postData);
       console.log(`🔑 Using access token: ${currentAccount.access_token ? `${currentAccount.access_token.substring(0, 10)}...` : 'MISSING'}`);
+      
+      // Enhanced logging for video posts
+      if (postType === 'videogif') {
+        console.log(`🎬 Video post submission details:`, {
+          url: postData.url,
+          poster_url: postData.video_poster_url,
+          kind: postData.kind,
+          subreddit: postData.sr,
+          title_length: postData.title.length
+        });
+      }
       
       const response = await fetch('https://oauth.reddit.com/api/submit', {
         method: 'POST',
