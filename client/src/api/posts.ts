@@ -24,6 +24,7 @@ export interface CreatePostData {
   media?: {name: string, type: string, data: string}[];
   selectedAccounts?: string[]; // Array of social account IDs
   discordChannels?: Record<string, string>; // accountId -> channelId
+  subredditSettings?: { selectedSubredditId: string }; // Reddit subreddit selection
 }
 
 export interface PostResponse {

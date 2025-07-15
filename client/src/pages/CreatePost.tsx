@@ -97,6 +97,10 @@ export function CreatePost() {
   const [selectedTone, setSelectedTone] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  // Subreddit selection state
+  const [userSubreddits, setUserSubreddits] = useState<any[]>([])
+  const [selectedSubredditId, setSelectedSubredditId] = useState<string>("")
+  const [subredditsLoading, setSubredditsLoading] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -113,6 +117,31 @@ export function CreatePost() {
       localStorage.setItem(SELECTED_PLATFORMS_KEY, JSON.stringify(platforms))
     } catch (error) {
       console.warn('Failed to save selected accounts to localStorage:', error)
+    }
+  }
+
+  // Load user's subreddits for Reddit posting
+  const loadUserSubreddits = async () => {
+    try {
+      setSubredditsLoading(true)
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const response = await fetch('/api/subreddits?verified=true', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUserSubreddits(data.subreddits || [])
+      }
+    } catch (error) {
+      console.error('Error loading subreddits:', error)
+    } finally {
+      setSubredditsLoading(false)
     }
   }
 
@@ -307,6 +336,9 @@ export function CreatePost() {
         const response = await getSocialAccounts()
         console.log('✅ Social accounts response:', response)
         setSocialAccounts(response || [])
+        
+        // Load user's subreddits for Reddit posting
+        await loadUserSubreddits()
         
         // Load saved Discord channel selections
         const savedChannelSelections = loadDiscordChannelSelections()
@@ -578,7 +610,8 @@ export function CreatePost() {
         selectedAccounts,
         scheduledAt: scheduledAt?.toISOString(),
         media: mediaData,
-        discordChannels: selectedDiscordChannels // Add Discord channel selections
+        discordChannels: selectedDiscordChannels, // Add Discord channel selections
+        subredditSettings: selectedSubredditId ? { selectedSubredditId } : undefined // Add subreddit selection
       })
 
       if (response.success) {
@@ -1306,6 +1339,67 @@ export function CreatePost() {
                                           Retry
                                         </button>
                                       </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Reddit Subreddit Selector */}
+                              {account.platform === 'reddit' && isSelected && (
+                                <div className="ml-12 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
+                                  <Label className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-2 block">
+                                    Select Subreddit (Optional)
+                                  </Label>
+                                  {subredditsLoading ? (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                                      Loading subreddits...
+                                    </div>
+                                  ) : userSubreddits.length > 0 ? (
+                                    <div className="space-y-2">
+                                      <Select
+                                        value={selectedSubredditId}
+                                        onValueChange={setSelectedSubredditId}
+                                      >
+                                        <SelectTrigger className="w-full">
+                                          <SelectValue placeholder="Use default subreddit or select one..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="">Use default subreddit</SelectItem>
+                                          {userSubreddits
+                                            .filter(sub => sub.is_verified)
+                                            .sort((a, b) => {
+                                              // Sort by favorite first, then by subscriber count
+                                              if (a.is_favorite && !b.is_favorite) return -1
+                                              if (!a.is_favorite && b.is_favorite) return 1
+                                              return b.subscriber_count - a.subscriber_count
+                                            })
+                                            .map((subreddit) => (
+                                              <SelectItem key={subreddit.id} value={subreddit.id}>
+                                                <div className="flex items-center gap-2">
+                                                  r/{subreddit.subreddit_name}
+                                                  {subreddit.is_favorite && (
+                                                    <span className="text-yellow-500">⭐</span>
+                                                  )}
+                                                  <span className="text-xs text-muted-foreground">
+                                                    ({subreddit.subscriber_count.toLocaleString()} members)
+                                                  </span>
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <p className="text-xs text-muted-foreground">
+                                        {userSubreddits.filter(sub => sub.is_verified).length} verified subreddits available.
+                                        {selectedSubredditId === "" && " Will post to your profile or default subreddit."}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm text-muted-foreground">
+                                      <p>No subreddits configured.</p>
+                                      <p className="text-xs mt-1">
+                                        Go to Settings → Subreddits to add your favorite subreddits for easier posting.
+                                      </p>
                                     </div>
                                   )}
                                 </div>

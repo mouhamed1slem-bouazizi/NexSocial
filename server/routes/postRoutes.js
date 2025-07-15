@@ -45,7 +45,7 @@ router.post('/', requireUser, async (req, res) => {
     console.log('📝 Creating new post for user:', req.user._id);
     console.log('📊 Post data:', JSON.stringify(req.body, null, 2));
 
-    const { content, platforms, selectedAccounts, scheduledAt, media, discordChannels } = req.body;
+    const { content, platforms, selectedAccounts, scheduledAt, media, discordChannels, subredditSettings } = req.body;
 
     // Validate input
     if (!content || !selectedAccounts || selectedAccounts.length === 0) {
@@ -120,7 +120,7 @@ router.post('/', requireUser, async (req, res) => {
         let result;
         switch (account.platform) {
           case 'reddit':
-            result = await postToReddit(account, content, processedMedia);
+            result = await postToReddit(account, content, processedMedia, subredditSettings);
             break;
           default:
             result = {
@@ -207,16 +207,89 @@ router.post('/', requireUser, async (req, res) => {
   }
 });
 
-// Reddit posting function with external video hosting
-const postToReddit = async (account, content, media = []) => {
+// Helper function to update posting statistics
+const updatePostingStats = async (subredditId, userId, success) => {
+  try {
+    const { getSupabase } = require('../config/database.js');
+    const supabase = getSupabase();
+    
+    // Get current stats
+    const { data: subreddit } = await supabase
+      .from('user_subreddits')
+      .select('posting_success_count, posting_failure_count')
+      .eq('id', subredditId)
+      .eq('user_id', userId)
+      .single();
+    
+    if (!subreddit) {
+      console.log('⚠️ Subreddit not found for stats update');
+      return;
+    }
+    
+    // Update stats
+    const updateData = {
+      last_posted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    if (success) {
+      updateData.posting_success_count = (subreddit.posting_success_count || 0) + 1;
+      console.log('✅ Incrementing success count for subreddit');
+    } else {
+      updateData.posting_failure_count = (subreddit.posting_failure_count || 0) + 1;
+      console.log('❌ Incrementing failure count for subreddit');
+    }
+    
+    await supabase
+      .from('user_subreddits')
+      .update(updateData)
+      .eq('id', subredditId)
+      .eq('user_id', userId);
+      
+  } catch (error) {
+    console.error('❌ Error updating posting stats:', error);
+    // Don't throw - stats update is not critical
+  }
+};
+
+// Reddit posting function with external video hosting and subreddit selection
+const postToReddit = async (account, content, media = [], subredditSettings = {}) => {
+  const SocialAccountService = require('../services/socialAccountService.js');
+  const { getSupabase } = require('../config/database.js');
+  
   try {
     console.log(`🔴 Posting to Reddit for account ${account.username}`);
     console.log(`📝 Content: ${content}`);
     console.log(`📎 Media items: ${media.length}`);
+    console.log(`🎯 Subreddit settings:`, subredditSettings);
 
-    // Parse metadata to get Reddit-specific info
-    const metadata = account.metadata ? JSON.parse(account.metadata) : {};
-    const subreddit = metadata.default_subreddit || `u_${account.username}`;
+    // Determine target subreddit
+    let targetSubreddit = null;
+    
+    if (subredditSettings && subredditSettings.selectedSubredditId) {
+      // Use selected subreddit from user's list
+      const supabase = getSupabase();
+      const { data: userSubreddit } = await supabase
+        .from('user_subreddits')
+        .select('*')
+        .eq('id', subredditSettings.selectedSubredditId)
+        .eq('user_id', account.user_id)
+        .single();
+      
+      if (userSubreddit) {
+        targetSubreddit = userSubreddit.subreddit_name;
+        console.log(`🎯 Using selected subreddit: r/${targetSubreddit}`);
+      } else {
+        console.log(`⚠️ Selected subreddit not found, falling back to default`);
+      }
+    }
+    
+    if (!targetSubreddit) {
+      // Fall back to default behavior
+      const metadata = account.metadata ? JSON.parse(account.metadata) : {};
+      targetSubreddit = metadata.default_subreddit || `u_${account.username}`;
+      console.log(`🎯 Using default subreddit: r/${targetSubreddit}`);
+    }
 
     // Handle video uploads using external hosting
     if (media.length > 0) {
@@ -234,7 +307,7 @@ const postToReddit = async (account, content, media = []) => {
             const postData = {
               api_type: 'json',
               kind: 'link',
-              sr: subreddit,
+              sr: targetSubreddit,
               title: content,
               url: videoUrl,
               sendreplies: true
@@ -248,6 +321,12 @@ const postToReddit = async (account, content, media = []) => {
             });
             
             console.log('✅ Video posted successfully as link');
+            
+            // Update posting success stats if using a selected subreddit
+            if (subredditSettings && subredditSettings.selectedSubredditId) {
+              await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, true);
+            }
+            
             return {
               success: true,
               postId: response.data?.json?.data?.id,
@@ -257,6 +336,12 @@ const postToReddit = async (account, content, media = []) => {
             
           } catch (error) {
             console.error('❌ Video upload failed:', error);
+            
+            // Update posting failure stats if using a selected subreddit
+            if (subredditSettings && subredditSettings.selectedSubredditId) {
+              await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, false);
+            }
+            
             return {
               success: false,
               error: error.message || 'Video upload failed',
@@ -271,7 +356,7 @@ const postToReddit = async (account, content, media = []) => {
     const postData = {
       api_type: 'json',
       kind: 'self',
-      sr: subreddit,
+      sr: targetSubreddit,
       title: content,
       text: content,
       sendreplies: true
@@ -284,6 +369,11 @@ const postToReddit = async (account, content, media = []) => {
       }
     });
     
+    // Update posting success stats if using a selected subreddit
+    if (subredditSettings && subredditSettings.selectedSubredditId) {
+      await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, true);
+    }
+    
     return {
       success: true,
       postId: response.data?.json?.data?.id,
@@ -293,6 +383,11 @@ const postToReddit = async (account, content, media = []) => {
     
   } catch (error) {
     console.error('❌ Error posting to Reddit:', error);
+    
+    // Update posting failure stats if using a selected subreddit
+    if (subredditSettings && subredditSettings.selectedSubredditId) {
+      await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, false);
+    }
     
     return {
       success: false,

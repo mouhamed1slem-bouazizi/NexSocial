@@ -7,6 +7,7 @@ const socialAccountRoutes = require("./routes/socialAccountRoutes");
 const oauthRoutes = require("./routes/oauthRoutes");
 const postRoutes = require("./routes/postRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const subredditRoutes = require("./routes/subredditRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
 const path = require('path');
@@ -155,6 +156,8 @@ app.use('/api/social-accounts', checkDatabaseConnection, socialAccountRoutes);
 app.use('/api/oauth', checkDatabaseConnection, oauthRoutes);
 // Post Routes - require database
 app.use('/api/posts', checkDatabaseConnection, postRoutes);
+// Subreddit Management Routes - require database
+app.use('/api/subreddits', checkDatabaseConnection, subredditRoutes);
 // Analytics Routes - require database connection
 app.use('/api/analytics', checkDatabaseConnection, (req, res, next) => {
   console.log(`🔍 Analytics middleware hit: ${req.method} ${req.url}`);

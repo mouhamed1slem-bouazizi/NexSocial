@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { getUserPreferences, updateUserPreferences, UserPreferences } from "@/api/auth"
 import api from "@/api/api"
+import { SubredditManagement } from "@/components/SubredditManagement"
 import {
   User,
   Bell,
@@ -266,12 +267,13 @@ export function Settings() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="privacy">Privacy</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-6">
+                      <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="privacy">Privacy</TabsTrigger>
+            <TabsTrigger value="subreddits">Subreddits</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -633,6 +635,10 @@ export function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="subreddits" className="space-y-6">
+          <SubredditManagement />
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-6">
