@@ -1694,10 +1694,21 @@ const uploadMediaToImgur = async (mediaItem) => {
         try {
           console.log(`📤 Imgur upload attempt ${attempt}/${maxRetries}...`);
           
+          // Try different Imgur client IDs for better reliability
+          const imgurClientIds = [
+            '546c25a59c58ad7',   // Original
+            '1065b7c4b9cf0fb',   // Alternative 1
+            '15bcc0a3e78f9b3',   // Alternative 2
+            '7efafdfc0994bef'    // Alternative 3
+          ];
+          
+          const clientId = imgurClientIds[Math.min(attempt - 1, imgurClientIds.length - 1)];
+          console.log(`🔄 Using Imgur client ID #${attempt}: ${clientId}`);
+          
           response = await fetch(uploadEndpoint, {
             method: 'POST',
             headers: {
-              'Authorization': 'Client-ID 546c25a59c58ad7', // Public Imgur client ID for anonymous uploads
+              'Authorization': `Client-ID ${clientId}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify(uploadData)
@@ -2506,24 +2517,46 @@ const postToReddit = async (account, content, media = []) => {
                 let posterUrl = redditVideoUrl; // Default fallback
                 
                 try {
-                  // Strategy: Extract video thumbnail using different method
+                  // Strategy: Try multiple alternative poster URL approaches
                   console.log(`🔄 Attempting alternative poster URL generation...`);
                   
-                  // For v.redd.it videos, Reddit sometimes provides preview URLs
-                  // Try constructing a preview URL (this is experimental)
                   const assetId = redditVideoUpload.asset_id;
-                  const alternativePosterUrl = `https://external-preview.redd.it/${assetId}/preview.jpg`;
+                  const alternativeUrls = [
+                    `https://external-preview.redd.it/${assetId}/preview.jpg`,
+                    `https://preview.redd.it/${assetId}/preview.jpg`,
+                    `https://i.redd.it/${assetId}.jpg`,
+                    `https://v.redd.it/${assetId}/DASH_720.mp4?source=fallback`, // Video fallback
+                    redditVideoUrl // Final fallback
+                  ];
                   
-                  // Test if the alternative poster URL works
-                  const posterTestResponse = await fetch(alternativePosterUrl, { method: 'HEAD' });
-                  if (posterTestResponse.status === 200) {
-                    posterUrl = alternativePosterUrl;
-                    console.log(`✅ Alternative poster URL found: ${posterUrl}`);
-                  } else {
-                    console.log(`⚠️ Alternative poster URL not available (${posterTestResponse.status}), using video URL as poster`);
+                  for (let i = 0; i < alternativeUrls.length; i++) {
+                    const testUrl = alternativeUrls[i];
+                    try {
+                      console.log(`🔍 Testing poster URL ${i + 1}/${alternativeUrls.length}: ${testUrl}`);
+                      const posterTestResponse = await fetch(testUrl, { 
+                        method: 'HEAD',
+                        timeout: 5000 // 5 second timeout
+                      });
+                      
+                      if (posterTestResponse.status === 200) {
+                        posterUrl = testUrl;
+                        console.log(`✅ Alternative poster URL found: ${posterUrl}`);
+                        break;
+                      } else {
+                        console.log(`⚠️ URL ${i + 1} not available (${posterTestResponse.status})`);
+                      }
+                    } catch (testError) {
+                      console.log(`⚠️ URL ${i + 1} test failed: ${testError.message}`);
+                      if (i === alternativeUrls.length - 1) {
+                        // Last option is always the video URL
+                        posterUrl = testUrl;
+                        console.log(`🔄 Using video URL as final poster fallback: ${posterUrl}`);
+                      }
+                    }
                   }
                 } catch (altPosterError) {
                   console.log(`⚠️ Alternative poster URL generation failed: ${altPosterError.message}`);
+                  posterUrl = redditVideoUrl; // Ultimate fallback
                 }
                 
                 // Fallback: Use v.redd.it URL as poster URL (Reddit accepts this)

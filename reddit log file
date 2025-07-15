@@ -1,15 +1,6 @@
-Publishing to 1 accounts: [ 'reddit:suareztn' ]
-📎 Processed 1 media files
-🚀 Posting to reddit:suareztn...
-🔴 Posting to Reddit for account suareztn (attempt 1)
-📝 Content: video clip post
-📎 Media items: 1
-🔍 Parsed metadata: {}
-📊 User moderates 0 subreddits
-📊 User karma: 0 (link: 0, comment: 0)
-🎯 Posting to user profile: r/u_suareztn
+Posting to user profile: r/u_suareztn
 📤 Processing 1 media items for Reddit
-🔍 Checking media: MA7AY - MOON (Official Lyric Video).mp4
+🔍 Checking media: Mastaziano__-Aventure _(3).mp4
    type: "video"
    mimeType: ""
    dataMimeType: ""
@@ -18,16 +9,16 @@ Publishing to 1 accounts: [ 'reddit:suareztn' ]
    isImage: false, isVideo: true
 📷 Creating video post for Reddit
 🎬 Attempting Reddit native video upload for v.redd.it hosting...
-🔴 Uploading video to Reddit's native hosting: MA7AY - MOON (Official Lyric Video).mp4
+🔴 Uploading video to Reddit's native hosting: Mastaziano__-Aventure _(3).mp4
 📊 Media item structure: {
   hasData: false,
   hasBuffer: true,
   dataType: 'undefined',
   dataPreview: 'NO_DATA',
-  bufferLength: 4602926
+  bufferLength: 2134072
 }
-✅ Using existing buffer: 4602926 bytes, MIME: video
-📊 Video validation: Size=4MB, Format=video/mp4
+✅ Using existing buffer: 2134072 bytes, MIME: video
+📊 Video validation: Size=2MB, Format=video/mp4
 📡 Requesting Reddit upload URL with MIME type: video/mp4...
 ✅ Got Reddit upload data: {
   args: {
@@ -43,10 +34,10 @@ Publishing to 1 accounts: [ 'reddit:suareztn' ]
     ]
   },
   asset: {
-    asset_id: '3crfh0ozczcf1',
+    asset_id: 'x85emavkhzcf1',
     processing_state: 'incomplete',
-    payload: { filepath: 'MA7AY - MOON (Official Lyric Video).mp4' },
-    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/3crfh0ozczcf1?m=AQAAQvR1aNv3duyFL4OuaKrNJQs6--IZYM5La9MRDMZrZ9LPhUDC'
+    payload: { filepath: 'Mastaziano__-Aventure _(3).mp4' },
+    websocket_url: 'wss://k8s-lb.wss.redditmedia.com/x85emavkhzcf1?m=AQAASfp1aAOxIZCM4clpEt1uRLRAR2WdZHUcGz2s13ztD5dNaMhy'
   }
 }
 🔍 Upload data structure: {
@@ -56,65 +47,91 @@ Publishing to 1 accounts: [ 'reddit:suareztn' ]
   fieldsLength: 13,
   fieldsPreview: [
     { name: 'x-amz-algorithm', value: 'AWS4-HMAC-SHA256' },
-    {
-      name: 'x-amz-security-token',
-      value: 'IQoJb3JpZ2luX2VjECYaCXVzLWVhc3QtMSJHMEUCIQCx0QW/jEhCqScYsQBDV4fTI5Ph3pHzzug3B5NauSAW4wIgE2nQdPWK48BVKTTJ1LoXh20OQEKu3y/SskeFpJFIM9gqpwIIPxAAGgwyMTAyNDYzMjYzMzEiDMKLFQjT8nsP/yDAESqEAp8N5/VlOerDSxh9myF8g6pECHKSpCrtfOUmxP54/eUYTC6EE0Y//S7LG+WQ8fVIgbJuVXLu1amZO36ZOFdOS/yk5E+gIuzMzGud6nNP8bBW5xV9w7+Y+m2JA2p3siQ66Ie0HbJzT+3T2KUeM9qG/jAYgr+Gw6kVPopZvCxcKcl2JTgYmRoEz+LnYUEnzp+DGpRu7MuMAhZSKOb/hVnSn1HxRNRBIWUNwt154tTIXkMNBLAj3RxPQDiddf7mSpATNYsc7f/TjvUcfwS5/7jntcwn2GJCfavv2C0JoM2ePvpzefwwJMMxSPtKLZRMdaxSfY6HViMTEK5gfZDD10CHQiTQzPfAMPjZ18MGOp0BdRmnzisjUbuKiJKOITviARJ+PQa5QhHGJal1CvUPoSsAPu32+bIj7TylAXMjj2TxMqFavrUUaACE5GMBMkowLW2h9Pp1IdIlZ4l0tSeFgHo4QJdnGsxHM8SffvpVoiKcaJwuLcKsZSpdIqCrCWznQQ7+EQpOltft12lhe/0sr8BaR3N4YqrCak5qC0DgXxqUr9Cwle3osxJ8FdRX4g=='
-    }
+    { name: 'x-amz-date', value: '20250715T064049Z' }
   ]
 }
 📝 Processing 13 form fields...
-📊 Video details: size=4602926 bytes, type=video/mp4, name=MA7AY - MOON (Official Lyric Video).mp4
+📊 Video details: size=2134072 bytes, type=video/mp4, name=Mastaziano__-Aventure _(3).mp4
 📝 Adding S3 field: x-amz-algorithm
-📝 Adding S3 field: x-amz-security-token
+📝 Adding S3 field: x-amz-date
 📝 Adding S3 field: x-amz-storage-class
 📝 Adding S3 field: success_action_status
 📝 Adding S3 field: bucket
 📝 Adding S3 field: acl
-📝 Adding S3 field: key
 📝 Adding S3 field: x-amz-signature
-📝 Adding S3 field: x-amz-date
+📝 Adding S3 field: x-amz-security-token
+📝 Adding S3 field: key
 📝 Adding S3 field: x-amz-meta-ext
 📝 Adding S3 field: policy
 📝 Adding S3 field: x-amz-credential
 📝 Adding S3 field: Content-Type
-📤 File attached: MA7AY - MOON (Official Lyric Video).mp4 (4602926 bytes)
+📤 File attached: Mastaziano__-Aventure _(3).mp4 (2134072 bytes)
 📊 FormData verification: unknown total fields
 📤 Uploading video to Reddit S3...
 📤 Upload URL: https://reddit-uploaded-video.s3-accelerate.amazonaws.com
-📊 Video buffer size: 4602926 bytes
+📊 Video buffer size: 2134072 bytes
 📤 Sending multipart form data to S3 using axios...
 ✅ Video uploaded to Reddit S3 successfully
 📊 S3 response: <?xml version="1.0" encoding="UTF-8"?>
-<PostResponse><Location>https://reddit-uploaded-video.s3-accelerate.amazonaws.com/3crfh0ozczcf1</Location><Bucket>reddit-uploaded-video</Bucket><Key>3crfh0ozczcf1</Key><ETag>"835cc15af914f9ef270b5db250385088"</ETag></PostResponse>
+<PostResponse><Location>https://reddit-uploaded-video.s3-accelerate.amazonaws.com/x85emavkhzcf1</Location><Bucket>reddit-uploaded-video</Bucket><Key>x85emavkhzcf1</Key><ETag>"531272ee51e521e966b6b7b51b2bbfa9"</ETag></PostResponse>
 ⏳ Video processing may take a moment...
 ⏳ Video processing wait completed
 ⚠️ v.redd.it URL test failed: Request failed with status code 403
-📺 Reddit video asset ID: 3crfh0ozczcf1
-📺 Reddit video URL: https://v.redd.it/3crfh0ozczcf1
-⏳ Waiting additional time for Reddit video processing...
+📺 Reddit video asset ID: x85emavkhzcf1
+📺 Reddit video URL: https://v.redd.it/x85emavkhzcf1
+⏳ Waiting for Reddit video processing to complete...
 📺 Video URL check status: 403
-⚠️ Video URL returns 403, but proceeding with Reddit post (videos may process asynchronously)
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+📺 Video URL check status: 403
+⏳ Video still processing (403), waiting 3s more...
+⚠️ Video URL not accessible after 30s, proceeding anyway (Reddit may process asynchronously)
 🎯 Using hybrid approach: Reddit S3 for video + Imgur for poster
 📤 Uploading video to Imgur for accessible poster URL...
-📤 Uploading video to Imgur: MA7AY - MOON (Official Lyric Video).mp4
-📊 Base64 video length: 6137236 characters
-📊 Estimated file size: 4MB
-📤 Imgur upload attempt 1/3...
+📤 Uploading video to Imgur: Mastaziano__-Aventure _(3).mp4
+📊 Base64 video length: 2845432 characters
+📊 Estimated file size: 2MB
+📤 Imgur upload attempt 1/5...
 ⚠️ Imgur server error (500) on attempt 1, retrying... Error: {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-📤 Imgur upload attempt 2/3...
+⏳ Waiting 2s before retry due to server error...
+📤 Imgur upload attempt 2/5...
 ⚠️ Imgur server error (500) on attempt 2, retrying... Error: {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-📤 Imgur upload attempt 3/3...
+⏳ Waiting 4s before retry due to server error...
+📤 Imgur upload attempt 3/5...
+⚠️ Imgur server error (500) on attempt 3, retrying... Error: {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
+⏳ Waiting 15s before retry due to server error...
+📤 Imgur upload attempt 4/5...
+⚠️ Imgur server error (500) on attempt 4, retrying... Error: {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
+⏳ Waiting 20s before retry due to server error...
+📤 Imgur upload attempt 5/5...
 ❌ Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-❌ Imgur video upload failed: Imgur upload failed after 3 attempts: Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-⚠️ Imgur upload failed, using Reddit-only approach: Imgur upload failed after 3 attempts: Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
-✅ Created Reddit-only videogif post: https://v.redd.it/3crfh0ozczcf1
+❌ Imgur video upload failed: Imgur upload failed after 5 attempts: Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
+⚠️ Imgur upload failed, trying alternative poster URL strategies: Imgur upload failed after 5 attempts: Imgur video upload failed: 500 - {"status":500,"success":false,"data":{"error":"An unexpected error has occurred","request":"/3/upload","method":"POST"}}
+🔄 Attempting alternative poster URL generation...
+⚠️ Alternative poster URL not available (403), using video URL as poster
+✅ Created Reddit-only videogif post: https://v.redd.it/x85emavkhzcf1
 📤 Submitting videogif post to Reddit with data: {
   api_type: 'json',
   kind: 'videogif',
   sr: 'u_suareztn',
-  title: 'video clip post',
-  url: 'https://v.redd.it/3crfh0ozczcf1',
-  video_poster_url: 'https://v.redd.it/3crfh0ozczcf1',
+  title: 'masta video clip',
+  url: 'https://v.redd.it/x85emavkhzcf1',
+  video_poster_url: 'https://v.redd.it/x85emavkhzcf1',
   sendreplies: true,
   validate_on_submit: true,
   nsfw: false,
@@ -122,6 +139,13 @@ Publishing to 1 accounts: [ 'reddit:suareztn' ]
   extension: 'json'
 }
 🔑 Using access token: eyJhbGciOi...
+🎬 Video post submission details: {
+  url: 'https://v.redd.it/x85emavkhzcf1',
+  poster_url: 'https://v.redd.it/x85emavkhzcf1',
+  kind: 'videogif',
+  subreddit: 'u_suareztn',
+  title_length: 16
+}
 📊 Reddit submit response status: 200
 📊 Reddit submit response headers: {
   'accept-ranges': 'bytes',
@@ -129,12 +153,12 @@ Publishing to 1 accounts: [ 'reddit:suareztn' ]
   connection: 'keep-alive',
   'content-encoding': 'gzip',
   'content-type': 'application/json; charset=UTF-8',
-  date: 'Tue, 15 Jul 2025 06:15:19 GMT',
+  date: 'Tue, 15 Jul 2025 06:42:07 GMT',
   expires: '-1',
   nel: '{"report_to": "w3-reporting-nel", "max_age": 14400, "include_subdomains": false, "success_fraction": 1.0, "failure_fraction": 1.0}',
   'report-to': '{"group": "w3-reporting-nel", "max_age": 14400, "include_subdomains": true,  "endpoints": [{ "url": "https://w3-reporting-nel.reddit.com/reports" }]}, {"group": "w3-reporting", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting.reddit.com/reports" }]}, {"group": "w3-reporting-csp", "max_age": 14400, "include_subdomains": true, "endpoints": [{ "url": "https://w3-reporting-csp.reddit.com/reports" }]}',
   server: 'snooserv',
-  'set-cookie': 'edgebucket=23egQCfJlgqwrmH77p; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
+  'set-cookie': 'edgebucket=3RptCm0zy9aetMQ4xS; Domain=reddit.com; Max-Age=63071999; Path=/;  secure',
   'strict-transport-security': 'max-age=31536000; includeSubdomains',
   'transfer-encoding': 'chunked',
   vary: 'Accept-Encoding',
@@ -142,23 +166,23 @@ Publishing to 1 accounts: [ 'reddit:suareztn' ]
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'SAMEORIGIN',
   'x-ratelimit-remaining': '998.0',
-  'x-ratelimit-reset': '280',
+  'x-ratelimit-reset': '472',
   'x-ratelimit-used': '2',
   'x-ua-compatible': 'IE=edge',
   'x-xss-protection': '1; mode=block'
 }
-📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"user_submitted_page": "https://www.reddit.com/user/suareztn/submitted/", "websocket_url": "wss://k8s-lb.wss.redditmedia.com/3crfh0ozczcf1?m=AQAAT_R1aK_9Bodq0UrysPudgEMVRzo_-OTMG-e1nphBp_tU_-cc"}}}
+📊 Reddit submit response body (first 500 chars): {"json": {"errors": [], "data": {"user_submitted_page": "https://www.reddit.com/user/suareztn/submitted/", "websocket_url": "wss://k8s-lb.wss.redditmedia.com/x85emavkhzcf1?m=AQAAl_p1aMEgR-Ilk4hxllunwIwS6EHgxM5__NW6Hl0NGSDpCdAg"}}}
 📊 Reddit submit parsed data: {
   "json": {
     "errors": [],
     "data": {
       "user_submitted_page": "https://www.reddit.com/user/suareztn/submitted/",
-      "websocket_url": "wss://k8s-lb.wss.redditmedia.com/3crfh0ozczcf1?m=AQAAT_R1aK_9Bodq0UrysPudgEMVRzo_-OTMG-e1nphBp_tU_-cc"
+      "websocket_url": "wss://k8s-lb.wss.redditmedia.com/x85emavkhzcf1?m=AQAAl_p1aMEgR-Ilk4hxllunwIwS6EHgxM5__NW6Hl0NGSDpCdAg"
     }
   }
 }
 🔍 Reddit returned user_submitted_page for video post: https://www.reddit.com/user/suareztn/submitted/
-📺 Video post detected with websocket: wss://k8s-lb.wss.redditmedia.com/3crfh0ozczcf1?m=AQAAT_R1aK_9Bodq0UrysPudgEMVRzo_-OTMG-e1nphBp_tU_-cc
+📺 Video post detected with websocket: wss://k8s-lb.wss.redditmedia.com/x85emavkhzcf1?m=AQAAl_p1aMEgR-Ilk4hxllunwIwS6EHgxM5__NW6Hl0NGSDpCdAg
 ⏳ Waiting for Reddit video post processing...
 ⚠️ Could not fetch user submissions: 403
 ✅ Posted to Reddit successfully
