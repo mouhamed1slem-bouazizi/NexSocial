@@ -3227,8 +3227,8 @@ const postToReddit = async (account, content, media = []) => {
           })
         };
         
-        const response = mockResponse;
-        var responseText = await response.text();
+        response = mockResponse;
+        responseText = await response.text();
         
       } else {
         // Make the normal post
