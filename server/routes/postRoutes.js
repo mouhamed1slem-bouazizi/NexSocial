@@ -2480,14 +2480,14 @@ const postToReddit = async (account, content, media = []) => {
               } catch (imgurError) {
                 console.log(`⚠️ Imgur upload failed, using Reddit-only approach: ${imgurError.message}`);
                 
-                // Fallback: Use empty poster URL if Imgur fails
+                // Fallback: Use v.redd.it URL as poster URL (Reddit accepts this)
                 postData = {
                   api_type: 'json',
                   kind: 'videogif',
                   sr: targetSubreddit,
                   title: content.length > 300 ? content.substring(0, 297) + '...' : content,
                   url: redditVideoUrl,
-                  // video_poster_url: '', // Leave empty if Imgur fails
+                  video_poster_url: redditVideoUrl, // FIXED: Use same URL as poster
                   sendreplies: true,
                   validate_on_submit: true,
                   nsfw: false,
