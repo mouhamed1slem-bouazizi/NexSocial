@@ -72,7 +72,7 @@ export function SubredditManagement() {
   const loadSubreddits = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('authToken')
+      const token = localStorage.getItem('accessToken')
       if (!token) {
         throw new Error('No authentication token found')
       }
@@ -119,7 +119,7 @@ export function SubredditManagement() {
 
     try {
       setIsValidating(true)
-      const token = localStorage.getItem('authToken')
+      const token = localStorage.getItem('accessToken')
       if (!token) {
         throw new Error('No authentication token found')
       }
@@ -166,7 +166,7 @@ export function SubredditManagement() {
   // Toggle favorite status
   const toggleFavorite = async (subreddit: Subreddit) => {
     try {
-      const token = localStorage.getItem('authToken')
+      const token = localStorage.getItem('accessToken')
       if (!token) {
         throw new Error('No authentication token found')
       }
@@ -206,7 +206,7 @@ export function SubredditManagement() {
   // Revalidate subreddit
   const revalidateSubreddit = async (subreddit: Subreddit) => {
     try {
-      const token = localStorage.getItem('authToken')
+      const token = localStorage.getItem('accessToken')
       if (!token) {
         throw new Error('No authentication token found')
       }
@@ -243,7 +243,7 @@ export function SubredditManagement() {
   // Delete subreddit
   const deleteSubreddit = async (subreddit: Subreddit) => {
     try {
-      const token = localStorage.getItem('authToken')
+      const token = localStorage.getItem('accessToken')
       if (!token) {
         throw new Error('No authentication token found')
       }

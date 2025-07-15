@@ -124,7 +124,7 @@ export function CreatePost() {
   const loadUserSubreddits = async () => {
     try {
       setSubredditsLoading(true)
-      const token = localStorage.getItem('authToken')
+      const token = localStorage.getItem('accessToken')
       if (!token) return
 
       const response = await fetch('/api/subreddits?verified=true', {
