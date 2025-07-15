@@ -99,7 +99,7 @@ export function CreatePost() {
   const [aiLoading, setAiLoading] = useState(false)
   // Subreddit selection state
   const [userSubreddits, setUserSubreddits] = useState<any[]>([])
-  const [selectedSubredditId, setSelectedSubredditId] = useState<string>("")
+  const [selectedSubredditId, setSelectedSubredditId] = useState<string>("default")
   const [subredditsLoading, setSubredditsLoading] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -611,7 +611,7 @@ export function CreatePost() {
         scheduledAt: scheduledAt?.toISOString(),
         media: mediaData,
         discordChannels: selectedDiscordChannels, // Add Discord channel selections
-        subredditSettings: selectedSubredditId ? { selectedSubredditId } : undefined // Add subreddit selection
+        subredditSettings: selectedSubredditId && selectedSubredditId !== "default" ? { selectedSubredditId } : undefined // Add subreddit selection
       })
 
       if (response.success) {
@@ -1365,7 +1365,7 @@ export function CreatePost() {
                                           <SelectValue placeholder="Use default subreddit or select one..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="">Use default subreddit</SelectItem>
+                                          <SelectItem value="default">Use default subreddit</SelectItem>
                                           {userSubreddits
                                             .filter(sub => sub.is_verified)
                                             .sort((a, b) => {
@@ -1391,7 +1391,7 @@ export function CreatePost() {
                                       </Select>
                                       <p className="text-xs text-muted-foreground">
                                         {userSubreddits.filter(sub => sub.is_verified).length} verified subreddits available.
-                                        {selectedSubredditId === "" && " Will post to your profile or default subreddit."}
+                                        {(selectedSubredditId === "" || selectedSubredditId === "default") && " Will post to your profile or default subreddit."}
                                       </p>
                                     </div>
                                   ) : (
