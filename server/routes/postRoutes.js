@@ -294,14 +294,24 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
     // Handle video uploads using external hosting
     if (media.length > 0) {
       for (const mediaItem of media) {
+        console.log(`🔍 Checking media item:`, {
+          name: mediaItem.name,
+          type: mediaItem.type,
+          hasBuffer: !!mediaItem.buffer,
+          bufferSize: mediaItem.buffer ? mediaItem.buffer.length : 0
+        });
+        
         const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
+        console.log(`🔍 Video detection result: ${isVideo} (type: "${mediaItem.type}")`);
         
         if (isVideo) {
           console.log('🎬 Video detected - using external hosting approach');
           
           try {
             // Upload video to Imgur
+            console.log('🎬 Starting video upload to Imgur...');
             const videoUrl = await uploadVideoToImgur(mediaItem.buffer);
+            console.log('🎬 Video uploaded to Imgur successfully:', videoUrl);
             
             // Post as link to Reddit
             const postData = {
@@ -313,6 +323,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
               sendreplies: true
             };
             
+            console.log('🎬 Posting video link to Reddit:', postData);
             const response = await axios.post('https://oauth.reddit.com/api/submit', new URLSearchParams(postData), {
               headers: {
                 'Authorization': `Bearer ${account.access_token}`,
@@ -321,6 +332,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             });
             
             console.log('✅ Video posted successfully as link');
+            console.log('📊 Reddit response:', response.data);
             
             // Update posting success stats if using a selected subreddit
             if (subredditSettings && subredditSettings.selectedSubredditId) {
@@ -348,11 +360,17 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
               platform: 'reddit'
             };
           }
+        } else {
+          console.log('📝 Media item is not a video, skipping video upload logic');
         }
       }
+      console.log('📝 Finished processing all media items, no videos found or video upload failed');
+    } else {
+      console.log('📝 No media provided, posting text only');
     }
 
     // Regular text post for non-video content
+    console.log('📝 Falling back to regular text post');
     const postData = {
       api_type: 'json',
       kind: 'self',
