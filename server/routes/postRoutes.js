@@ -15,16 +15,55 @@ const router = express.Router();
 
 const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title) => {
   try {
-    // 1. Request an upload lease from Reddit
+    const fileName = `video-${Date.now()}.mp4`;
+    // Step 1: Request an upload lease from Reddit.
+    // Based on: https://techevangelistseo.com/reddit-api-documentation-encoding-limitations/
     console.log('📹 Requesting video upload lease from Reddit...');
+    const leasePayload = {
+      filepath: fileName,
+      mimetype: 'video/mp4',
+    };
     const leaseResponse = await axios.post(
+      'https://oauth.reddit.com/api/media_asset_upload_request',
+      leasePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    console.log('📹 Raw lease response from Reddit:', JSON.stringify(leaseResponse.data, null, 2));
+
+    const lease = leaseResponse.data;
+    const uploadUrl = lease?.s3_upload_lease?.url;
+    const assetUrl = lease?.asset_url;
+
+    if (!uploadUrl || !assetUrl) {
+      console.error("❌ Lease response was missing 's3_upload_lease.url' or 'asset_url'.", lease);
+      throw new Error('Failed to get a valid video upload lease from Reddit. The API response was not in the expected format.');
+    }
+
+    // Step 2: Upload the video file to the signed URL from the lease.
+    console.log('⬆️ Uploading video to signed S3 URL...');
+    await axios.put(uploadUrl, videoBuffer, {
+      headers: {
+        'Content-Type': 'video/mp4',
+      },
+    });
+    console.log('✅ Video successfully uploaded to S3.');
+
+    // Step 3: Submit the video post to Reddit using the asset URL.
+    console.log('📝 Submitting video post to Reddit...');
+    const submitResponse = await axios.post(
       'https://oauth.reddit.com/api/submit',
       new URLSearchParams({
         api_type: 'json',
         kind: 'video',
         sr: subreddit,
         title: title,
-        video_poster_url: '', // Optional: URL for a thumbnail image
+        url: assetUrl,
+        sendreplies: true,
       }),
       {
         headers: {
@@ -34,31 +73,25 @@ const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title) =
       }
     );
 
-    console.log('📹 Raw lease response from Reddit:', JSON.stringify(leaseResponse.data, null, 2));
+    console.log('✅ Video post submitted successfully to Reddit.');
+    console.log('📊 Reddit submit response:', JSON.stringify(submitResponse.data, null, 2));
 
-    const { video_upload_endpoint, video_websocket_url } = leaseResponse.data.json.data;
-    if (!video_upload_endpoint) {
-      throw new Error('Failed to get a valid video upload lease from Reddit.');
+    if (submitResponse.data?.json?.errors?.length > 0) {
+      throw new Error(`Reddit API returned errors: ${JSON.stringify(submitResponse.data.json.errors)}`);
     }
 
-    // 2. Upload the video file to the provided URL
-    console.log('⬆️ Uploading video to Reddit...');
-    await axios.post(video_upload_endpoint, videoBuffer, {
-      headers: {
-        'Content-Type': 'video/mp4',
-      },
-    });
-
-    // 3. The video is processed asynchronously by Reddit.
-    // We can use the websocket URL to get progress, but for now, we'll assume it succeeds.
-    console.log('✅ Video upload complete. Reddit will process it shortly.');
-    
     return {
-        success: true,
-        websocketUrl: video_websocket_url,
+      success: true,
+      data: submitResponse.data,
     };
   } catch (error) {
-    console.error('❌ Reddit video upload failed:', error.response ? error.response.data : error.message);
+    console.error('❌ Reddit video upload failed.');
+    if (error.response) {
+      console.error('Error status:', error.response.status);
+      console.error('Error data:', JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error('Error message:', error.message);
+    }
     throw error;
   }
 };
@@ -421,20 +454,24 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             content
           );
 
-          console.log('✅ Video successfully submitted to Reddit for processing.');
-          console.log('📊 Reddit WebSocket URL for progress:', redditVideoResponse.websocketUrl);
+          console.log('✅ Video successfully submitted to Reddit.');
+          const postData = redditVideoResponse.data?.json?.data;
 
-          // Since the post is created asynchronously, we can't get a post ID immediately.
-          // We'll return a success message and the websocket URL for the client to monitor.
+          if (subredditSettings && subredditSettings.selectedSubredditId) {
+            await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
+          }
+
           return {
             success: true,
-            message: 'Video is being processed by Reddit.',
-            websocketUrl: redditVideoResponse.websocketUrl,
+            message: 'Video posted successfully to Reddit!',
+            postId: postData?.id,
+            url: postData?.url,
             platform: 'reddit',
           };
         } catch (error) {
-          console.error('❌ Native Reddit video upload failed:', error);
+          console.error('❌ Native Reddit video upload failed:', error.message);
           // Fallback to Imgur link post for now
+          console.log('🔄 Falling back to Imgur upload for video.');
         }
       }
 
