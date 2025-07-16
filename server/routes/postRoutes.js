@@ -460,6 +460,16 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
     } catch (error) {
       console.error('❌ Reddit posting attempt failed:', error);
       
+      // Enhanced debugging for Reddit token issues
+      console.log('🔍 Debug info for Reddit token refresh:');
+      console.log(`  - Error status: ${error.response?.status}`);
+      console.log(`  - Error message: ${error.message}`);
+      console.log(`  - Retry count: ${retryCount}`);
+      console.log(`  - Refresh token exists: ${!!currentAccount.refresh_token}`);
+      console.log(`  - Refresh token length: ${currentAccount.refresh_token?.length || 0}`);
+      console.log(`  - Account ID: ${currentAccount.id}`);
+      console.log(`  - Account username: ${currentAccount.username}`);
+      
       // Handle unauthorized error with token refresh
       if ((error.response?.status === 401 || error.message.includes('Request failed with status code 401')) && retryCount === 0 && currentAccount.refresh_token) {
         console.log('🔄 Attempting to refresh Reddit token...');
@@ -496,6 +506,19 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
           
           throw new Error(`Reddit token refresh failed: ${refreshError.message}`);
         }
+      }
+      
+      // Special handling for 401 errors without refresh token
+      if ((error.response?.status === 401 || error.message.includes('Request failed with status code 401')) && !currentAccount.refresh_token) {
+        console.log('❌ Reddit authentication expired and no refresh token available');
+        const errorMsg = '🔧 Reddit Authentication Required: Your Reddit account connection has expired and cannot be automatically renewed. Please go to Settings → Social Accounts → Disconnect and reconnect your Reddit account to continue posting.';
+        
+        // Update posting failure stats if using a selected subreddit
+        if (subredditSettings && subredditSettings.selectedSubredditId) {
+          await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
+        }
+        
+        throw new Error(errorMsg);
       }
       
       // Update posting failure stats if using a selected subreddit
