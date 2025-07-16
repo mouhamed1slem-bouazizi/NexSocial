@@ -34,6 +34,8 @@ const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title) =
       }
     );
 
+    console.log('📹 Raw lease response from Reddit:', JSON.stringify(leaseResponse.data, null, 2));
+
     const { video_upload_endpoint, video_websocket_url } = leaseResponse.data.json.data;
     if (!video_upload_endpoint) {
       throw new Error('Failed to get a valid video upload lease from Reddit.');
