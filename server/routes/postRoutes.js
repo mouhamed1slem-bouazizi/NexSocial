@@ -13,28 +13,50 @@ const router = express.Router();
 // 🎬 REDDIT VIDEO UPLOAD - EXTERNAL HOSTING SOLUTION
 // Upload videos to Imgur and post as Reddit links (most reliable approach)
 
-const uploadVideoToImgur = async (videoBuffer) => {
-  console.log('🎬 Uploading video to Imgur...');
-  
+const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title) => {
   try {
-    const form = new FormData();
-    form.append('image', videoBuffer, { filename: 'video.mp4' });
-    
-    const response = await axios.post('https://api.imgur.com/3/upload', form, {
-      headers: {
-        'Authorization': 'Client-ID 546c25a59c58ad7',
-        ...form.getHeaders()
+    // 1. Request an upload lease from Reddit
+    console.log('📹 Requesting video upload lease from Reddit...');
+    const leaseResponse = await axios.post(
+      'https://oauth.reddit.com/api/submit',
+      new URLSearchParams({
+        api_type: 'json',
+        kind: 'video',
+        sr: subreddit,
+        title: title,
+        video_poster_url: '', // Optional: URL for a thumbnail image
+      }),
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
       }
-    });
-    
-    if (response.data.success) {
-      console.log('✅ Video uploaded to Imgur successfully');
-      return response.data.data.link;
-    } else {
-      throw new Error('Imgur upload failed');
+    );
+
+    const { video_upload_endpoint, video_websocket_url } = leaseResponse.data.json.data;
+    if (!video_upload_endpoint) {
+      throw new Error('Failed to get a valid video upload lease from Reddit.');
     }
+
+    // 2. Upload the video file to the provided URL
+    console.log('⬆️ Uploading video to Reddit...');
+    await axios.post(video_upload_endpoint, videoBuffer, {
+      headers: {
+        'Content-Type': 'video/mp4',
+      },
+    });
+
+    // 3. The video is processed asynchronously by Reddit.
+    // We can use the websocket URL to get progress, but for now, we'll assume it succeeds.
+    console.log('✅ Video upload complete. Reddit will process it shortly.');
+    
+    return {
+        success: true,
+        websocketUrl: video_websocket_url,
+    };
   } catch (error) {
-    console.error('❌ Imgur upload failed:', error);
+    console.error('❌ Reddit video upload failed:', error.response ? error.response.data : error.message);
     throw error;
   }
 };
@@ -383,6 +405,36 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         name: mediaItem.name,
         type: mediaItem.type,
       });
+
+      const isVideo = mediaItem.type && (mediaItem.type.startsWith('video/') || mediaItem.type === 'video');
+
+      if (isVideo) {
+        // Use native Reddit video upload
+        try {
+          console.log('📹 Starting native Reddit video upload...');
+          const redditVideoResponse = await uploadVideoToReddit(
+            currentAccount.access_token,
+            mediaItem.buffer,
+            targetSubreddit,
+            content
+          );
+
+          console.log('✅ Video successfully submitted to Reddit for processing.');
+          console.log('📊 Reddit WebSocket URL for progress:', redditVideoResponse.websocketUrl);
+
+          // Since the post is created asynchronously, we can't get a post ID immediately.
+          // We'll return a success message and the websocket URL for the client to monitor.
+          return {
+            success: true,
+            message: 'Video is being processed by Reddit.',
+            websocketUrl: redditVideoResponse.websocketUrl,
+            platform: 'reddit',
+          };
+        } catch (error) {
+          console.error('❌ Native Reddit video upload failed:', error);
+          // Fallback to Imgur link post for now
+        }
+      }
 
       try {
         console.log('☁️ Starting media upload to Imgur...');
