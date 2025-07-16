@@ -38,62 +38,6 @@ const uploadVideoToImgur = async (videoBuffer) => {
     throw error;
   }
 };
-const uploadImageToReddit = async (accessToken, imageBuffer, subreddit, title) => {
-  try {
-    // 1. Get an upload lease from Reddit
-    console.log('🖼️  Requesting image upload lease from Reddit...');
-    const leaseResponse = await axios.post(
-      'https://oauth.reddit.com/api/v1/media/asset.json',
-      `filepath=${Date.now()}.png&mimetype=image/png`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
-
-    const { asset, "max-file-size": maxSize } = leaseResponse.data;
-    if (!asset || !asset.upload_url) {
-      throw new Error('Failed to get a valid upload lease from Reddit.');
-    }
-
-    // 2. Upload the image to the provided URL
-    console.log('⬆️  Uploading image to Reddit...');
-    await axios.put(asset.upload_url, imageBuffer, {
-      headers: {
-        'Content-Type': 'image/png',
-      },
-    });
-
-    // 3. Submit the post with the image URL
-    console.log('✅ Submitting image post to Reddit...');
-    const postData = new URLSearchParams({
-      api_type: 'json',
-      kind: 'image',
-      sr: subreddit,
-      title: title,
-      url: asset.asset_url,
-      sendreplies: true,
-    }).toString();
-
-    const submitResponse = await axios.post(
-      'https://oauth.reddit.com/api/submit',
-      postData,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
-
-    return submitResponse.data;
-  } catch (error) {
-    console.error('❌ Reddit image upload failed:', error.response ? error.response.data : error.message);
-    throw error;
-  }
-};
 
 // Main posting endpoint
 router.post('/', requireUser, async (req, res) => {
@@ -365,6 +309,33 @@ const refreshRedditToken = async (account) => {
   }
 };
 
+// Unified function to upload media to Imgur
+const uploadToImgur = async (mediaBuffer) => {
+  console.log('🎬 Uploading media to Imgur...');
+  try {
+    const form = new FormData();
+    form.append('image', mediaBuffer, { filename: 'media.jpg' }); // Assuming jpg for consistency
+    
+    const response = await axios.post('https://api.imgur.com/3/upload', form, {
+      headers: {
+        'Authorization': 'Client-ID 546c25a59c58ad7',
+        ...form.getHeaders()
+      }
+    });
+
+    if (response.data.success) {
+      console.log('✅ Media uploaded to Imgur successfully');
+      return response.data.data.link;
+    } else {
+      console.error('❌ Imgur upload failed:', response.data.data.error);
+      throw new Error('Imgur upload failed');
+    }
+  } catch (error) {
+    console.error('❌ Imgur upload failed:', error);
+    throw error;
+  }
+};
+
 // Reddit posting function with external video hosting and subreddit selection
 const postToReddit = async (account, content, media = [], subredditSettings = {}) => {
   const SocialAccountService = require('../services/socialAccountService.js');
@@ -405,122 +376,66 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         console.log(`🎯 Using default subreddit: r/${targetSubreddit}`);
       }
 
-    // Handle video uploads using external hosting
+    // Handle media uploads using external hosting (Imgur)
     if (media.length > 0) {
-      for (const mediaItem of media) {
-        console.log(`🔍 Checking media item:`, {
-          name: mediaItem.name,
-          type: mediaItem.type,
-          hasBuffer: !!mediaItem.buffer,
-          bufferSize: mediaItem.buffer ? mediaItem.buffer.length : 0
+      const mediaItem = media[0]; // Process only the first media item for now
+      console.log(`🖼️ Processing media item for Imgur upload:`, {
+        name: mediaItem.name,
+        type: mediaItem.type,
+      });
+
+      try {
+        console.log('☁️ Starting media upload to Imgur...');
+        const mediaUrl = await uploadToImgur(mediaItem.buffer);
+        console.log('✅ Media uploaded to Imgur successfully:', mediaUrl);
+
+        // Post as a link to Reddit
+        const postData = {
+          api_type: 'json',
+          kind: 'link',
+          sr: targetSubreddit,
+          title: content,
+          url: mediaUrl,
+          sendreplies: true,
+        };
+
+        console.log('🔗 Posting media link to Reddit:', postData);
+        const response = await axios.post('https://oauth.reddit.com/api/submit', new URLSearchParams(postData), {
+          headers: {
+            'Authorization': `Bearer ${currentAccount.access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         });
-        
-        const isVideo = mediaItem.type && (mediaItem.type.startsWith('video/') || mediaItem.type === 'video');
-        console.log(`🔍 Video detection result: ${isVideo} (type: "${mediaItem.type}")`);
-        const isImage = mediaItem.type && (mediaItem.type.startsWith('image/') || mediaItem.type === 'image');
-        console.log(`🔍 Image detection result: ${isImage} (type: "${mediaItem.type}")`);
 
-        if (isImage) {
-          console.log('🖼️ Image detected - using native Reddit image upload');
-          try {
-            const redditResponse = await uploadImageToReddit(
-              currentAccount.access_token,
-              mediaItem.buffer,
-              targetSubreddit,
-              content
-            );
+        console.log('✅ Media post successful');
+        console.log('📊 Reddit response:', response.data);
 
-            console.log('✅ Image posted successfully to Reddit');
-            console.log('📊 Reddit response:', redditResponse);
-
-            if (subredditSettings && subredditSettings.selectedSubredditId) {
-              await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
-            }
-
-            return {
-              success: true,
-              postId: redditResponse.json?.data?.id,
-              url: redditResponse.json?.data?.url,
-              platform: 'reddit',
-            };
-          } catch (error) {
-            console.error('❌ Image upload failed:', error);
-            if (subredditSettings && subredditSettings.selectedSubredditId) {
-              await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
-            }
-            return {
-              success: false,
-              error: error.message || 'Image upload failed',
-              platform: 'reddit',
-            };
-          }
+        if (subredditSettings && subredditSettings.selectedSubredditId) {
+          await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
         }
-        
-        if (isVideo) {
-          console.log('🎬 Video detected - using external hosting approach');
-          
-          try {
-            // Upload video to Imgur
-            console.log('🎬 Starting video upload to Imgur...');
-            const videoUrl = await uploadVideoToImgur(mediaItem.buffer);
-            console.log('🎬 Video uploaded to Imgur successfully:', videoUrl);
-            
-            // Post as link to Reddit
-            const postData = {
-              api_type: 'json',
-              kind: 'link',
-              sr: targetSubreddit,
-              title: content,
-              url: videoUrl,
-              sendreplies: true
-            };
-            
-            console.log('🎬 Posting video link to Reddit:', postData);
-            const response = await axios.post('https://oauth.reddit.com/api/submit', new URLSearchParams(postData), {
-              headers: {
-                'Authorization': `Bearer ${currentAccount.access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
-              }
-            });
-            
-            console.log('✅ Video posted successfully as link');
-            console.log('📊 Reddit response:', response.data);
-            
-            // Update posting success stats if using a selected subreddit
-            if (subredditSettings && subredditSettings.selectedSubredditId) {
-              await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
-            }
-            
-            return {
-              success: true,
-              postId: response.data?.json?.data?.id,
-              url: response.data?.json?.data?.url,
-              platform: 'reddit'
-            };
-            
-          } catch (error) {
-            console.error('❌ Video upload failed:', error);
-            
-            // Update posting failure stats if using a selected subreddit
-            if (subredditSettings && subredditSettings.selectedSubredditId) {
-              await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
-            }
-            
-            return {
-              success: false,
-              error: error.message || 'Video upload failed',
-              platform: 'reddit'
-            };
-          }
-        } else {
-          console.log('📝 Media item is not a video, skipping video upload logic');
+
+        return {
+          success: true,
+          postId: response.data?.json?.data?.id,
+          url: response.data?.json?.data?.url,
+          platform: 'reddit',
+        };
+      } catch (error) {
+        console.error('❌ Media upload or post failed:', error);
+
+        if (subredditSettings && subredditSettings.selectedSubredditId) {
+          await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
         }
+
+        return {
+          success: false,
+          error: error.message || 'Media upload or post failed',
+          platform: 'reddit',
+        };
       }
-      console.log('📝 Finished processing all media items, no videos found or video upload failed');
     } else {
-      console.log('📝 No media provided, posting text only');
-      // Regular text post for non-video content
-      console.log('📝 Creating a text-only post');
+      console.log('📝 No media provided, creating a text-only post');
+      // Logic for text-only posts remains unchanged
       const postData = {
         api_type: 'json',
         kind: 'self',
