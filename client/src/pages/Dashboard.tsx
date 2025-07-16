@@ -107,6 +107,27 @@ const platformColors = {
   vk: "#4680C2"
 }
 
+const platformNames = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  twitter: "Twitter",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  tiktok: "TikTok",
+  pinterest: "Pinterest",
+  discord: "Discord",
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  snapchat: "Snapchat",
+  reddit: "Reddit",
+  vimeo: "Vimeo",
+  threads: "Threads",
+  twitch: "Twitch",
+  line: "Line",
+  tumblr: "Tumblr",
+  vk: "VK"
+}
+
 export function Dashboard() {
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -747,14 +768,23 @@ Visit the bot setup guide for detailed instructions.`)
                     className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="p-2 rounded-full"
-                        style={{ backgroundColor: `${platformColor}20` }}
-                      >
-                        <IconComponent
-                          className="h-5 w-5"
-                          style={{ color: platformColor }}
-                        />
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="p-2 rounded-full"
+                          style={{ backgroundColor: `${platformColor}20` }}
+                        >
+                          <IconComponent
+                            className="h-5 w-5"
+                            style={{ color: platformColor }}
+                          />
+                        </div>
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs font-medium"
+                          style={{ backgroundColor: `${platformColor}10`, color: platformColor }}
+                        >
+                          {platformNames[account.platform as keyof typeof platformNames] || account.platform}
+                        </Badge>
                       </div>
                       <div>
                         <div className="flex items-center gap-2">

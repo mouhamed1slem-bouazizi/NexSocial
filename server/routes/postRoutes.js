@@ -252,44 +252,102 @@ const updatePostingStats = async (subredditId, userId, success) => {
   }
 };
 
+// Helper function to refresh Reddit access token
+const refreshRedditToken = async (account) => {
+  try {
+    console.log('🔄 Refreshing Reddit access token...');
+    
+    if (!account.refresh_token) {
+      throw new Error('REFRESH_TOKEN_NOT_AVAILABLE');
+    }
+    
+    // Prepare Basic Auth header
+    const credentials = Buffer.from(`${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`).toString('base64');
+    
+    const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'NexSocial/1.0'
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: account.refresh_token
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Reddit token refresh failed:', response.status, errorText);
+      
+      // Check if refresh token is expired or invalid
+      if (response.status === 400 || response.status === 401) {
+        throw new Error('REFRESH_TOKEN_EXPIRED');
+      }
+      
+      throw new Error(`Token refresh failed: ${errorText}`);
+    }
+    
+    const tokenData = await response.json();
+    
+    if (!tokenData.access_token) {
+      console.error('❌ No access token in Reddit refresh response:', tokenData);
+      throw new Error('Invalid refresh response');
+    }
+    
+    console.log('✅ Reddit token refresh successful');
+    
+    return {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || account.refresh_token, // Use new refresh token if provided
+      expires_in: tokenData.expires_in || 3600 // Default 1 hour
+    };
+  } catch (error) {
+    console.error('❌ Reddit token refresh error:', error);
+    throw error;
+  }
+};
+
 // Reddit posting function with external video hosting and subreddit selection
 const postToReddit = async (account, content, media = [], subredditSettings = {}) => {
   const SocialAccountService = require('../services/socialAccountService.js');
   const { getSupabase } = require('../config/database.js');
   
-  try {
-    console.log(`🔴 Posting to Reddit for account ${account.username}`);
-    console.log(`📝 Content: ${content}`);
-    console.log(`📎 Media items: ${media.length}`);
-    console.log(`🎯 Subreddit settings:`, subredditSettings);
+  const attemptRedditPost = async (currentAccount, retryCount = 0) => {
+    try {
+      console.log(`🔴 Posting to Reddit for account ${currentAccount.username} (attempt ${retryCount + 1})`);
+      console.log(`📝 Content: ${content}`);
+      console.log(`📎 Media items: ${media.length}`);
+      console.log(`🎯 Subreddit settings:`, subredditSettings);
 
-    // Determine target subreddit
-    let targetSubreddit = null;
+      // Determine target subreddit
+      let targetSubreddit = null;
     
-    if (subredditSettings && subredditSettings.selectedSubredditId) {
-      // Use selected subreddit from user's list
-      const supabase = getSupabase();
-      const { data: userSubreddit } = await supabase
-        .from('user_subreddits')
-        .select('*')
-        .eq('id', subredditSettings.selectedSubredditId)
-        .eq('user_id', account.user_id)
-        .single();
-      
-      if (userSubreddit) {
-        targetSubreddit = userSubreddit.subreddit_name;
-        console.log(`🎯 Using selected subreddit: r/${targetSubreddit}`);
-      } else {
-        console.log(`⚠️ Selected subreddit not found, falling back to default`);
+      if (subredditSettings && subredditSettings.selectedSubredditId) {
+        // Use selected subreddit from user's list
+        const supabase = getSupabase();
+        const { data: userSubreddit } = await supabase
+          .from('user_subreddits')
+          .select('*')
+          .eq('id', subredditSettings.selectedSubredditId)
+          .eq('user_id', currentAccount.user_id)
+          .single();
+        
+        if (userSubreddit) {
+          targetSubreddit = userSubreddit.subreddit_name;
+          console.log(`🎯 Using selected subreddit: r/${targetSubreddit}`);
+        } else {
+          console.log(`⚠️ Selected subreddit not found, falling back to default`);
+        }
       }
-    }
-    
-    if (!targetSubreddit) {
-      // Fall back to default behavior
-      const metadata = account.metadata ? JSON.parse(account.metadata) : {};
-      targetSubreddit = metadata.default_subreddit || `u_${account.username}`;
-      console.log(`🎯 Using default subreddit: r/${targetSubreddit}`);
-    }
+      
+      if (!targetSubreddit) {
+        // Fall back to default behavior
+        const metadata = currentAccount.metadata ? JSON.parse(currentAccount.metadata) : {};
+        targetSubreddit = metadata.default_subreddit || `u_${currentAccount.username}`;
+        console.log(`🎯 Using default subreddit: r/${targetSubreddit}`);
+      }
 
     // Handle video uploads using external hosting
     if (media.length > 0) {
@@ -326,7 +384,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             console.log('🎬 Posting video link to Reddit:', postData);
             const response = await axios.post('https://oauth.reddit.com/api/submit', new URLSearchParams(postData), {
               headers: {
-                'Authorization': `Bearer ${account.access_token}`,
+                'Authorization': `Bearer ${currentAccount.access_token}`,
                 'Content-Type': 'application/x-www-form-urlencoded'
               }
             });
@@ -336,7 +394,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             
             // Update posting success stats if using a selected subreddit
             if (subredditSettings && subredditSettings.selectedSubredditId) {
-              await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, true);
+              await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
             }
             
             return {
@@ -351,7 +409,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             
             // Update posting failure stats if using a selected subreddit
             if (subredditSettings && subredditSettings.selectedSubredditId) {
-              await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, false);
+              await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
             }
             
             return {
@@ -369,43 +427,91 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
       console.log('📝 No media provided, posting text only');
     }
 
-    // Regular text post for non-video content
-    console.log('📝 Falling back to regular text post');
-    const postData = {
-      api_type: 'json',
-      kind: 'self',
-      sr: targetSubreddit,
-      title: content,
-      text: content,
-      sendreplies: true
-    };
-    
-    const response = await axios.post('https://oauth.reddit.com/api/submit', new URLSearchParams(postData), {
-      headers: {
-        'Authorization': `Bearer ${account.access_token}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
+      // Regular text post for non-video content
+      console.log('📝 Falling back to regular text post');
+      const postData = {
+        api_type: 'json',
+        kind: 'self',
+        sr: targetSubreddit,
+        title: content,
+        text: content,
+        sendreplies: true
+      };
+      
+      const response = await axios.post('https://oauth.reddit.com/api/submit', new URLSearchParams(postData), {
+        headers: {
+          'Authorization': `Bearer ${currentAccount.access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+      
+      // Update posting success stats if using a selected subreddit
+      if (subredditSettings && subredditSettings.selectedSubredditId) {
+        await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
       }
-    });
-    
-    // Update posting success stats if using a selected subreddit
-    if (subredditSettings && subredditSettings.selectedSubredditId) {
-      await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, true);
+      
+      return {
+        success: true,
+        postId: response.data?.json?.data?.id,
+        url: response.data?.json?.data?.url,
+        platform: 'reddit'
+      };
+      
+    } catch (error) {
+      console.error('❌ Reddit posting attempt failed:', error);
+      
+      // Handle unauthorized error with token refresh
+      if ((error.response?.status === 401 || error.message.includes('Request failed with status code 401')) && retryCount === 0 && currentAccount.refresh_token) {
+        console.log('🔄 Attempting to refresh Reddit token...');
+        
+        try {
+          const refreshedTokens = await refreshRedditToken(currentAccount);
+          
+          // Update tokens in database
+          await SocialAccountService.updateTokens(
+            currentAccount.id,
+            currentAccount.user_id,
+            refreshedTokens.access_token,
+            refreshedTokens.refresh_token
+          );
+          
+          console.log('✅ Reddit token refreshed successfully, retrying post...');
+          
+          // Update current account with new tokens
+          currentAccount.access_token = refreshedTokens.access_token;
+          if (refreshedTokens.refresh_token) {
+            currentAccount.refresh_token = refreshedTokens.refresh_token;
+          }
+          
+          // Retry posting with new token
+          return await attemptRedditPost(currentAccount, retryCount + 1);
+        } catch (refreshError) {
+          console.error('❌ Reddit token refresh failed:', refreshError);
+          
+          if (refreshError.message === 'REFRESH_TOKEN_EXPIRED' || refreshError.message === 'REFRESH_TOKEN_NOT_AVAILABLE') {
+            // Enhanced user-friendly error message
+            const errorMsg = '🔧 Reddit Authentication Required: Your Reddit account connection has expired. Please go to Settings → Social Accounts → Disconnect and reconnect your Reddit account to continue posting.';
+            throw new Error(errorMsg);
+          }
+          
+          throw new Error(`Reddit token refresh failed: ${refreshError.message}`);
+        }
+      }
+      
+      // Update posting failure stats if using a selected subreddit
+      if (subredditSettings && subredditSettings.selectedSubredditId) {
+        await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
+      }
+      
+      throw error;
     }
-    
-    return {
-      success: true,
-      postId: response.data?.json?.data?.id,
-      url: response.data?.json?.data?.url,
-      platform: 'reddit'
-    };
-    
+  };
+
+  // Start the posting attempt
+  try {
+    return await attemptRedditPost(account);
   } catch (error) {
     console.error('❌ Error posting to Reddit:', error);
-    
-    // Update posting failure stats if using a selected subreddit
-    if (subredditSettings && subredditSettings.selectedSubredditId) {
-      await updatePostingStats(subredditSettings.selectedSubredditId, account.user_id, false);
-    }
     
     return {
       success: false,
