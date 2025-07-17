@@ -352,48 +352,38 @@ const refreshRedditToken = async (account) => {
 };
 
 // Unified function to upload media to Imgur
-const uploadToImgur = async (mediaItem) => {
-  console.log('🎬 Uploading media to Imgur...');
+const uploadToImgur = async (mediaBuffer, mediaType) => {
   try {
+    console.log('🎬 Uploading media to Imgur...');
     const form = new FormData();
-    const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
+    const isVideo = mediaType && mediaType.startsWith('video/');
     const fieldName = isVideo ? 'video' : 'image';
-    const fileName = mediaItem.name || (isVideo ? 'video.mp4' : 'image.jpg');
+    const fileName = isVideo ? 'video.mp4' : 'image.jpg';
 
-    form.append(fieldName, mediaItem.buffer, { filename: fileName });
+    form.append(fieldName, mediaBuffer, { filename: fileName });
     
     const response = await axios.post('https://api.imgur.com/3/upload', form, {
       headers: {
-        'Authorization': 'Client-ID 546c25a59c58ad7',
-        ...form.getHeaders()
-      }
+        ...form.getHeaders(),
+        'Authorization': `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+      },
     });
 
-    if (response.data.success) {
-      console.log('✅ Media uploaded to Imgur successfully');
-      const link = response.data.data.link;
-      let thumbnailUrl = link; // Default to the link itself for images
-      
-      console.log(`[Imgur Upload] isVideo: ${isVideo}`);
-      console.log(`[Imgur Upload] Original Link: ${link}`);
-      
-      // For videos, Imgur link is to the .mp4. A thumbnail can be constructed.
-      if (isVideo && link.includes('imgur.com')) {
-          const videoId = link.split('/').pop().split('.')[0];
-          thumbnailUrl = `https://i.imgur.com/${videoId}.jpg`;
-          console.log(`[Imgur Upload] Generated Thumbnail URL: ${thumbnailUrl}`);
-      }
+    console.log(`[Imgur Upload] isVideo: ${isVideo}`);
+    const link = response.data.data.link;
+    console.log(`[Imgur Upload] Original Link: ${link}`);
 
-      return {
-        link: link,
-        thumbnailUrl: thumbnailUrl
-      };
-    } else {
-      console.error('❌ Imgur upload failed:', response.data.data.error);
-      throw new Error('Imgur upload failed');
+    if (isVideo) {
+      // For videos, Imgur link is mp4. Create a thumbnail link.
+      const thumbnailUrl = link.replace('.mp4', '.jpg');
+      console.log(`✅ Got thumbnail from Imgur: ${thumbnailUrl}`);
+      return { mediaUrl: link, thumbnailUrl };
     }
+
+    console.log(`✅ Got thumbnail from Imgur: ${link}`);
+    return { mediaUrl: link, thumbnailUrl: link };
   } catch (error) {
-    console.error('❌ Imgur upload failed:', error);
+    console.error('❌ Imgur upload failed:', error.response ? error.response.data : error.message);
     throw error;
   }
 };
@@ -450,7 +440,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
           console.log('📹 Attempting native Reddit video upload...');
           
           console.log('🖼️ Uploading to Imgur to generate a thumbnail...');
-          const imgurUpload = await uploadToImgur(mediaItem);
+          const imgurUpload = await uploadToImgur(mediaItem.buffer, mediaItem.type);
           console.log('✅ Got thumbnail from Imgur:', imgurUpload.thumbnailUrl);
 
           const redditVideoResponse = await uploadVideoToReddit(
@@ -459,7 +449,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             targetSubreddit,
             content,
             imgurUpload.thumbnailUrl,
-            imgurUpload.link
+            imgurUpload.mediaUrl
           );
 
           if (subredditSettings && subredditSettings.selectedSubredditId) {
@@ -481,14 +471,14 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
       // Fallback or Image Upload: Post as a link from Imgur
       try {
         console.log('☁️ Uploading media to Imgur to post as a link...');
-        const imgurUpload = await uploadToImgur(mediaItem);
+        const imgurUpload = await uploadToImgur(mediaItem.buffer, mediaItem.type);
 
         const postData = {
           api_type: 'json',
           kind: 'link',
           sr: targetSubreddit,
           title: content,
-          url: imgurUpload.link,
+          url: imgurUpload.mediaUrl,
           sendreplies: true,
         };
 
