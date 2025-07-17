@@ -365,7 +365,7 @@ const uploadToImgur = async (mediaBuffer, mediaType) => {
     const response = await axios.post('https://api.imgur.com/3/upload', form, {
       headers: {
         ...form.getHeaders(),
-        'Authorization': `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+        'Authorization': `Client-ID ${process.env.IMGUR_CLIENT_ID || '546c25a59c58ad7'}`,
       },
     });
 
