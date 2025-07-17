@@ -307,7 +307,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'vimeo':
         clientId = process.env.VIMEO_CLIENT_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/vimeo/callback`);
-        scope = encodeURIComponent('public private create edit upload');
+        scope = encodeURIComponent('public private');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'Vimeo OAuth not configured. Please add VIMEO_CLIENT_ID to your .env file' });
@@ -1244,7 +1244,7 @@ router.get('/vimeo/redirect', requireUser, async (req, res) => {
     const { baseUrl } = getUrls();
     const clientId = process.env.VIMEO_CLIENT_ID;
     const redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/vimeo/callback`);
-    const scope = encodeURIComponent('public private create edit upload');
+    const scope = encodeURIComponent('public private');
     const userId = req.user._id;
 
     if (!clientId) {
@@ -1253,7 +1253,14 @@ router.get('/vimeo/redirect', requireUser, async (req, res) => {
 
     const authUrl = `https://api.vimeo.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
     
-    console.log('🔗 Generated Vimeo OAuth URL:', authUrl);
+    console.log('🔗 Vimeo OAuth Debug Info:');
+    console.log('   Client ID:', clientId);
+    console.log('   Redirect URI (encoded):', redirectUri);
+    console.log('   Redirect URI (decoded):', decodeURIComponent(redirectUri));
+    console.log('   Scope:', scope);
+    console.log('   User ID:', userId);
+    console.log('   Complete Auth URL:', authUrl);
+    
     res.json({ success: true, authUrl });
   } catch (error) {
     console.error('❌ Vimeo auth URL generation error:', error);
