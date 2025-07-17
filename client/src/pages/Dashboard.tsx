@@ -231,6 +231,12 @@ export function Dashboard() {
         case 'invalid_oauth_request':
           errorMessage = "Invalid OAuth request. Please check your Twitter app configuration."
           break
+        case 'vimeo_access_denied':
+          errorMessage = "Vimeo access was denied. Please try again."
+          break
+        case 'vimeo_token_exchange_failed':
+          errorMessage = "Failed to exchange Vimeo authorization code. Please try again."
+          break
       }
       
       toast({
@@ -307,7 +313,12 @@ The bot will confirm when the connection is successful.`
           
         } else if (response.authUrl) {
           console.log(`✅ OAuth URL received for ${platform}, redirecting...`)
-          window.location.href = response.authUrl
+          // Create a temporary link and click it to ensure a GET request
+          const link = document.createElement('a');
+          link.href = response.authUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         } else {
           throw new Error('Failed to get OAuth URL')
         }

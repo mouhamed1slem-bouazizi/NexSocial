@@ -1236,10 +1236,10 @@ router.get('/reddit/callback', async (req, res) => {
   }
 });
 
-// Vimeo OAuth redirect endpoint - bypasses frontend API interceptors
+// Vimeo OAuth redirect endpoint - returns auth URL for frontend redirect
 router.get('/vimeo/redirect', requireUser, async (req, res) => {
   try {
-    console.log('🔗 Vimeo direct redirect initiated for user:', req.user._id);
+    console.log('🔗 Vimeo auth URL requested for user:', req.user._id);
     
     const { baseUrl } = getUrls();
     const clientId = process.env.VIMEO_CLIENT_ID;
@@ -1248,16 +1248,16 @@ router.get('/vimeo/redirect', requireUser, async (req, res) => {
     const userId = req.user._id;
 
     if (!clientId) {
-      return res.status(500).send('Vimeo OAuth not configured. Please add VIMEO_CLIENT_ID to your .env file');
+      return res.status(500).json({ success: false, error: 'Vimeo OAuth not configured. Please add VIMEO_CLIENT_ID to your .env file' });
     }
 
     const authUrl = `https://api.vimeo.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
     
-    console.log('🔗 Redirecting to Vimeo OAuth URL:', authUrl);
-    res.redirect(authUrl);
+    console.log('🔗 Generated Vimeo OAuth URL:', authUrl);
+    res.json({ success: true, authUrl });
   } catch (error) {
-    console.error('❌ Vimeo redirect error:', error);
-    res.status(500).send('Failed to initiate Vimeo OAuth');
+    console.error('❌ Vimeo auth URL generation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate Vimeo OAuth URL' });
   }
 });
 

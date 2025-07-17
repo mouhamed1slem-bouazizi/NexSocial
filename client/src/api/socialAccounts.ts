@@ -113,9 +113,15 @@ export const initiateOAuth = async (platform: string) => {
     
     // Handle Vimeo differently to avoid API interceptor issues
     if (platform === 'vimeo') {
-      // Direct redirect to special Vimeo endpoint that handles redirect server-side
-      window.location.href = '/api/oauth/vimeo/redirect';
-      return { success: true, redirecting: true };
+      // Make authenticated API call to get the auth URL
+      const response = await api.get('/oauth/vimeo/redirect');
+      if (response.data.success && response.data.authUrl) {
+        // Redirect to Vimeo OAuth URL
+        window.location.href = response.data.authUrl;
+        return { success: true, authUrl: response.data.authUrl };
+      } else {
+        throw new Error(response.data.error || 'Failed to get Vimeo auth URL');
+      }
     }
     
     // Standard OAuth flow for other platforms
