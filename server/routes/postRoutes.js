@@ -10,62 +10,59 @@ const axios = require('axios');
 
 const router = express.Router();
 
-// 🎬 REDDIT VIDEO UPLOAD - EXTERNAL HOSTING SOLUTION
-// Upload videos to Imgur and post as Reddit links (most reliable approach)
-
 const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title, thumbnailUrl) => {
   try {
-    const fileName = `video-${Date.now()}.mp4`;
-    
-    // Step 1: Request an upload lease from Reddit.
-    console.log('📹 Requesting video upload lease from Reddit...');
-    const leasePayload = new URLSearchParams({
-      filepath: fileName,
-      mimetype: 'video/mp4',
-    }).toString();
-
-    const leaseResponse = await axios.post(
-      'https://oauth.reddit.com/api/media/asset.json',
-      leasePayload,
+    // Step 1: Submit the post to get a video upload lease.
+    console.log('📹 Submitting video post to get upload lease...');
+    const submitResponse = await axios.post(
+      'https://oauth.reddit.com/api/submit',
+      new URLSearchParams({
+        api_type: 'json',
+        kind: 'video',
+        sr: subreddit,
+        title: title,
+        video_poster_url: thumbnailUrl,
+      }).toString(),
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'NexSocial/1.0',
         },
       }
     );
 
-    console.log('📹 Raw lease response from Reddit:', JSON.stringify(leaseResponse.data, null, 2));
+    console.log('📹 Raw submit response from Reddit:', JSON.stringify(submitResponse.data, null, 2));
 
-    const lease = leaseResponse.data;
-    const uploadUrl = lease?.args?.action;
-    const uploadFields = lease?.args?.fields;
-    const websocketUrl = lease?.asset?.websocket_url;
-
-    if (!uploadUrl || !uploadFields || !websocketUrl) {
-      console.error("❌ Lease response was missing required fields.", lease);
-      throw new Error('Failed to get a valid video upload lease from Reddit.');
+    if (submitResponse.data.json.errors.length > 0) {
+      const errorDetails = submitResponse.data.json.errors[0];
+      console.error('❌ Reddit API returned errors:', errorDetails);
+      // Example error: ["BAD_URL", "the video_poster_url can't be empty", "video_poster_url"]
+      throw new Error(`Reddit API Error: ${errorDetails[1]}`);
     }
 
-    // Step 2: Upload the video file to the signed URL from the lease.
-    console.log('⬆️ Uploading video to signed S3 URL...');
-    const form = new FormData();
-    uploadFields.forEach(field => {
-      form.append(field.name, field.value);
-    });
-    form.append('file', videoBuffer, {
-        filename: fileName,
-        contentType: 'video/mp4',
-    });
+    const postData = submitResponse.data.json.data;
+    const uploadUrl = postData.video_upload_endpoint;
+    const websocketUrl = postData.video_websocket_url;
+
+    if (!uploadUrl) {
+      console.error('❌ Failed to get upload URL from Reddit response:', postData);
+      throw new Error('Failed to get a valid video upload lease from Reddit. No upload URL found.');
+    }
     
-    await axios.post(`https:${uploadUrl}`, form, {
-      headers: form.getHeaders(),
+    // Step 2: Upload the video file to the lease URL.
+    console.log('⬆️ Uploading video to Reddit...');
+    await axios.post(uploadUrl, videoBuffer, {
+      headers: {
+        'Content-Type': 'video/mp4',
+      },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
     });
 
-    console.log('✅ Video successfully uploaded to S3.');
-
-    // The video is processed asynchronously. We can use the websocket to get progress,
-    // but for now, we'll assume it succeeds and return the websocket URL for the client.
+    console.log('✅ Video successfully uploaded to Reddit.');
+    
+    // The video is processed asynchronously.
     return {
       success: true,
       websocketUrl: websocketUrl,
@@ -81,6 +78,7 @@ const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title, t
     throw error;
   }
 };
+
 
 // Main posting endpoint
 router.post('/', requireUser, async (req, res) => {
@@ -353,11 +351,15 @@ const refreshRedditToken = async (account) => {
 };
 
 // Unified function to upload media to Imgur
-const uploadToImgur = async (mediaBuffer) => {
+const uploadToImgur = async (mediaItem) => {
   console.log('🎬 Uploading media to Imgur...');
   try {
     const form = new FormData();
-    form.append('image', mediaBuffer, { filename: 'media.jpg' }); // Assuming jpg for consistency
+    const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
+    const fieldName = isVideo ? 'video' : 'image';
+    const fileName = mediaItem.name || (isVideo ? 'video.mp4' : 'image.jpg');
+
+    form.append(fieldName, mediaItem.buffer, { filename: fileName });
     
     const response = await axios.post('https://api.imgur.com/3/upload', form, {
       headers: {
@@ -368,7 +370,19 @@ const uploadToImgur = async (mediaBuffer) => {
 
     if (response.data.success) {
       console.log('✅ Media uploaded to Imgur successfully');
-      return response.data.data.link;
+      const link = response.data.data.link;
+      let thumbnailUrl = link; // Default to the link itself for images
+      
+      // For videos, Imgur link is to the .mp4. A thumbnail can be constructed.
+      if (isVideo && link.includes('imgur.com')) {
+          const videoId = link.split('/').pop().split('.')[0];
+          thumbnailUrl = `https://i.imgur.com/${videoId}.jpg`;
+      }
+
+      return {
+        link: link,
+        thumbnailUrl: thumbnailUrl
+      };
     } else {
       console.error('❌ Imgur upload failed:', response.data.data.error);
       throw new Error('Imgur upload failed');
@@ -378,6 +392,7 @@ const uploadToImgur = async (mediaBuffer) => {
     throw error;
   }
 };
+
 
 // Reddit posting function with external video hosting and subreddit selection
 const postToReddit = async (account, content, media = [], subredditSettings = {}) => {
@@ -419,35 +434,28 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         console.log(`🎯 Using default subreddit: r/${targetSubreddit}`);
       }
 
-    // Handle media uploads using external hosting (Imgur)
+    // Handle media uploads
     if (media.length > 0) {
-      const mediaItem = media[0]; // Process only the first media item for now
-      console.log(`🖼️ Processing media item for Imgur upload:`, {
-        name: mediaItem.name,
-        type: mediaItem.type,
-      });
-
+      const mediaItem = media[0]; // Process only the first media item
       const isVideo = mediaItem.type && (mediaItem.type.startsWith('video/') || mediaItem.type === 'video');
 
+      // Native video upload attempt
       if (isVideo) {
-        // Use native Reddit video upload
         try {
-          console.log('📹 Starting native Reddit video upload...');
-          // First, upload to Imgur to get a thumbnail URL.
-          console.log('🖼️ Uploading to Imgur for a thumbnail URL...');
-          const thumbnailUrl = await uploadToImgur(mediaItem.buffer);
-          console.log('✅ Got thumbnail URL from Imgur:', thumbnailUrl);
+          console.log('📹 Attempting native Reddit video upload...');
+          
+          console.log('🖼️ Uploading to Imgur to generate a thumbnail...');
+          const imgurUpload = await uploadToImgur(mediaItem);
+          console.log('✅ Got thumbnail from Imgur:', imgurUpload.thumbnailUrl);
 
           const redditVideoResponse = await uploadVideoToReddit(
             currentAccount.access_token,
             mediaItem.buffer,
             targetSubreddit,
             content,
-            thumbnailUrl
+            imgurUpload.thumbnailUrl
           );
 
-          console.log('✅ Video successfully submitted to Reddit for processing.');
-          
           if (subredditSettings && subredditSettings.selectedSubredditId) {
             await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
           }
@@ -458,25 +466,23 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             websocketUrl: redditVideoResponse.websocketUrl,
             platform: 'reddit',
           };
-        } catch (error) {
-          console.error('❌ Native Reddit video upload failed:', error.message);
-          // Fallback to Imgur link post
-          console.log('🔄 Falling back to Imgur upload for video.');
+        } catch (nativeUploadError) {
+          console.error('❌ Native Reddit video upload failed. Falling back to Imgur link.', nativeUploadError.message);
+          // Fallback to posting as an Imgur link, which happens below.
         }
       }
 
+      // Fallback or Image Upload: Post as a link from Imgur
       try {
-        console.log('☁️ Starting media upload to Imgur...');
-        const mediaUrl = await uploadToImgur(mediaItem.buffer);
-        console.log('✅ Media uploaded to Imgur successfully:', mediaUrl);
+        console.log('☁️ Uploading media to Imgur to post as a link...');
+        const imgurUpload = await uploadToImgur(mediaItem);
 
-        // Post as a link to Reddit
         const postData = {
           api_type: 'json',
           kind: 'link',
           sr: targetSubreddit,
           title: content,
-          url: mediaUrl,
+          url: imgurUpload.link,
           sendreplies: true,
         };
 
@@ -488,7 +494,7 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
           },
         });
 
-        console.log('✅ Media post successful');
+        console.log('✅ Media link post successful');
         console.log('📊 Reddit response:', response.data);
 
         if (subredditSettings && subredditSettings.selectedSubredditId) {
@@ -501,22 +507,16 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
           url: response.data?.json?.data?.url,
           platform: 'reddit',
         };
-      } catch (error) {
-        console.error('❌ Media upload or post failed:', error);
-
+      } catch (linkPostError) {
+        console.error('❌ Final fallback link post also failed:', linkPostError.message);
         if (subredditSettings && subredditSettings.selectedSubredditId) {
           await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
         }
-
-        return {
-          success: false,
-          error: error.message || 'Media upload or post failed',
-          platform: 'reddit',
-        };
+        throw linkPostError; // Throw the final error
       }
     } else {
+      // Logic for text-only posts
       console.log('📝 No media provided, creating a text-only post');
-      // Logic for text-only posts remains unchanged
       const postData = {
         api_type: 'json',
         kind: 'self',
@@ -533,7 +533,6 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         }
       });
       
-      // Update posting success stats if using a selected subreddit
       if (subredditSettings && subredditSettings.selectedSubredditId) {
         await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, true);
       }
@@ -545,36 +544,22 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         platform: 'reddit'
       };
     }
-
-    // If we reach here, it means media was present but wasn't handled (e.g., not an image or video)
-    // or the upload failed and we shouldn't fall back to a text post.
-    return {
-      success: false,
-      error: 'Media could not be posted, and no fallback was executed.',
-      platform: 'reddit'
-    };
       
     } catch (error) {
       console.error('❌ Reddit posting attempt failed:', error);
       
-      // Enhanced debugging for Reddit token issues
       console.log('🔍 Debug info for Reddit token refresh:');
       console.log(`  - Error status: ${error.response?.status}`);
       console.log(`  - Error message: ${error.message}`);
       console.log(`  - Retry count: ${retryCount}`);
       console.log(`  - Refresh token exists: ${!!currentAccount.refresh_token}`);
-      console.log(`  - Refresh token length: ${currentAccount.refresh_token?.length || 0}`);
-      console.log(`  - Account ID: ${currentAccount.id}`);
-      console.log(`  - Account username: ${currentAccount.username}`);
       
-      // Handle unauthorized error with token refresh
       if ((error.response?.status === 401 || error.message.includes('Request failed with status code 401')) && retryCount === 0 && currentAccount.refresh_token) {
         console.log('🔄 Attempting to refresh Reddit token...');
         
         try {
           const refreshedTokens = await refreshRedditToken(currentAccount);
           
-          // Update tokens in database
           await SocialAccountService.updateTokens(
             currentAccount.id,
             currentAccount.user_id,
@@ -584,19 +569,16 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
           
           console.log('✅ Reddit token refreshed successfully, retrying post...');
           
-          // Update current account with new tokens
           currentAccount.access_token = refreshedTokens.access_token;
           if (refreshedTokens.refresh_token) {
             currentAccount.refresh_token = refreshedTokens.refresh_token;
           }
           
-          // Retry posting with new token
           return await attemptRedditPost(currentAccount, retryCount + 1);
         } catch (refreshError) {
           console.error('❌ Reddit token refresh failed:', refreshError);
           
           if (refreshError.message === 'REFRESH_TOKEN_EXPIRED' || refreshError.message === 'REFRESH_TOKEN_NOT_AVAILABLE') {
-            // Enhanced user-friendly error message
             const errorMsg = '🔧 Reddit Authentication Required: Your Reddit account connection has expired. Please go to Settings → Social Accounts → Disconnect and reconnect your Reddit account to continue posting.';
             throw new Error(errorMsg);
           }
@@ -605,12 +587,10 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         }
       }
       
-      // Special handling for 401 errors without refresh token
       if ((error.response?.status === 401 || error.message.includes('Request failed with status code 401')) && !currentAccount.refresh_token) {
         console.log('❌ Reddit authentication expired and no refresh token available');
         const errorMsg = '🔧 Reddit Authentication Required: Your Reddit account connection has expired and cannot be automatically renewed. Please go to Settings → Social Accounts → Disconnect and reconnect your Reddit account to continue posting.';
         
-        // Update posting failure stats if using a selected subreddit
         if (subredditSettings && subredditSettings.selectedSubredditId) {
           await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
         }
@@ -618,7 +598,6 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
         throw new Error(errorMsg);
       }
       
-      // Update posting failure stats if using a selected subreddit
       if (subredditSettings && subredditSettings.selectedSubredditId) {
         await updatePostingStats(subredditSettings.selectedSubredditId, currentAccount.user_id, false);
       }
@@ -627,7 +606,6 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
     }
   };
 
-  // Start the posting attempt
   try {
     return await attemptRedditPost(account);
   } catch (error) {
