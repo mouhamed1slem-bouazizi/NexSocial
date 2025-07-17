@@ -1236,6 +1236,31 @@ router.get('/reddit/callback', async (req, res) => {
   }
 });
 
+// Vimeo OAuth redirect endpoint - bypasses frontend API interceptors
+router.get('/vimeo/redirect', requireUser, async (req, res) => {
+  try {
+    console.log('🔗 Vimeo direct redirect initiated for user:', req.user._id);
+    
+    const { baseUrl } = getUrls();
+    const clientId = process.env.VIMEO_CLIENT_ID;
+    const redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/vimeo/callback`);
+    const scope = encodeURIComponent('public private create edit upload');
+    const userId = req.user._id;
+
+    if (!clientId) {
+      return res.status(500).send('Vimeo OAuth not configured. Please add VIMEO_CLIENT_ID to your .env file');
+    }
+
+    const authUrl = `https://api.vimeo.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
+    
+    console.log('🔗 Redirecting to Vimeo OAuth URL:', authUrl);
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('❌ Vimeo redirect error:', error);
+    res.status(500).send('Failed to initiate Vimeo OAuth');
+  }
+});
+
 // Vimeo OAuth callback
 router.get('/vimeo/callback', async (req, res) => {
   console.log('📹 Vimeo OAuth callback received');

@@ -111,6 +111,13 @@ export const initiateOAuth = async (platform: string) => {
       return response.data;
     }
     
+    // Handle Vimeo differently to avoid API interceptor issues
+    if (platform === 'vimeo') {
+      // Direct redirect to special Vimeo endpoint that handles redirect server-side
+      window.location.href = '/api/oauth/vimeo/redirect';
+      return { success: true, redirecting: true };
+    }
+    
     // Standard OAuth flow for other platforms
     const response = await api.post('/oauth/initiate', { platform });
     return response.data;
