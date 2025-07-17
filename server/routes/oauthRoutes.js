@@ -304,6 +304,18 @@ router.post('/initiate', requireUser, async (req, res) => {
         authUrl = `https://www.reddit.com/api/v1/authorize?client_id=${clientId}&response_type=code&state=${userId}&redirect_uri=${redirectUri}&duration=${duration}&scope=${scope}`;
         break;
 
+      case 'vimeo':
+        clientId = process.env.VIMEO_CLIENT_ID;
+        redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/vimeo/callback`);
+        scope = encodeURIComponent('public private create edit upload');
+
+        if (!clientId) {
+          return res.status(500).json({ success: false, error: 'Vimeo OAuth not configured. Please add VIMEO_CLIENT_ID to your .env file' });
+        }
+
+        authUrl = `https://api.vimeo.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
+        break;
+
       default:
         return res.status(400).json({ success: false, error: 'Unsupported platform' });
     }
@@ -1220,6 +1232,108 @@ router.get('/reddit/callback', async (req, res) => {
     res.redirect(`${process.env.CLIENT_URL}?success=reddit_connected`);
   } catch (error) {
     console.error('❌ Reddit OAuth callback error:', error);
+    res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
+  }
+});
+
+// Vimeo OAuth callback
+router.get('/vimeo/callback', async (req, res) => {
+  console.log('📹 Vimeo OAuth callback received');
+
+  try {
+    const { code, state: userId, error, error_description } = req.query;
+
+    // Check if user denied authorization
+    if (error) {
+      console.error('Vimeo OAuth error:', error);
+      console.error('Vimeo OAuth error description:', error_description);
+      return res.redirect(`${process.env.CLIENT_URL}?error=vimeo_${error}`);
+    }
+
+    if (!code) {
+      console.error('No authorization code received from Vimeo');
+      return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
+    }
+
+    console.log('🔄 Exchanging code for Vimeo access token');
+
+    // Prepare Basic Auth header for Vimeo
+    const credentials = Buffer.from(`${process.env.VIMEO_CLIENT_ID}:${process.env.VIMEO_CLIENT_SECRET}`).toString('base64');
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://api.vimeo.com/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${process.env.BASE_URL}/api/oauth/vimeo/callback`
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Failed to exchange code for Vimeo token:', tokenResponse.status, errorText);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Failed to get access token from Vimeo:', tokenData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    console.log('✅ Successfully obtained Vimeo access token');
+
+    // Get user profile information
+    const profileResponse = await fetch('https://api.vimeo.com/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!profileResponse.ok) {
+      const errorText = await profileResponse.text();
+      console.error('Failed to get Vimeo profile:', profileResponse.status, errorText);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    const profileData = await profileResponse.json();
+
+    if (!profileData.uri) {
+      console.error('Failed to get Vimeo profile data:', profileData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    console.log('✅ Successfully fetched Vimeo profile for user:', profileData.name);
+
+    // Extract user ID from URI (format: /users/123456)
+    const vimeoUserId = profileData.uri.replace('/users/', '');
+
+    // Save to database
+    const accountData = {
+      platform: 'vimeo',
+      username: profileData.name || `vimeo_user_${vimeoUserId}`,
+      displayName: profileData.name || 'Vimeo User',
+      platformUserId: vimeoUserId,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || null,
+      profileImage: profileData.pictures?.sizes?.[0]?.link || '',
+      followers: profileData.metadata?.connections?.followers?.total || 0
+    };
+
+    await SocialAccountService.create(userId, accountData);
+    console.log('✅ Vimeo account successfully saved to database');
+
+    res.redirect(`${process.env.CLIENT_URL}?success=vimeo_connected`);
+  } catch (error) {
+    console.error('❌ Vimeo OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });
