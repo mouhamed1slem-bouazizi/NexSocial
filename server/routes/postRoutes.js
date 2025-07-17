@@ -10,7 +10,7 @@ const axios = require('axios');
 
 const router = express.Router();
 
-const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title, thumbnailUrl) => {
+const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title, thumbnailUrl, videoUrl) => {
   try {
     // Step 1: Submit the post to get a video upload lease.
     console.log('📹 Submitting video post to get upload lease...');
@@ -21,6 +21,7 @@ const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title, t
         kind: 'video',
         sr: subreddit,
         title: title,
+        url: videoUrl, // Provide the source video URL
         video_poster_url: thumbnailUrl,
       }).toString(),
       {
@@ -373,10 +374,14 @@ const uploadToImgur = async (mediaItem) => {
       const link = response.data.data.link;
       let thumbnailUrl = link; // Default to the link itself for images
       
+      console.log(`[Imgur Upload] isVideo: ${isVideo}`);
+      console.log(`[Imgur Upload] Original Link: ${link}`);
+      
       // For videos, Imgur link is to the .mp4. A thumbnail can be constructed.
       if (isVideo && link.includes('imgur.com')) {
           const videoId = link.split('/').pop().split('.')[0];
           thumbnailUrl = `https://i.imgur.com/${videoId}.jpg`;
+          console.log(`[Imgur Upload] Generated Thumbnail URL: ${thumbnailUrl}`);
       }
 
       return {
@@ -453,7 +458,8 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
             mediaItem.buffer,
             targetSubreddit,
             content,
-            imgurUpload.thumbnailUrl
+            imgurUpload.thumbnailUrl,
+            imgurUpload.link
           );
 
           if (subredditSettings && subredditSettings.selectedSubredditId) {
