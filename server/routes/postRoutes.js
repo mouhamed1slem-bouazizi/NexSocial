@@ -16,19 +16,21 @@ const router = express.Router();
 const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title) => {
   try {
     const fileName = `video-${Date.now()}.mp4`;
+    
     // Step 1: Request an upload lease from Reddit.
-    // Based on: https://techevangelistseo.com/reddit-api-documentation-encoding-limitations/
     console.log('📹 Requesting video upload lease from Reddit...');
-    const leasePayload = {
+    const leasePayload = new URLSearchParams({
       filepath: fileName,
       mimetype: 'video/mp4',
-    };
+    }).toString();
+
     const leaseResponse = await axios.post(
-      'https://oauth.reddit.com/api/media_asset_upload_request',
+      'https://oauth.reddit.com/api/media/asset.json',
       leasePayload,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
       }
     );
@@ -36,22 +38,39 @@ const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title) =
     console.log('📹 Raw lease response from Reddit:', JSON.stringify(leaseResponse.data, null, 2));
 
     const lease = leaseResponse.data;
-    const uploadUrl = lease?.s3_upload_lease?.url;
-    const assetUrl = lease?.asset_url;
+    const uploadUrl = lease?.args?.action;
+    const uploadFields = lease?.args?.fields;
 
-    if (!uploadUrl || !assetUrl) {
-      console.error("❌ Lease response was missing 's3_upload_lease.url' or 'asset_url'.", lease);
-      throw new Error('Failed to get a valid video upload lease from Reddit. The API response was not in the expected format.');
+    if (!uploadUrl || !uploadFields) {
+      console.error("❌ Lease response was missing 'args.action' or 'args.fields'.", lease);
+      throw new Error('Failed to get a valid video upload lease from Reddit.');
     }
 
     // Step 2: Upload the video file to the signed URL from the lease.
     console.log('⬆️ Uploading video to signed S3 URL...');
-    await axios.put(uploadUrl, videoBuffer, {
-      headers: {
-        'Content-Type': 'video/mp4',
-      },
+    const form = new FormData();
+    uploadFields.forEach(field => {
+      form.append(field.name, field.value);
     });
-    console.log('✅ Video successfully uploaded to S3.');
+    form.append('file', videoBuffer, {
+        filename: fileName,
+        contentType: 'video/mp4',
+    });
+    
+    const s3Response = await axios.post(`https:${uploadUrl}`, form, {
+      headers: form.getHeaders(),
+    });
+
+    if (s3Response.status !== 201) {
+        throw new Error(`S3 upload failed with status ${s3Response.status}`);
+    }
+
+    const locationMatch = s3Response.data.match(/<Location>(.+)<\/Location>/);
+    if (!locationMatch || !locationMatch[1]) {
+        throw new Error('Could not parse Location from S3 response.');
+    }
+    const assetUrl = locationMatch[1];
+    console.log('🔗 Asset URL from S3:', assetUrl);
 
     // Step 3: Submit the video post to Reddit using the asset URL.
     console.log('📝 Submitting video post to Reddit...');
