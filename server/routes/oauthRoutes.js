@@ -316,6 +316,18 @@ router.post('/initiate', requireUser, async (req, res) => {
         authUrl = `https://api.vimeo.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
         break;
 
+      case 'twitch':
+        clientId = process.env.TWITCH_CLIENT_ID;
+        redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/twitch/callback`);
+        scope = encodeURIComponent('user:read:email channel:read:subscriptions');
+
+        if (!clientId) {
+          return res.status(500).json({ success: false, error: 'Twitch OAuth not configured. Please add TWITCH_CLIENT_ID to your .env file' });
+        }
+
+        authUrl = `https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
+        break;
+
       default:
         return res.status(400).json({ success: false, error: 'Unsupported platform' });
     }
@@ -1366,6 +1378,127 @@ router.get('/vimeo/callback', async (req, res) => {
     res.redirect(`${process.env.CLIENT_URL}?success=vimeo_connected`);
   } catch (error) {
     console.error('❌ Vimeo OAuth callback error:', error);
+    res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
+  }
+});
+
+// Twitch OAuth callback
+router.get('/twitch/callback', async (req, res) => {
+  console.log('🎮 Twitch OAuth callback received');
+
+  try {
+    const { code, state: userId, error, error_description } = req.query;
+
+    // Check if user denied authorization
+    if (error) {
+      console.error('Twitch OAuth error:', error);
+      console.error('Twitch OAuth error description:', error_description);
+      return res.redirect(`${process.env.CLIENT_URL}?error=twitch_${error}`);
+    }
+
+    if (!code) {
+      console.error('No authorization code received from Twitch');
+      return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
+    }
+
+    console.log('🔄 Exchanging code for Twitch access token');
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        client_id: process.env.TWITCH_CLIENT_ID,
+        client_secret: process.env.TWITCH_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: `${process.env.BASE_URL}/api/oauth/twitch/callback`
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Failed to exchange code for Twitch token:', tokenResponse.status, errorText);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Failed to get access token from Twitch:', tokenData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    console.log('✅ Successfully obtained Twitch access token');
+
+    // Get user profile information
+    const profileResponse = await fetch('https://api.twitch.tv/helix/users', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Client-Id': process.env.TWITCH_CLIENT_ID,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!profileResponse.ok) {
+      const errorText = await profileResponse.text();
+      console.error('Failed to get Twitch profile:', profileResponse.status, errorText);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    const profileData = await profileResponse.json();
+
+    if (!profileData.data || !profileData.data[0]) {
+      console.error('Failed to get Twitch profile data:', profileData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    const user = profileData.data[0];
+    console.log('✅ Successfully fetched Twitch profile for user:', user.display_name);
+
+    // Get follower count (this requires additional API call to followers endpoint)
+    let followerCount = 0;
+    try {
+      const followersResponse = await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Client-Id': process.env.TWITCH_CLIENT_ID,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (followersResponse.ok) {
+        const followersData = await followersResponse.json();
+        followerCount = followersData.total || 0;
+        console.log(`📊 Twitch channel has ${followerCount} followers`);
+      } else {
+        console.log('⚠️ Could not fetch follower count (may require broadcaster permissions)');
+      }
+    } catch (error) {
+      console.log('⚠️ Error fetching follower count:', error.message);
+    }
+
+    // Save to database
+    const accountData = {
+      platform: 'twitch',
+      username: user.login,
+      displayName: user.display_name,
+      platformUserId: user.id,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || null,
+      profileImage: user.profile_image_url || '',
+      followers: followerCount
+    };
+
+    await SocialAccountService.create(userId, accountData);
+    console.log('✅ Twitch account successfully saved to database');
+
+    res.redirect(`${process.env.CLIENT_URL}?success=twitch_connected`);
+  } catch (error) {
+    console.error('❌ Twitch OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });

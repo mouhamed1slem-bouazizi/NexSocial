@@ -237,6 +237,12 @@ export function Dashboard() {
         case 'vimeo_token_exchange_failed':
           errorMessage = "Failed to exchange Vimeo authorization code. Please try again."
           break
+        case 'twitch_access_denied':
+          errorMessage = "Twitch access was denied. Please try again."
+          break
+        case 'twitch_token_exchange_failed':
+          errorMessage = "Failed to exchange Twitch authorization code. Please try again."
+          break
       }
       
       toast({
