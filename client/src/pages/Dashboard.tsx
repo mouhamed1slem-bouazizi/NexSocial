@@ -511,6 +511,10 @@ Visit the bot setup guide for detailed instructions.`)
               <Facebook className="mr-2 h-4 w-4" />
               Facebook
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleConnectAccount('messenger')} disabled={connecting !== null}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Messenger
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleConnectAccount('instagram')} disabled={connecting !== null}>
               <Instagram className="mr-2 h-4 w-4" />
               Instagram
@@ -673,6 +677,10 @@ Visit the bot setup guide for detailed instructions.`)
                   <Facebook className="mr-2 h-4 w-4" />
                   Facebook
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleConnectAccount('messenger')} disabled={connecting !== null}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Messenger
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleConnectAccount('instagram')} disabled={connecting !== null}>
                   <Instagram className="mr-2 h-4 w-4" />
                   Instagram
@@ -765,7 +773,7 @@ Visit the bot setup guide for detailed instructions.`)
                 Connect your social media accounts to start managing your content
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
-                {['Facebook', 'Instagram', 'Twitter', 'LinkedIn', 'YouTube', 'TikTok', 'Pinterest', 'Discord', 'Telegram', 'WhatsApp', 'Snapchat', 'Reddit', 'Vimeo', 'Threads', 'Twitch', 'Line', 'Tumblr', 'VK'].map((platform) => (
+                {['Facebook', 'Messenger', 'Instagram', 'Twitter', 'LinkedIn', 'YouTube', 'TikTok', 'Pinterest', 'Discord', 'Telegram', 'WhatsApp', 'Snapchat', 'Reddit', 'Vimeo', 'Threads', 'Twitch', 'Line', 'Tumblr', 'VK'].map((platform) => (
                   <Button
                     key={platform}
                     variant="outline"

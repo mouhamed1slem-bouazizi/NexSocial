@@ -50,6 +50,7 @@ import { format } from "date-fns"
 
 const platforms = [
   { id: 'facebook', name: 'Facebook', icon: Facebook, color: 'bg-blue-500', limit: 63206 },
+  { id: 'messenger', name: 'Messenger', icon: MessageSquare, color: 'bg-blue-600', limit: 20000 },
   { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'bg-pink-500', limit: 2200 },
   { id: 'twitter', name: 'Twitter/X', icon: Twitter, color: 'bg-sky-500', limit: 280 },
   { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'bg-blue-700', limit: 3000 },
