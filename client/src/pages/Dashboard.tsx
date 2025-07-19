@@ -243,6 +243,12 @@ export function Dashboard() {
         case 'twitch_token_exchange_failed':
           errorMessage = "Failed to exchange Twitch authorization code. Please try again."
           break
+        case 'line_access_denied':
+          errorMessage = "Line access was denied. Please try again."
+          break
+        case 'line_token_exchange_failed':
+          errorMessage = "Failed to exchange Line authorization code. Please try again."
+          break
       }
       
       toast({

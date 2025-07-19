@@ -328,6 +328,18 @@ router.post('/initiate', requireUser, async (req, res) => {
         authUrl = `https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
         break;
 
+      case 'line':
+        clientId = process.env.LINE_CLIENT_ID;
+        redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/line/callback`);
+        scope = encodeURIComponent('profile openid');
+
+        if (!clientId) {
+          return res.status(500).json({ success: false, error: 'Line OAuth not configured. Please add LINE_CLIENT_ID to your .env file' });
+        }
+
+        authUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${userId}`;
+        break;
+
       default:
         return res.status(400).json({ success: false, error: 'Unsupported platform' });
     }
@@ -1499,6 +1511,107 @@ router.get('/twitch/callback', async (req, res) => {
     res.redirect(`${process.env.CLIENT_URL}?success=twitch_connected`);
   } catch (error) {
     console.error('❌ Twitch OAuth callback error:', error);
+    res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
+  }
+});
+
+// Line OAuth callback
+router.get('/line/callback', async (req, res) => {
+  console.log('📱 Line OAuth callback received');
+
+  try {
+    const { code, state: userId, error, error_description } = req.query;
+
+    // Check if user denied authorization
+    if (error) {
+      console.error('Line OAuth error:', error);
+      console.error('Line OAuth error description:', error_description);
+      return res.redirect(`${process.env.CLIENT_URL}?error=line_${error}`);
+    }
+
+    if (!code) {
+      console.error('No authorization code received from Line');
+      return res.redirect(`${process.env.CLIENT_URL}?error=access_denied`);
+    }
+
+    console.log('🔄 Exchanging code for Line access token');
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://api.line.me/oauth2/v2.1/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${process.env.BASE_URL}/api/oauth/line/callback`,
+        client_id: process.env.LINE_CLIENT_ID,
+        client_secret: process.env.LINE_CLIENT_SECRET
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Failed to exchange code for Line token:', tokenResponse.status, errorText);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Failed to get access token from Line:', tokenData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=token_exchange_failed`);
+    }
+
+    console.log('✅ Successfully obtained Line access token');
+
+    // Get user profile information
+    const profileResponse = await fetch('https://api.line.me/v2/profile', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!profileResponse.ok) {
+      const errorText = await profileResponse.text();
+      console.error('Failed to get Line profile:', profileResponse.status, errorText);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    const profileData = await profileResponse.json();
+
+    if (!profileData.userId) {
+      console.error('Failed to get Line profile data:', profileData);
+      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    }
+
+    console.log('✅ Successfully fetched Line profile for user:', profileData.displayName);
+
+    // Line doesn't provide follower count in basic profile API
+    // We'll set it to 0 as it's primarily a messaging platform
+    const followerCount = 0;
+
+    // Save to database
+    const accountData = {
+      platform: 'line',
+      username: profileData.displayName.toLowerCase().replace(/\s+/g, ''),
+      displayName: profileData.displayName,
+      platformUserId: profileData.userId,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || null,
+      profileImage: profileData.pictureUrl || '',
+      followers: followerCount
+    };
+
+    await SocialAccountService.create(userId, accountData);
+    console.log('✅ Line account successfully saved to database');
+
+    res.redirect(`${process.env.CLIENT_URL}?success=line_connected`);
+  } catch (error) {
+    console.error('❌ Line OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });
