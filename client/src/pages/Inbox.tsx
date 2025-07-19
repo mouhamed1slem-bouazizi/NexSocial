@@ -198,7 +198,7 @@ export function Inbox() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          {connected && (
+          {discordStatus?.connected && (
             <Button variant="outline" size="sm">
               <Plus className="h-4 w-4 mr-2" />
               New DM
@@ -238,7 +238,7 @@ export function Inbox() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y max-h-[600px] overflow-y-auto">
-                {!connected ? (
+                {!discordStatus?.connected ? (
                   <div className="p-8 text-center">
                     <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">Discord Not Connected</h3>
