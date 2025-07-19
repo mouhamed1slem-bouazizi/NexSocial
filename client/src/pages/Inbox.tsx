@@ -190,27 +190,7 @@ export function Inbox() {
     }
   }
 
-  const getSentimentColor = (sentiment: string) => {
-    switch (sentiment) {
-      case 'positive':
-        return 'text-green-600 bg-green-100'
-      case 'negative':
-        return 'text-red-600 bg-red-100'
-      default:
-        return 'text-gray-600 bg-gray-100'
-    }
-  }
 
-  const getSentimentIcon = (sentiment: string) => {
-    switch (sentiment) {
-      case 'positive':
-        return '😊'
-      case 'negative':
-        return '😞'
-      default:
-        return '😐'
-    }
-  }
 
   if (loading) {
     return (
@@ -367,54 +347,67 @@ export function Inbox() {
           </Card>
         </div>
 
-        {/* Message Detail */}
+        {/* Conversation Detail */}
         <div className="lg:col-span-2">
-          {selectedMessage ? (
+          {selectedConversation ? (
             <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={selectedMessage.author.avatar} alt={selectedMessage.author.name} />
-                    <AvatarFallback>{selectedMessage.author.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={selectedConversation.participant.pictureUrl} alt={selectedConversation.participant.displayName} />
+                    <AvatarFallback>{selectedConversation.participant.displayName.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{selectedMessage.author.name}</h3>
-                      <span className="text-muted-foreground">{selectedMessage.author.username}</span>
-                      <div className={`p-1 rounded ${platformColors[selectedMessage.platform as keyof typeof platformColors]}`}>
-                        {React.createElement(platformIcons[selectedMessage.platform as keyof typeof platformIcons], { className: "h-3 w-3 text-white" })}
+                      <h3 className="font-semibold">{selectedConversation.participant.displayName}</h3>
+                      <div className="p-1 rounded bg-green-500">
+                        <MessageSquare className="h-3 w-3 text-white" />
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {selectedMessage.type.replace('_', ' ')}
+                      <Badge variant="outline" className="text-xs">
+                        Line Conversation
                       </Badge>
-                      <span className={`text-xs px-2 py-1 rounded-full ${getSentimentColor(selectedMessage.sentiment)}`}>
-                        {getSentimentIcon(selectedMessage.sentiment)} {selectedMessage.sentiment}
-                      </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(selectedMessage.timestamp).toLocaleString()}
+                        {selectedConversation.messages.length} messages
                       </span>
                     </div>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {selectedMessage.postContent && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <p className="text-sm font-medium mb-1">Original Post:</p>
-                    <p className="text-sm text-muted-foreground">{selectedMessage.postContent}</p>
-                  </div>
-                )}
-
-                <div className="p-4 border rounded-lg">
-                  <p className="text-sm">{selectedMessage.content}</p>
+                {/* Message History */}
+                <div className="space-y-3 max-h-[400px] overflow-y-auto border rounded-lg p-4">
+                  {selectedConversation.messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.type === 'sent' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[70%] p-3 rounded-lg ${
+                          message.type === 'sent'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+                        }`}
+                      >
+                        <p className="text-sm">{message.content}</p>
+                        <p className={`text-xs mt-1 ${
+                          message.type === 'sent' 
+                            ? 'text-green-100' 
+                            : 'text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
+                {/* Reply Section */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Textarea
-                      placeholder="Write your reply..."
+                      placeholder="Type your Line message..."
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       className="flex-1"
@@ -427,14 +420,10 @@ export function Inbox() {
                         <Smile className="h-4 w-4 mr-2" />
                         Emoji
                       </Button>
-                      <Button variant="outline" size="sm">
-                        <Flag className="h-4 w-4 mr-2" />
-                        Flag
-                      </Button>
                     </div>
                     <Button onClick={handleReply} disabled={!replyText.trim()}>
                       <Send className="h-4 w-4 mr-2" />
-                      Send Reply
+                      Send Message
                     </Button>
                   </div>
                 </div>
@@ -444,9 +433,9 @@ export function Inbox() {
             <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
               <CardContent className="p-12 text-center">
                 <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Select a message</h3>
+                <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
                 <p className="text-muted-foreground">
-                  Choose a message from the list to view details and reply
+                  Choose a conversation from the list to view messages and reply
                 </p>
               </CardContent>
             </Card>
