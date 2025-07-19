@@ -23,8 +23,18 @@ import {
   Instagram,
   Twitter,
   Linkedin,
-  Smile
+  Smile,
+  Plus,
+  RefreshCw
 } from "lucide-react"
+import { 
+  getLineConversations, 
+  sendLineMessage, 
+  markLineMessagesAsRead, 
+  startLineConversation,
+  type LineConversation,
+  type LineMessage 
+} from "@/api/lineMessaging"
 
 interface Message {
   _id: string
@@ -57,119 +67,127 @@ const platformColors = {
 }
 
 export function Inbox() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
+  const [conversations, setConversations] = useState<LineConversation[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<LineConversation | null>(null)
   const [replyText, setReplyText] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterPlatform, setFilterPlatform] = useState<string>('all')
-  const [filterType, setFilterType] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [lineAccount, setLineAccount] = useState<{ displayName: string; profileImage: string } | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
-    // Mock data for inbox messages
-    const mockMessages: Message[] = [
-      {
-        _id: '1',
-        platform: 'facebook',
-        type: 'comment',
-        author: {
-          name: 'Sarah Johnson',
-          username: '@sarah_j',
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face'
-        },
-        content: 'Love this post! Really helpful insights about social media marketing.',
-        timestamp: '2024-01-15T10:30:00Z',
-        isRead: false,
-        sentiment: 'positive',
-        postContent: 'Excited to share our latest product update! 🚀 #innovation #tech'
-      },
-      {
-        _id: '2',
-        platform: 'instagram',
-        type: 'mention',
-        author: {
-          name: 'Mike Chen',
-          username: '@mike_chen_photo',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face'
-        },
-        content: 'Thanks for the mention! Great collaboration opportunity.',
-        timestamp: '2024-01-15T09:15:00Z',
-        isRead: false,
-        sentiment: 'positive'
-      },
-      {
-        _id: '3',
-        platform: 'twitter',
-        type: 'direct_message',
-        author: {
-          name: 'Emma Wilson',
-          username: '@emma_w',
-          avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face'
-        },
-        content: 'Hi! I saw your recent post about automation. Would love to discuss a potential partnership.',
-        timestamp: '2024-01-15T08:45:00Z',
-        isRead: true,
-        sentiment: 'neutral'
-      },
-      {
-        _id: '4',
-        platform: 'linkedin',
-        type: 'comment',
-        author: {
-          name: 'David Rodriguez',
-          username: '@david_r_marketing',
-          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
-        },
-        content: 'Interesting perspective on social media trends. However, I think there are some points that could be expanded.',
-        timestamp: '2024-01-14T16:20:00Z',
-        isRead: true,
-        sentiment: 'neutral',
-        postContent: 'Behind the scenes at our office! Great team collaboration today. 💪'
-      }
-    ]
-
-    setMessages(mockMessages)
-    setLoading(false)
+    fetchLineConversations()
   }, [])
 
-  const filteredMessages = messages.filter(message => {
-    const matchesSearch = message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         message.author.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesPlatform = filterPlatform === 'all' || message.platform === filterPlatform
-    const matchesType = filterType === 'all' || message.type === filterType
+  const fetchLineConversations = async () => {
+    try {
+      setLoading(true)
+      const response = await getLineConversations()
+      setConversations(response.conversations || [])
+      setLineAccount(response.lineAccount || null)
+      
+      if (response.conversations.length === 0 && response.lineAccount) {
+        // No conversations yet, show a helpful message
+        toast({
+          title: "Line Connected! 📱",
+          description: "Your Line account is connected. Start a new conversation to begin messaging.",
+          duration: 5000,
+        })
+      }
+    } catch (error: any) {
+      console.error('Error fetching conversations:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load Line conversations",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    return matchesSearch && matchesPlatform && matchesType
+  const refreshConversations = async () => {
+    try {
+      setRefreshing(true)
+      await fetchLineConversations()
+      toast({
+        title: "Refreshed",
+        description: "Conversations updated successfully",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh conversations",
+        variant: "destructive"
+      })
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const startNewConversation = async () => {
+    try {
+      const response = await startLineConversation()
+      if (response.success) {
+        await fetchLineConversations() // Refresh to show new conversation
+        toast({
+          title: "New Conversation",
+          description: "Started a new Line conversation!",
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start new conversation",
+        variant: "destructive"
+      })
+         }
+   }
+
+  const filteredConversations = conversations.filter(conversation => {
+    const matchesSearch = conversation.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         conversation.participant.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesSearch
   })
 
-  const unreadCount = messages.filter(m => !m.isRead).length
+  const unreadCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0)
 
   const handleReply = async () => {
-    if (!replyText.trim() || !selectedMessage) return
+    if (!replyText.trim() || !selectedConversation) return
 
     try {
-      // Mock reply functionality
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
+      await sendLineMessage(selectedConversation.participant.userId, replyText, selectedConversation.id)
+      
       toast({
         title: "Success",
-        description: "Reply sent successfully!",
+        description: "Line message sent successfully!",
       })
 
       setReplyText("")
-    } catch (error) {
+      
+      // Refresh conversations to show the new message
+      await fetchLineConversations()
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to send reply",
+        description: error.message || "Failed to send Line message",
         variant: "destructive"
       })
     }
   }
 
-  const markAsRead = (messageId: string) => {
-    setMessages(prev => prev.map(msg =>
-      msg._id === messageId ? { ...msg, isRead: true } : msg
-    ))
+  const markAsRead = async (conversationId: string) => {
+    try {
+      await markLineMessagesAsRead(conversationId)
+      
+      // Update local state
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId ? { ...conv, unreadCount: 0, messages: conv.messages.map(msg => ({ ...msg, isRead: true })) } : conv
+      ))
+    } catch (error: any) {
+      console.error('Error marking messages as read:', error)
+    }
   }
 
   const getSentimentColor = (sentiment: string) => {
@@ -217,129 +235,133 @@ export function Inbox() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Social Inbox
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+            Line Messaging 📱
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage all your social media conversations in one place
+            {lineAccount ? `Connected as ${lineAccount.displayName}` : 'Connect your Line account to start messaging'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshConversations}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={startNewConversation}
+            disabled={!lineAccount}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Chat
+          </Button>
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
             {unreadCount} unread
           </Badge>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
         <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-              <Input
-                placeholder="Search messages..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Platforms</SelectItem>
-                  <SelectItem value="facebook">Facebook</SelectItem>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="twitter">Twitter</SelectItem>
-                  <SelectItem value="linkedin">LinkedIn</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="comment">Comments</SelectItem>
-                  <SelectItem value="mention">Mentions</SelectItem>
-                  <SelectItem value="direct_message">Direct Messages</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+            <Input
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Messages List */}
+        {/* Conversations List */}
         <div className="lg:col-span-1">
           <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Messages ({filteredMessages.length})
+                <MessageSquare className="h-5 w-5 text-green-600" />
+                Line Conversations ({filteredConversations.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y max-h-[600px] overflow-y-auto">
-                {filteredMessages.map((message) => {
-                  const IconComponent = platformIcons[message.platform as keyof typeof platformIcons]
-                  const platformColor = platformColors[message.platform as keyof typeof platformColors]
-
-                  return (
+                {!lineAccount ? (
+                  <div className="p-8 text-center">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Line Account Connected</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Connect your Line account from the Dashboard to start messaging.
+                    </p>
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Conversations Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start a new conversation to begin messaging on Line.
+                    </p>
+                    <Button onClick={startNewConversation} variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Start New Chat
+                    </Button>
+                  </div>
+                ) : (
+                  filteredConversations.map((conversation) => (
                     <div
-                      key={message._id}
+                      key={conversation.id}
                       className={`p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                        selectedMessage?._id === message._id ? 'bg-blue-50 dark:bg-blue-950 border-r-2 border-blue-500' : ''
-                      } ${!message.isRead ? 'bg-blue-50/50 dark:bg-blue-950/50' : ''}`}
+                        selectedConversation?.id === conversation.id ? 'bg-green-50 dark:bg-green-950 border-r-2 border-green-500' : ''
+                      } ${conversation.unreadCount > 0 ? 'bg-green-50/50 dark:bg-green-950/50' : ''}`}
                       onClick={() => {
-                        setSelectedMessage(message)
-                        if (!message.isRead) {
-                          markAsRead(message._id)
+                        setSelectedConversation(conversation)
+                        if (conversation.unreadCount > 0) {
+                          markAsRead(conversation.id)
                         }
                       }}
                     >
                       <div className="flex items-start gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={message.author.avatar} alt={message.author.name} />
-                          <AvatarFallback>{message.author.name.charAt(0)}</AvatarFallback>
+                          <AvatarImage src={conversation.participant.pictureUrl} alt={conversation.participant.displayName} />
+                          <AvatarFallback>{conversation.participant.displayName.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <div className={`p-1 rounded ${platformColor}`}>
-                              <IconComponent className="h-3 w-3 text-white" />
+                            <div className="p-1 rounded bg-green-500">
+                              <MessageSquare className="h-3 w-3 text-white" />
                             </div>
-                            <span className="font-medium text-sm">{message.author.name}</span>
-                            {!message.isRead && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="font-medium text-sm">{conversation.participant.displayName}</span>
+                            {conversation.unreadCount > 0 && (
+                              <Badge variant="secondary" className="bg-green-500 text-white text-xs">
+                                {conversation.unreadCount}
+                              </Badge>
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground mb-1 line-clamp-2">
-                            {message.content}
+                            {conversation.lastMessage.content}
                           </p>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {message.type.replace('_', ' ')}
+                            <Badge variant="outline" className="text-xs">
+                              Line Message
                             </Badge>
-                            <span className={`text-xs px-2 py-1 rounded-full ${getSentimentColor(message.sentiment)}`}>
-                              {getSentimentIcon(message.sentiment)}
-                            </span>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(message.timestamp).toLocaleDateString()}
+                              {new Date(conversation.lastMessage.timestamp).toLocaleDateString()}
                             </span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
