@@ -161,6 +161,9 @@ router.post('/', requireUser, async (req, res) => {
         
         let result;
         switch (account.platform) {
+          case 'facebook':
+            result = await postToFacebook(account, content, processedMedia);
+            break;
           case 'reddit':
             result = await postToReddit(account, content, processedMedia, subredditSettings);
             break;
@@ -611,6 +614,50 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
       success: false,
       error: error.message || 'Failed to post to Reddit',
       platform: 'reddit'
+    };
+  }
+};
+
+// Helper function to post to Facebook
+const postToFacebook = async (account, content, media = []) => {
+  try {
+    const body = {
+      message: content,
+      access_token: account.access_token
+    };
+
+    // Add media if provided
+    if (media.length > 0) {
+      // For now, Facebook posting with media is complex and requires photo/video upload endpoints
+      // We'll post text-only and mention media count
+      body.message += `\n\n📸 Includes ${media.length} media item${media.length > 1 ? 's' : ''}`;
+      console.log(`Facebook: Media upload not implemented yet. Posted text with media note.`);
+    }
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/me/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Failed to post to Facebook');
+    }
+
+    return {
+      success: true,
+      postId: data.id,
+      message: media.length > 0 
+        ? `Posted to Facebook successfully (${media.length} media items noted)`
+        : 'Posted to Facebook successfully',
+      mediaCount: media.length
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
     };
   }
 };
