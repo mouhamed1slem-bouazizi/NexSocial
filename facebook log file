@@ -1,12 +1,49 @@
+Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+✅ Auth successful for user: mibtn10@gmail.com
+Initiating OAuth for platform: facebook, user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+🔧 Environment check for OAuth:
+   BASE_URL: https://nexsocial.onrender.com
+   CLIENT_URL: https://nexsocial.onrender.com
+Generated OAuth URL for facebook: https://www.facebook.com/v18.0/dialog/oauth?client_id=1208839094375456&redirect_uri=https%3A%2F%2Fnexsocial.onrender.com%2Fapi%2Foauth%2Ffacebook%2Fcallback&scope=pages_manage_posts%2Cpages_read_engagement%2Cinstagram_basic%2Cinstagram_content_publish&response_type=code&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+🌐 REQUEST: GET /api/oauth/facebook/callback?code=AQBs7JZNkf39FVnYYz5pRuuBp0z1lBWfMk5rjeMnzjJ-b8ZBUFrBOs9ZvPX0f1utmtlQVvZx547TlldvdgaFV7oCBFilp9IaIvuOv0-D8JLBdvbKI2-8Xgfa9xAwNiJGbEZRffKf6Y-yUTvgUSMT-IdLv7boCVYC5n0E7JCP3mxoG7ZA5MExmn8OYzHDasLWOwDyQMwXF8Sfmhkv7xsKtQs51TUnr_pdHqhN2u9KMbbRiOm7x28dYimzqjXMWNXShi-NhiavpZ2BXPazGNAg9lJDsMcHWurOk07Abz5k_GNSzx-W_QZxPPm2ILpggWsy_0KogQ7lEzlfTLJgFCsqN41eRxvrE4ddmDKQ0Qkj_34DtRmZ5tRrXZATLoneYNU9cna6vgX9ANOCqZzUIZ8g8vjQZeaMLI6Y_i0LTo5tGSnjzkLhl5uhis6IbihTMHICORo&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+🌐 Path: /api/oauth/facebook/callback
+🌐 Original URL: /api/oauth/facebook/callback?code=AQBs7JZNkf39FVnYYz5pRuuBp0z1lBWfMk5rjeMnzjJ-b8ZBUFrBOs9ZvPX0f1utmtlQVvZx547TlldvdgaFV7oCBFilp9IaIvuOv0-D8JLBdvbKI2-8Xgfa9xAwNiJGbEZRffKf6Y-yUTvgUSMT-IdLv7boCVYC5n0E7JCP3mxoG7ZA5MExmn8OYzHDasLWOwDyQMwXF8Sfmhkv7xsKtQs51TUnr_pdHqhN2u9KMbbRiOm7x28dYimzqjXMWNXShi-NhiavpZ2BXPazGNAg9lJDsMcHWurOk07Abz5k_GNSzx-W_QZxPPm2ILpggWsy_0KogQ7lEzlfTLJgFCsqN41eRxvrE4ddmDKQ0Qkj_34DtRmZ5tRrXZATLoneYNU9cna6vgX9ANOCqZzUIZ8g8vjQZeaMLI6Y_i0LTo5tGSnjzkLhl5uhis6IbihTMHICORo&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+Facebook OAuth callback received
+Exchanging code for access token
+Successfully obtained Facebook access token
+Exchanging for long-lived user access token
+Successfully obtained long-lived user access token
+Found 1 Facebook pages.
+Creating social account for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693, platform: facebook
+Social account created successfully: 3838e6ea-bc50-4b55-8c90-08344b00d095
+Facebook page "Velorpian Noobo" successfully saved to database with long-lived token.
+🌐 REQUEST: GET /?success=facebook_connected
+🌐 Path: /
+🌐 Original URL: /?success=facebook_connected
+🌐 REQUEST: GET /assets/index-BH4nsScE.css
+🌐 Path: /assets/index-BH4nsScE.css
+🌐 Original URL: /assets/index-BH4nsScE.css
+🌐 REQUEST: GET /assets/index-DSo2tAX8.js
+🌐 Path: /assets/index-DSo2tAX8.js
+🌐 Original URL: /assets/index-DSo2tAX8.js
+🌐 REQUEST: GET /api/social-accounts
+🌐 Path: /api/social-accounts
+🌐 Original URL: /api/social-accounts
+🔒 Auth middleware - checking authentication
+🔑 Token received, length: 192
+✅ Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+
 Auth successful for user: mibtn10@gmail.com
 📝 Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📊 Post data: {
-  "content": "post image to facebook",
+  "content": "post image of Nexora logo",
   "platforms": [
     "facebook"
   ],
   "selectedAccounts": [
-    "26e4fc37-0c7d-4b2b-b511-75f867aeafe1"
+    "3838e6ea-bc50-4b55-8c90-08344b00d095"
   ],
   "media": [
     {
@@ -24,6 +61,7 @@ Found 10 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📤 Publishing to 1 accounts: [ 'facebook:Velorpian Noobo' ]
 📎 Processed 1 media files
 🚀 Posting to facebook:Velorpian Noobo...
-❌ Facebook posting error for account 26e4fc37-0c7d-4b2b-b511-75f867aeafe1: Missing Page ID or Page Access Token for Facebook post.
+❌ Facebook posting error for account 3838e6ea-bc50-4b55-8c90-08344b00d095: Missing Page ID or Page Access Token for Facebook post.
 ❌ Failed to post to facebook:Velorpian Noobo - Missing Page ID or Page Access Token for Facebook post.
 📊 Posting complete: 0/1 successful
+📊 Creating post record for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693

@@ -118,7 +118,17 @@ router.post('/', requireUser, async (req, res) => {
 
     // Get user's social accounts
     const userAccounts = await SocialAccountService.getByUserId(req.user._id);
-    const accountsMap = new Map(userAccounts.map(acc => [acc.id, acc]));
+    
+    // Map database field names to expected property names
+    const mapAccountFields = (account) => ({
+      ...account,
+      platformUserId: account.platform_user_id,
+      accessToken: account.access_token,
+      refreshToken: account.refresh_token,
+      displayName: account.display_name
+    });
+    
+    const accountsMap = new Map(userAccounts.map(acc => [acc.id, mapAccountFields(acc)]));
 
     // Filter selected accounts to only include user's connected accounts
     const validAccounts = selectedAccounts
