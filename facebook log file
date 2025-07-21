@@ -1,7 +1,7 @@
 Auth successful for user: mibtn10@gmail.com
 📝 Creating new post for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 📊 Post data: {
-  "content": "post image now",
+  "content": "image facebook posting",
   "platforms": [
     "facebook"
   ],
@@ -21,10 +21,9 @@ Auth successful for user: mibtn10@gmail.com
 }
 Fetching social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 Found 10 social accounts for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+❌ Facebook posting error for account 26e4fc37-0c7d-4b2b-b511-75f867aeafe1: Missing Page ID or Page Access Token for Facebook post.
 📤 Publishing to 1 accounts: [ 'facebook:Velorpian Noobo' ]
 📎 Processed 1 media files
 🚀 Posting to facebook:Velorpian Noobo...
-❌ Facebook posting error for account 26e4fc37-0c7d-4b2b-b511-75f867aeafe1: Missing Page ID or Page Access Token for Facebook post.
 ❌ Failed to post to facebook:Velorpian Noobo - Missing Page ID or Page Access Token for Facebook post.
 📊 Posting complete: 0/1 successful
-📊 Creating post record for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693

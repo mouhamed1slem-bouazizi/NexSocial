@@ -15,18 +15,24 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
       const mediaItem = media[0];
       const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
       const endpoint = isVideo ? 'videos' : 'photos';
-      const postUrl = `https://graph.facebook.com/v18.0/${pageId}/${endpoint}`;
+      const postUrl = `https://graph.facebook.com/v18.0/${pageId}/${endpoint}?access_token=${accessToken}`;
 
       const formData = new FormData();
-      formData.append('access_token', accessToken);
-      formData.append('caption', content);
+      // For photos, use 'message' parameter, for videos use 'description'
+      if (isVideo) {
+        formData.append('description', content);
+      } else {
+        formData.append('message', content);
+      }
       formData.append('source', mediaItem.buffer, {
         filename: mediaItem.name || (isVideo ? 'video.mp4' : 'image.jpg'),
         contentType: mediaItem.type,
       });
 
       const response = await axios.post(postUrl, formData, {
-        headers: formData.getHeaders(),
+        headers: {
+          ...formData.getHeaders(),
+        },
       });
 
       return {
@@ -36,31 +42,23 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
       };
     }
 
+    // Text-only post
     const postUrl = `https://graph.facebook.com/v18.0/${pageId}/feed`;
-    const body = {
+    const response = await axios.post(postUrl, {
       message: content,
       access_token: accessToken,
-    };
-
-    const response = await fetch(postUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Failed to post to Facebook');
-    }
 
     return {
       success: true,
-      postId: data.id,
+      postId: response.data.id,
       message: 'Posted to Facebook successfully',
     };
   } catch (error) {
     console.error(`❌ Facebook posting error for account ${account.id}:`, error.message);
+    if (error.response?.data) {
+      console.error('Facebook API Error Details:', error.response.data);
+    }
     return {
       success: false,
       error: error.message,
