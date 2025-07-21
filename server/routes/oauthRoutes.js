@@ -393,7 +393,7 @@ router.get('/facebook/callback', async (req, res) => {
     console.log('Successfully obtained Facebook access token');
 
     // Get user's managed pages
-    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture&access_token=${tokenData.access_token}`);
+    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture,followers_count&access_token=${tokenData.access_token}`);
     const pagesData = await pagesResponse.json();
 
     if (!pagesData.data || pagesData.data.length === 0) {
@@ -414,7 +414,7 @@ router.get('/facebook/callback', async (req, res) => {
         platformUserId: page.id,
         accessToken: page.access_token, // This is the page-specific access token
         profileImage: page.picture?.data?.url || '',
-        followers: 0 // This would require another API call, defaulting to 0
+        followers: page.followers_count || 0
       };
       
       await SocialAccountService.create(userId, accountData);
