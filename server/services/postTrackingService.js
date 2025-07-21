@@ -274,15 +274,21 @@ class PostTrackingService {
       // Count platform usage
       const platformCounts = {};
       recentPosts?.forEach(post => {
-        // The successful_platforms field is a JSONB type, so it's already an array.
-        const platforms = post.successful_platforms || [];
-        platforms.forEach(p => {
-          if (platformCounts.hasOwnProperty(p)) {
-            platformCounts[p]++;
-          } else {
-            platformCounts[p] = 1;
+        try {
+          // The successful_platforms field is a JSONB string, so it needs to be parsed.
+          const platforms = JSON.parse(post.successful_platforms || '[]');
+          if (Array.isArray(platforms)) {
+            platforms.forEach(p => {
+              if (platformCounts.hasOwnProperty(p)) {
+                platformCounts[p]++;
+              } else {
+                platformCounts[p] = 1;
+              }
+            });
           }
-        });
+        } catch (e) {
+          console.error('Failed to parse successful_platforms:', post.successful_platforms);
+        }
       });
 
       // Format for recharts
