@@ -44,24 +44,29 @@ class PostTrackingService {
       }
       
       // Extract platform information from results
-      const platforms = Object.keys(postData.results || {});
+      const platforms = [];
       const successfulPlatforms = [];
       const failedPlatforms = [];
       
       let successfulAccounts = 0;
       let failedAccounts = 0;
       
-      // Analyze results
+      // Analyze results - the key is the account ID, value contains platform info
       Object.entries(postData.results || {}).forEach(([accountId, result]) => {
-        if (result.success) {
-          successfulPlatforms.push(result.platform);
-          successfulAccounts++;
-        } else {
-          failedPlatforms.push(result.platform);
-          failedAccounts++;
+        const platform = result.platform;
+        if (platform) {
+          platforms.push(platform);
+          
+          if (result.success) {
+            successfulPlatforms.push(platform);
+            successfulAccounts++;
+          } else {
+            failedPlatforms.push(platform);
+            failedAccounts++;
+          }
         }
       });
-      
+
       const postRecord = {
         user_id: userId,
         content: postData.content || '',
