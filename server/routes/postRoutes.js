@@ -619,8 +619,19 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
 };
 
 // Helper function to post to Facebook
-const postToFacebook = async (account, content, media = []) => {
+const postToFacebook = async (account, content, media = [], postDetails = {}) => {
   try {
+    const { targetType, targetId } = postDetails;
+    let postUrl;
+
+    if (targetType === 'group' && targetId) {
+      postUrl = `https://graph.facebook.com/v18.0/${targetId}/feed`;
+    } else if (targetType === 'page' && targetId) {
+      postUrl = `https://graph.facebook.com/v18.0/${targetId}/feed`;
+    } else {
+      postUrl = `https://graph.facebook.com/v18.0/me/feed`;
+    }
+
     const body = {
       message: content,
       access_token: account.access_token
@@ -634,7 +645,7 @@ const postToFacebook = async (account, content, media = []) => {
       console.log(`Facebook: Media upload not implemented yet. Posted text with media note.`);
     }
 
-    const response = await fetch(`https://graph.facebook.com/v18.0/me/feed`, {
+    const response = await fetch(postUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)

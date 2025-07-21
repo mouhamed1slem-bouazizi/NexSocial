@@ -119,7 +119,7 @@ class PostTrackingService {
       // Get posts this month
       const { data: currentMonthPosts, error: currentError } = await supabase
         .from('user_posts')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', userId)
         .gte('created_at', currentMonthStart.toISOString())
         .lte('created_at', currentMonthEnd.toISOString());
@@ -132,7 +132,7 @@ class PostTrackingService {
       // Get posts last month
       const { data: lastMonthPosts, error: lastError } = await supabase
         .from('user_posts')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', userId)
         .gte('created_at', lastMonthStart.toISOString())
         .lte('created_at', lastMonthEnd.toISOString());
@@ -244,7 +244,7 @@ class PostTrackingService {
     }
   }
 
-  // Get platform distribution
+  // Get platform distribution for a user
   static async getPlatformDistribution(userId) {
     try {
       const supabase = getSupabase();
@@ -252,13 +252,11 @@ class PostTrackingService {
         throw new Error('Database connection not available');
       }
 
-      console.log(`📊 Fetching platform distribution for user: ${userId}`);
-
-      // Get last 30 days of posts
+      // Get posts from the last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: posts, error } = await supabase
+      const { data: recentPosts, error } = await supabase
         .from('user_posts')
         .select('successful_platforms')
         .eq('user_id', userId)
@@ -282,7 +280,7 @@ class PostTrackingService {
         reddit: '#FF4500'
       };
 
-      posts?.forEach(post => {
+      recentPosts?.forEach(post => {
         try {
           const platforms = JSON.parse(post.successful_platforms || '[]');
           platforms.forEach(platform => {

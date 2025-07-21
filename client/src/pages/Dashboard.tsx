@@ -67,6 +67,7 @@ import { Label } from "@/components/ui/label"
 
 const platformIcons = {
   facebook: Facebook,
+  messenger: MessageCircle,
   instagram: Instagram,
   twitter: Twitter,
   linkedin: Linkedin,
