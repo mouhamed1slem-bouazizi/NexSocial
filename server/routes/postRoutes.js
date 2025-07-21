@@ -622,48 +622,55 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
 const postToFacebook = async (account, content, media = [], postDetails = {}) => {
   try {
     const { targetType, targetId } = postDetails;
-    let postUrl;
+    const pageId = targetId || account.platformUserId; // Fallback to the account's platform ID
+    
+    // If there is media, handle media upload
+    if (media.length > 0) {
+      const mediaItem = media[0];
+      const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
+      const endpoint = isVideo ? 'videos' : 'photos';
+      const postUrl = `https://graph.facebook.com/v18.0/${pageId}/${endpoint}`;
 
-    if (targetType === 'group' && targetId) {
-      postUrl = `https://graph.facebook.com/v18.0/${targetId}/feed`;
-    } else if (targetType === 'page' && targetId) {
-      postUrl = `https://graph.facebook.com/v18.0/${targetId}/feed`;
-    } else {
-      postUrl = `https://graph.facebook.com/v18.0/me/feed`;
+      const formData = new FormData();
+      formData.append('access_token', account.accessToken);
+      formData.append('caption', content);
+      formData.append('source', mediaItem.buffer, {
+        filename: mediaItem.name || (isVideo ? 'video.mp4' : 'image.jpg'),
+        contentType: mediaItem.type,
+      });
+
+      const response = await axios.post(postUrl, formData, {
+        headers: formData.getHeaders(),
+      });
+      
+      return {
+        success: true,
+        postId: response.data.id,
+        message: 'Media posted to Facebook successfully',
+      };
     }
 
+    // Text-only post
+    const postUrl = `https://graph.facebook.com/v18.0/${pageId}/feed`;
     const body = {
       message: content,
       access_token: account.access_token
     };
-
-    // Add media if provided
-    if (media.length > 0) {
-      // For now, Facebook posting with media is complex and requires photo/video upload endpoints
-      // We'll post text-only and mention media count
-      body.message += `\n\n📸 Includes ${media.length} media item${media.length > 1 ? 's' : ''}`;
-      console.log(`Facebook: Media upload not implemented yet. Posted text with media note.`);
-    }
-
+    
     const response = await fetch(postUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-
     const data = await response.json();
 
     if (!response.ok) {
       throw new Error(data.error?.message || 'Failed to post to Facebook');
     }
-
     return {
       success: true,
       postId: data.id,
-      message: media.length > 0 
-        ? `Posted to Facebook successfully (${media.length} media items noted)`
-        : 'Posted to Facebook successfully',
-      mediaCount: media.length
+      message: 'Posted to Facebook successfully',
     };
   } catch (error) {
     return {
