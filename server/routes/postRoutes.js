@@ -153,6 +153,23 @@ router.post('/', requireUser, async (req, res) => {
         const base64Data = item.data.split(',')[1]; // Remove data:image/jpeg;base64, prefix
         const buffer = Buffer.from(base64Data, 'base64');
         
+        // Check file size limits
+        const fileSizeMB = buffer.length / (1024 * 1024);
+        const isVideo = item.type && item.type.startsWith('video/');
+        const isImage = item.type && item.type.startsWith('image/');
+        
+        // Facebook limits: Videos max 1GB, but for reliability we'll limit to 100MB
+        // Images max 10MB
+        if (isVideo && fileSizeMB > 100) {
+          throw new Error(`Video file "${item.name}" is too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 100MB for reliable posting.`);
+        }
+        
+        if (isImage && fileSizeMB > 10) {
+          throw new Error(`Image file "${item.name}" is too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 10MB.`);
+        }
+        
+        console.log(`📁 Processing ${isVideo ? 'video' : 'image'}: ${item.name} (${fileSizeMB.toFixed(2)}MB)`);
+        
         return {
           name: item.name,
           type: item.type,

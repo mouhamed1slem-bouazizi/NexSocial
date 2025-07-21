@@ -45,6 +45,9 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
         headers: {
           ...formData.getHeaders(),
         },
+        timeout: 300000, // 5 minutes timeout for video uploads
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       });
 
       console.log(`✅ Successfully posted ${isVideo ? 'video' : 'image'} to Facebook. Post ID: ${response.data.id}`);
