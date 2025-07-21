@@ -618,12 +618,16 @@ const postToReddit = async (account, content, media = [], subredditSettings = {}
   }
 };
 
-// Helper function to post to Facebook
 const postToFacebook = async (account, content, media = [], postDetails = {}) => {
   try {
     const { targetType, targetId } = postDetails;
     const pageId = targetId || account.platformUserId; // Fallback to the account's platform ID
-    
+    const accessToken = account.accessToken; // Use the page-specific access token stored in the account
+
+    if (!pageId || !accessToken) {
+      throw new Error('Missing Page ID or Page Access Token for Facebook post.');
+    }
+
     // If there is media, handle media upload
     if (media.length > 0) {
       const mediaItem = media[0];
@@ -632,7 +636,7 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
       const postUrl = `https://graph.facebook.com/v18.0/${pageId}/${endpoint}`;
 
       const formData = new FormData();
-      formData.append('access_token', account.accessToken);
+      formData.append('access_token', accessToken); // Use the correct page access token
       formData.append('caption', content);
       formData.append('source', mediaItem.buffer, {
         filename: mediaItem.name || (isVideo ? 'video.mp4' : 'image.jpg'),
@@ -654,7 +658,7 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
     const postUrl = `https://graph.facebook.com/v18.0/${pageId}/feed`;
     const body = {
       message: content,
-      access_token: account.access_token
+      access_token: accessToken // Use the correct page access token
     };
     
     const response = await fetch(postUrl, {
@@ -673,11 +677,13 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
       message: 'Posted to Facebook successfully',
     };
   } catch (error) {
+    console.error(`❌ Facebook posting error for account ${account.id}:`, error.message);
     return {
       success: false,
       error: error.message
     };
   }
 };
+
 
 module.exports = router; 
