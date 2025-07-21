@@ -194,7 +194,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'facebook':
         clientId = process.env.FACEBOOK_APP_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/facebook/callback`);
-        scope = encodeURIComponent('pages_manage_posts,pages_read_engagement,publish_to_groups,instagram_basic,instagram_content_publish');
+        scope = encodeURIComponent('pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'Facebook OAuth not configured' });
