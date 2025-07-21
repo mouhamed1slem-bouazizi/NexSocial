@@ -392,8 +392,16 @@ router.get('/facebook/callback', async (req, res) => {
 
     console.log('Successfully obtained Facebook access token');
 
+    // Exchange short-lived token for long-lived token
+    console.log('Exchanging for long-lived user access token');
+    const longLivedTokenResponse = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&fb_exchange_token=${tokenData.access_token}`);
+    const longLivedTokenData = await longLivedTokenResponse.json();
+
+    const finalUserToken = longLivedTokenData.access_token || tokenData.access_token;
+    console.log('Successfully obtained long-lived user access token');
+
     // Get user's managed pages
-    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture,followers_count&access_token=${tokenData.access_token}`);
+    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture,followers_count&access_token=${finalUserToken}`);
     const pagesData = await pagesResponse.json();
 
     if (!pagesData.data || pagesData.data.length === 0) {
@@ -405,20 +413,21 @@ router.get('/facebook/callback', async (req, res) => {
 
     console.log(`Found ${pagesData.data.length} Facebook pages.`);
 
-    // Save each page as a new social account
+    // Save each page as a new social account with long-lived page tokens
     for (const page of pagesData.data) {
+      // Page access tokens from /me/accounts are already long-lived when obtained with a long-lived user token
       const accountData = {
         platform: 'facebook',
         username: page.name,
         displayName: page.name,
         platformUserId: page.id,
-        accessToken: page.access_token, // This is the page-specific access token
+        accessToken: page.access_token, // This is the page-specific long-lived access token
         profileImage: page.picture?.data?.url || '',
         followers: page.followers_count || 0
       };
       
       await SocialAccountService.create(userId, accountData);
-      console.log(`Facebook page "${page.name}" successfully saved to database.`);
+      console.log(`Facebook page "${page.name}" successfully saved to database with long-lived token.`);
     }
 
     res.redirect(`${process.env.CLIENT_URL}?success=facebook_connected`);

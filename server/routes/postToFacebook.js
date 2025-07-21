@@ -11,11 +11,23 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
       throw new Error('Missing Page ID or Page Access Token for Facebook post.');
     }
 
+    // First, validate the access token by checking if it's still valid
+    console.log(`🔍 Validating Facebook access token for page ${pageId}`);
+    const tokenValidationResponse = await axios.get(`https://graph.facebook.com/v18.0/me?access_token=${accessToken}`);
+    
+    if (!tokenValidationResponse.data || !tokenValidationResponse.data.id) {
+      throw new Error('Facebook access token is invalid or expired. Please reconnect your Facebook account.');
+    }
+    
+    console.log(`✅ Facebook access token is valid for: ${tokenValidationResponse.data.name || pageId}`);
+
     if (media.length > 0) {
       const mediaItem = media[0];
       const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
       const endpoint = isVideo ? 'videos' : 'photos';
       const postUrl = `https://graph.facebook.com/v18.0/${pageId}/${endpoint}?access_token=${accessToken}`;
+
+      console.log(`📤 Posting ${isVideo ? 'video' : 'image'} to Facebook page: ${pageId}`);
 
       const formData = new FormData();
       // For photos, use 'message' parameter, for videos use 'description'
@@ -35,6 +47,8 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
         },
       });
 
+      console.log(`✅ Successfully posted ${isVideo ? 'video' : 'image'} to Facebook. Post ID: ${response.data.id}`);
+
       return {
         success: true,
         postId: response.data.id,
@@ -43,11 +57,14 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
     }
 
     // Text-only post
+    console.log(`📤 Posting text to Facebook page: ${pageId}`);
     const postUrl = `https://graph.facebook.com/v18.0/${pageId}/feed`;
     const response = await axios.post(postUrl, {
       message: content,
       access_token: accessToken,
     });
+
+    console.log(`✅ Successfully posted text to Facebook. Post ID: ${response.data.id}`);
 
     return {
       success: true,
@@ -56,9 +73,44 @@ const postToFacebook = async (account, content, media = [], postDetails = {}) =>
     };
   } catch (error) {
     console.error(`❌ Facebook posting error for account ${account.id}:`, error.message);
+    
+    // Provide more specific error details
     if (error.response?.data) {
-      console.error('Facebook API Error Details:', error.response.data);
+      console.error('📋 Facebook API Error Details:', JSON.stringify(error.response.data, null, 2));
+      
+      // Handle specific Facebook API errors
+      if (error.response.data.error) {
+        const fbError = error.response.data.error;
+        
+        if (fbError.code === 100 || fbError.type === 'OAuthException') {
+          return {
+            success: false,
+            error: 'Facebook access token is invalid or expired. Please reconnect your Facebook account.',
+          };
+        }
+        
+        if (fbError.code === 200) {
+          return {
+            success: false,
+            error: 'Missing permissions to post to this Facebook page. Please check your page permissions.',
+          };
+        }
+        
+        if (fbError.code === 368) {
+          return {
+            success: false,
+            error: 'The Facebook page access token is temporarily unavailable. Please try again later.',
+          };
+        }
+        
+        // Return the specific Facebook error message
+        return {
+          success: false,
+          error: `Facebook API Error: ${fbError.message}`,
+        };
+      }
     }
+    
     return {
       success: false,
       error: error.message,
