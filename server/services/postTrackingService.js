@@ -1,5 +1,27 @@
 const { getSupabase } = require('../config/database');
 
+const platformColors = {
+  facebook: '#1877F2',
+  messenger: '#0084FF',
+  instagram: '#E4405F',
+  twitter: '#1DA1F2',
+  linkedin: '#0A66C2',
+  youtube: '#FF0000',
+  tiktok: '#000000',
+  pinterest: '#BD081C',
+  discord: '#5865F2',
+  telegram: '#26A5E4',
+  whatsapp: '#25D366',
+  snapchat: '#FFFC00',
+  reddit: '#FF4500',
+  vimeo: '#1AB7EA',
+  threads: '#000000',
+  twitch: '#9146FF',
+  line: '#00B900',
+  tumblr: '#36465D',
+  vk: '#4680C2',
+};
+
 class PostTrackingService {
   
   // Create a new post record
@@ -246,18 +268,6 @@ class PostTrackingService {
 
       // Count platform usage
       const platformCounts = {};
-      const platformColors = {
-        facebook: '#1877F2',
-        instagram: '#E4405F',
-        twitter: '#1DA1F2',
-        linkedin: '#0A66C2',
-        youtube: '#FF0000',
-        tiktok: '#000000',
-        discord: '#7289DA',
-        telegram: '#0088CC',
-        reddit: '#FF4500'
-      };
-
       recentPosts?.forEach(post => {
         // The successful_platforms field is a JSONB type, so it's already an array.
         const platforms = post.successful_platforms || [];
