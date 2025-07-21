@@ -392,31 +392,34 @@ router.get('/facebook/callback', async (req, res) => {
 
     console.log('Successfully obtained Facebook access token');
 
-    // Get user profile
-    const profileResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,picture&access_token=${tokenData.access_token}`);
-    const profileData = await profileResponse.json();
+    // Get user's managed pages
+    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture&access_token=${tokenData.access_token}`);
+    const pagesData = await pagesResponse.json();
 
-    if (!profileData.id) {
-      console.error('Failed to get Facebook profile data:', profileData);
-      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
+    if (!pagesData.data || pagesData.data.length === 0) {
+      console.log('User has no Facebook pages to connect.');
+      // Optionally, you could still connect the main profile for other purposes,
+      // but for posting, pages are required.
+      return res.redirect(`${process.env.CLIENT_URL}?error=no_facebook_pages_found`);
     }
 
-    console.log('Successfully fetched Facebook profile for user:', profileData.name);
+    console.log(`Found ${pagesData.data.length} Facebook pages.`);
 
-    // Save to database
-    const accountData = {
-      platform: 'facebook',
-      username: profileData.name,
-      displayName: profileData.name,
-      platformUserId: profileData.id,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      profileImage: profileData.picture?.data?.url || '',
-      followers: 0 // Will be updated via API call
-    };
-
-    await SocialAccountService.create(userId, accountData);
-    console.log('Facebook account successfully saved to database');
+    // Save each page as a new social account
+    for (const page of pagesData.data) {
+      const accountData = {
+        platform: 'facebook',
+        username: page.name,
+        displayName: page.name,
+        platformUserId: page.id,
+        accessToken: page.access_token, // This is the page-specific access token
+        profileImage: page.picture?.data?.url || '',
+        followers: 0 // This would require another API call, defaulting to 0
+      };
+      
+      await SocialAccountService.create(userId, accountData);
+      console.log(`Facebook page "${page.name}" successfully saved to database.`);
+    }
 
     res.redirect(`${process.env.CLIENT_URL}?success=facebook_connected`);
   } catch (error) {
