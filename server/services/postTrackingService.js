@@ -117,9 +117,9 @@ class PostTrackingService {
       console.log(`   Last month: ${lastMonthStart.toISOString()} to ${lastMonthEnd.toISOString()}`);
       
       // Get posts this month
-      const { data: currentMonthPosts, error: currentError } = await supabase
+      const { count: currentMonthCount, error: currentError } = await supabase
         .from('user_posts')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .gte('created_at', currentMonthStart.toISOString())
         .lte('created_at', currentMonthEnd.toISOString());
@@ -130,9 +130,9 @@ class PostTrackingService {
       }
 
       // Get posts last month
-      const { data: lastMonthPosts, error: lastError } = await supabase
+      const { count: lastMonthCount, error: lastError } = await supabase
         .from('user_posts')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .gte('created_at', lastMonthStart.toISOString())
         .lte('created_at', lastMonthEnd.toISOString());
@@ -142,37 +142,15 @@ class PostTrackingService {
         throw lastError;
       }
 
-      const currentMonthCount = currentMonthPosts?.length || 0;
-      const lastMonthCount = lastMonthPosts?.length || 0;
-      const difference = currentMonthCount - lastMonthCount;
+      const difference = (currentMonthCount || 0) - (lastMonthCount || 0);
 
-      console.log(`📊 Posts stats: Current month: ${currentMonthCount}, Last month: ${lastMonthCount}, Difference: ${difference}`);
-      console.log(`📊 Current month posts found: ${currentMonthPosts?.length || 0}`);
-      console.log(`📊 Last month posts found: ${lastMonthPosts?.length || 0}`);
-
-      // If no current month posts found but we have total posts, check if date filtering is working
-      if (currentMonthCount === 0 && allUserPosts && allUserPosts.length > 0) {
-        console.log('⚠️  WARNING: Posts exist but none found in current month. Checking if posts are from today...');
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-        const todaysPosts = allUserPosts.filter(post => post.created_at.startsWith(today));
-        console.log(`📅 Posts from today (${today}): ${todaysPosts.length}`);
-        
-        if (todaysPosts.length > 0) {
-          console.log('🔄 Using today\'s posts as current month count...');
-          return {
-            currentMonth: todaysPosts.length,
-            lastMonth: lastMonthCount,
-            difference: todaysPosts.length - lastMonthCount,
-            posts: todaysPosts
-          };
-        }
-      }
-
+      console.log(`📊 Posts stats: Current month: ${currentMonthCount || 0}, Last month: ${lastMonthCount || 0}, Difference: ${difference}`);
+      
       return {
-        currentMonth: currentMonthCount,
-        lastMonth: lastMonthCount,
-        difference: difference,
-        posts: currentMonthPosts || []
+        currentMonth: currentMonthCount || 0,
+        lastMonth: lastMonthCount || 0,
+        difference,
+        posts: [], // Posts array not used on dashboard, return empty
       };
     } catch (error) {
       console.error(`❌ Error fetching posts stats:`, error);
@@ -281,27 +259,25 @@ class PostTrackingService {
       };
 
       recentPosts?.forEach(post => {
-        try {
-          const platforms = JSON.parse(post.successful_platforms || '[]');
-          platforms.forEach(platform => {
-            platformCounts[platform] = (platformCounts[platform] || 0) + 1;
-          });
-        } catch (e) {
-          console.warn('Failed to parse successful_platforms:', post.successful_platforms);
-        }
+        // The successful_platforms field is a JSONB type, so it's already an array.
+        const platforms = post.successful_platforms || [];
+        platforms.forEach(p => {
+          if (platformCounts.hasOwnProperty(p)) {
+            platformCounts[p]++;
+          } else {
+            platformCounts[p] = 1;
+          }
+        });
       });
 
-      // Convert to array format for charts
-      const distribution = Object.entries(platformCounts)
-        .map(([platform, count]) => ({
-          name: platform.charAt(0).toUpperCase() + platform.slice(1),
-          value: count,
-          color: platformColors[platform] || '#888888'
-        }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 6); // Top 6 platforms
-
-      return distribution;
+      // Format for recharts
+      return Object.keys(platformCounts).map(platform => ({
+        name: platform.charAt(0).toUpperCase() + platform.slice(1),
+        value: platformCounts[platform],
+        color: platformColors[platform] || '#888888'
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6); // Top 6 platforms
     } catch (error) {
       console.error(`❌ Error fetching platform distribution:`, error);
       throw new Error(`Failed to fetch platform distribution: ${error.message}`);
@@ -333,4 +309,4 @@ class PostTrackingService {
   }
 }
 
-module.exports = PostTrackingService; 
+module.exports = PostTrackingService;

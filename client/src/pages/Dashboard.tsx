@@ -644,10 +644,10 @@ Visit the bot setup guide for detailed instructions.`)
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-              {connectedPlatforms}
+              {loading ? '...' : socialAccounts.length}
             </div>
             <p className="text-xs text-orange-600 dark:text-orange-400">
-              of 18 available platforms
+              of 19 available platforms
             </p>
           </CardContent>
         </Card>
