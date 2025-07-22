@@ -81,6 +81,159 @@ const uploadVideoToReddit = async (accessToken, videoBuffer, subreddit, title, t
   }
 };
 
+const postToSnapchat = async (account, content, media = [], postDetails = {}) => {
+  try {
+    const accessToken = account.accessToken;
+    const profileId = account.platformUserId;
+
+    if (!profileId || !accessToken) {
+      throw new Error('Missing Snapchat Profile ID or Access Token');
+    }
+
+    console.log(`📸 Posting to Snapchat profile: ${profileId}`);
+
+    // Snapchat requires media for posts
+    if (!media || media.length === 0) {
+      throw new Error('Snapchat posts require media (image or video)');
+    }
+
+    const mediaItem = media[0];
+    console.log(`📎 Processing media: ${mediaItem.name}, Size: ${(mediaItem.buffer.length / (1024 * 1024)).toFixed(2)}MB`);
+
+    // Upload media to Snapchat
+    const mediaId = await uploadMediaToSnapchat(mediaItem, profileId, accessToken);
+    console.log(`✅ Media uploaded successfully, Media ID: ${mediaId}`);
+
+    // Create Snapchat story
+    const publishUrl = `https://businessapi.snapchat.com/v1/public_profiles/${profileId}/stories`;
+    
+    const publishData = {
+      media_id: mediaId
+    };
+
+    const response = await fetch(publishUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(publishData)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Snapchat API error: ${result.error?.message || 'Unknown error'}`);
+    }
+
+    if (result.request_status === 'SUCCESS') {
+      const storyId = result.stories[0].story.id;
+      console.log(`✅ Snapchat story created successfully: ${storyId}`);
+      
+      return {
+        success: true,
+        postId: storyId,
+        message: 'Posted to Snapchat successfully'
+      };
+    } else {
+      throw new Error(`Failed to publish story: ${JSON.stringify(result)}`);
+    }
+
+  } catch (error) {
+    console.error(`❌ Snapchat posting error for account ${account.id}:`, error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+const uploadMediaToSnapchat = async (mediaItem, profileId, accessToken) => {
+  try {
+    const isVideo = mediaItem.type && mediaItem.type.startsWith('video/');
+    const mediaType = isVideo ? 'VIDEO' : 'IMAGE';
+    
+    console.log(`📤 Uploading ${mediaType.toLowerCase()} to Snapchat...`);
+
+    // Step 1: Create media container
+    const containerUrl = `https://businessapi.snapchat.com/v1/public_profiles/${profileId}/media`;
+    
+    // Generate encryption key and IV (Snapchat requires AES-256-CBC encryption)
+    const crypto = require('crypto');
+    const key = crypto.randomBytes(32); // 256-bit key
+    const iv = crypto.randomBytes(16);  // 128-bit IV
+    
+    const containerPayload = {
+      type: mediaType,
+      name: `snapchat-media-${Date.now()}`,
+      key: key.toString('base64'),
+      iv: iv.toString('base64')
+    };
+
+    const containerResponse = await fetch(containerUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(containerPayload)
+    });
+
+    const containerData = await containerResponse.json();
+
+    if (!containerResponse.ok) {
+      throw new Error(`Failed to create media container: ${containerData.error?.message || 'Unknown error'}`);
+    }
+
+    console.log(`📦 Media container created: ${containerData.media_id}`);
+
+    // Step 2: Encrypt and upload media
+    const cipher = crypto.createCipher('aes-256-cbc', key);
+    cipher.setAutoPadding(true);
+    
+    let encryptedData = cipher.update(mediaItem.buffer);
+    encryptedData = Buffer.concat([encryptedData, cipher.final()]);
+
+    // Upload encrypted media to the provided upload URL
+    const uploadResponse = await fetch(containerData.upload_urls[0], {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': encryptedData.length.toString()
+      },
+      body: encryptedData
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload encrypted media: ${uploadResponse.statusText}`);
+    }
+
+    console.log(`✅ Encrypted media uploaded successfully`);
+
+    // Step 3: Finalize the upload
+    const finalizeUrl = `${containerUrl}/${containerData.media_id}/finalize`;
+    const finalizeResponse = await fetch(finalizeUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const finalizeData = await finalizeResponse.json();
+
+    if (!finalizeResponse.ok) {
+      throw new Error(`Failed to finalize media upload: ${finalizeData.error?.message || 'Unknown error'}`);
+    }
+
+    console.log(`🎯 Media upload finalized successfully`);
+    return containerData.media_id;
+
+  } catch (error) {
+    console.error('❌ Snapchat media upload error:', error.message);
+    throw error;
+  }
+};
 
 // Main posting endpoint
 router.post('/', requireUser, async (req, res) => {
@@ -194,6 +347,9 @@ router.post('/', requireUser, async (req, res) => {
             break;
           case 'reddit':
             result = await postToReddit(account, content, processedMedia, subredditSettings);
+            break;
+          case 'snapchat':
+            result = await postToSnapchat(account, content, processedMedia);
             break;
           default:
             result = {

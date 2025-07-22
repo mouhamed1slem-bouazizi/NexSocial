@@ -3,19 +3,44 @@ Initiating OAuth for platform: facebook, user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5
 🔧 Environment check for OAuth:
    BASE_URL: https://nexsocial.onrender.com
    CLIENT_URL: https://nexsocial.onrender.com
-Generated OAuth URL for facebook: https://www.facebook.com/v18.0/dialog/oauth?client_id=1208839094375456&redirect_uri=https%3A%2F%2Fnexsocial.onrender.com%2Fapi%2Foauth%2Ffacebook%2Fcallback&scope=pages_manage_posts%2Cpages_read_engagement%2Cinstagram_basic%2Cinstagram_content_publish&response_type=code&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-🌐 REQUEST: GET /api/oauth/facebook/callback?code=AQB_2OuZkULY1fwNkAupCmwEJaX-MmG_7wg5fjea9SKlCaOu4IUyV_LWG8NbdUj_3e3NbuOHoLB0HlZgGKZnzCc0yRqNl0jByEzm_jzWP0LEbFrt18QKPprjSSBURfr0GrWhqUO8SixwJcqeezHCnUFKoKprvoU-Ov_l8viQbj8w_2nwQYKpN52MgrJ-H1scTUHnUBLI4dPKgskcb9w7Jt6MxZisGVD1qIFmMr7ZjaQCp2ZzLG__i1xYl9aEMfWFlYA1Jo3ybhN-BIVyNEAJJ9fTZeNBcoLcckqsHHJ39s2YSnEPKfaxvSO1_U_3zkDk7g8-Lrw0AfVd-RN4JPW3ysRq9VWi_85t0hrAaktVS9NBPR1eIE6z0nCDzzTHS7BWb4o8fEf2MqC_oWESGD5oBVFjl7eqxDEXR116OBKG60WxG1don1J3deTGKyDIMqVQP6Y&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+Generated OAuth URL for facebook: https://www.facebook.com/v18.0/dialog/oauth?client_id=1208839094375456&redirect_uri=https%3A%2F%2Fnexsocial.onrender.com%2Fapi%2Foauth%2Ffacebook%2Fcallback&scope=pages_show_list%2Cpages_manage_posts%2Cpages_read_engagement%2Cinstagram_basic%2Cinstagram_content_publish&response_type=code&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+🌐 REQUEST: GET /api/oauth/facebook/callback?code=AQCHpDbfMJgzMev7QA2tSzvAC_S9vu0bJFU1T5FeTaGj9HX650Pl61RmnPMefRKkcv0ZMKOxrwviZj1eqHDf0tDwA32_uBen-bQbOyNSUb8Nbn9Z2doE-iXDVC5YXhuO5ipFwWH8V7zLYAIZaC7miuIS7s_OHJxHvbU5j0aky0zPIl67PSL-9vURGk3NchBMRv_tRKuX92wtjebzW3zT2Xe_iuBcBlV4MdAoWiAYp7e_qZyxyM5VWBTFJgqb9fNnLdERBbRd7nuycTDEdPoCQ3oyNLHn974oBb_kP20URejdE0FgWOAL8RR34zurWanTXiWsMqR2fe63kjX0f8vpvy943I71WB7_1RfWGOBWZW9Tdye_4t3DqMJ6g939-aUM_ESK7CgarGteUEYnhjm0sQb9d4zxq4IofB3fl-oQDq-SQj9g6tAmD1xEV5r3RvYQcnM&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 🌐 Path: /api/oauth/facebook/callback
-🌐 Original URL: /api/oauth/facebook/callback?code=AQB_2OuZkULY1fwNkAupCmwEJaX-MmG_7wg5fjea9SKlCaOu4IUyV_LWG8NbdUj_3e3NbuOHoLB0HlZgGKZnzCc0yRqNl0jByEzm_jzWP0LEbFrt18QKPprjSSBURfr0GrWhqUO8SixwJcqeezHCnUFKoKprvoU-Ov_l8viQbj8w_2nwQYKpN52MgrJ-H1scTUHnUBLI4dPKgskcb9w7Jt6MxZisGVD1qIFmMr7ZjaQCp2ZzLG__i1xYl9aEMfWFlYA1Jo3ybhN-BIVyNEAJJ9fTZeNBcoLcckqsHHJ39s2YSnEPKfaxvSO1_U_3zkDk7g8-Lrw0AfVd-RN4JPW3ysRq9VWi_85t0hrAaktVS9NBPR1eIE6z0nCDzzTHS7BWb4o8fEf2MqC_oWESGD5oBVFjl7eqxDEXR116OBKG60WxG1don1J3deTGKyDIMqVQP6Y&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
+🌐 Original URL: /api/oauth/facebook/callback?code=AQCHpDbfMJgzMev7QA2tSzvAC_S9vu0bJFU1T5FeTaGj9HX650Pl61RmnPMefRKkcv0ZMKOxrwviZj1eqHDf0tDwA32_uBen-bQbOyNSUb8Nbn9Z2doE-iXDVC5YXhuO5ipFwWH8V7zLYAIZaC7miuIS7s_OHJxHvbU5j0aky0zPIl67PSL-9vURGk3NchBMRv_tRKuX92wtjebzW3zT2Xe_iuBcBlV4MdAoWiAYp7e_qZyxyM5VWBTFJgqb9fNnLdERBbRd7nuycTDEdPoCQ3oyNLHn974oBb_kP20URejdE0FgWOAL8RR34zurWanTXiWsMqR2fe63kjX0f8vpvy943I71WB7_1RfWGOBWZW9Tdye_4t3DqMJ6g939-aUM_ESK7CgarGteUEYnhjm0sQb9d4zxq4IofB3fl-oQDq-SQj9g6tAmD1xEV5r3RvYQcnM&state=bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 Facebook OAuth callback received
 Exchanging code for access token
 Successfully obtained Facebook access token
 Exchanging for long-lived user access token
 Successfully obtained long-lived user access token
-User has no Facebook pages to connect.
-🌐 REQUEST: GET /?error=no_facebook_pages_found
+🔍 Fetching Facebook pages...
+📋 Facebook pages API response (approach 1): {
+  "data": []
+}
+🔄 Trying alternative approach to fetch pages...
+📋 Alternative pages response: {
+  "data": []
+}
+📋 Managed pages response: {
+  "id": "777847338152849"
+}
+📊 Pages data type: object, Pages count: 0
+🔍 Fetching user info for debugging...
+👤 User data: {
+  "id": "777847338152849",
+  "name": "Velorpian Noobo"
+}
+❌ User has no Facebook pages to connect.
+💡 Note: You need to be an admin of a Facebook Page to connect it.
+📋 Full API response: {
+  "data": []
+}
+🔍 Possible causes:
+   - App may need additional permissions
+   - Page admin role may not be sufficient
+   - Business Manager restrictions
+🌐 REQUEST: GET /?error=no_facebook_pages_found&details=API%20returned%20empty%20pages%20array
 🌐 Path: /
-🌐 Original URL: /?error=no_facebook_pages_found
+🌐 Original URL: /?error=no_facebook_pages_found&details=API%20returned%20empty%20pages%20array
 🌐 REQUEST: GET /assets/index-DSo2tAX8.js
 🌐 Path: /assets/index-DSo2tAX8.js
 🌐 Original URL: /assets/index-DSo2tAX8.js
@@ -34,7 +59,7 @@ Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 🌐 Original URL: /api/analytics/dashboard
 🔍 Analytics middleware hit: GET /dashboard
 🔍 Original URL: /api/analytics/dashboard
-🔍 Headers: {"host":"nexsocial.onrender.com","user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0","accept":"application/json, text/plain, */*","accept-encoding":"gzip, br","accept-language":"en-US,en;q=0.9,ar;q=0.8,fr-FR;q=0.7,fr;q=0.6,tr;q=0.5,fa;q=0.4,fil;q=0.3","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZWYxYmJjZi0wY2Y5LTRjNmItYjQ4Ni0yZTZjZTM4ZDU2OTMiLCJpYXQiOjE3NTMxNjYyMDYsImV4cCI6MTc1MzE2OTgwNn0.fYwjP_MNT7fy6bbMepGZPGDc4N2PMuTvtiJed53fmHs","cdn-loop":"cloudflare; loops=1","cf-connecting-ip":"128.234.96.25","cf-ipcountry":"SA","cf-ray":"96312550cef4847a-SEA","cf-visitor":"{\"scheme\":\"https\"}","if-none-match":"W/\"335-JQgCoVesOMnmw4kYBmbHx1ok8DM\"","priority":"u=1, i","referer":"https://nexsocial.onrender.com/","render-proxy-ttl":"4","rndr-id":"b121697f-7c35-44d4","sec-ch-ua":"\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Microsoft Edge\";v=\"138\"","sec-ch-ua-mobile":"?0","sec-ch-ua-platform":"\"Windows\"","sec-fetch-dest":"empty","sec-fetch-mode":"cors","sec-fetch-site":"same-origin","true-client-ip":"128.234.96.25","x-forwarded-for":"128.234.96.25, 172.71.146.112","x-forwarded-proto":"https","x-request-start":"1753168514795398"}
+🔍 Headers: {"host":"nexsocial.onrender.com","user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0","accept":"application/json, text/plain, */*","accept-encoding":"gzip, br","accept-language":"en-US,en;q=0.9,ar;q=0.8,fr-FR;q=0.7,fr;q=0.6,tr;q=0.5,fa;q=0.4,fil;q=0.3","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZWYxYmJjZi0wY2Y5LTRjNmItYjQ4Ni0yZTZjZTM4ZDU2OTMiLCJpYXQiOjE3NTMxNjYyMDYsImV4cCI6MTc1MzE2OTgwNn0.fYwjP_MNT7fy6bbMepGZPGDc4N2PMuTvtiJed53fmHs","cdn-loop":"cloudflare; loops=1","cf-connecting-ip":"128.234.96.25","cf-ipcountry":"SA","cf-ray":"96313dd519a6ee5d-SEA","cf-visitor":"{\"scheme\":\"https\"}","if-none-match":"W/\"331-Z0RCqRoBCPmJXzn7ukUpiHWbom0\"","priority":"u=1, i","referer":"https://nexsocial.onrender.com/","render-proxy-ttl":"4","rndr-id":"489105e8-49a8-4bc6","sec-ch-ua":"\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Microsoft Edge\";v=\"138\"","sec-ch-ua-mobile":"?0","sec-ch-ua-platform":"\"Windows\"","sec-fetch-dest":"empty","sec-fetch-mode":"cors","sec-fetch-site":"same-origin","true-client-ip":"128.234.96.25","x-forwarded-for":"128.234.96.25, 172.71.146.129","x-forwarded-proto":"https","x-request-start":"1753169519015120"}
 🔍 User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
 🔍 Analytics route hit: GET /dashboard
 🔍 Full URL: /api/analytics/dashboard
@@ -43,13 +68,3 @@ Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 🔑 Token received, length: 192
 ✅ Token verified for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
 Fetching user by ID: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-✅ Auth successful for user: mibtn10@gmail.com
-📊 Dashboard route HIT! Fetching analytics for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
-📊 User object: {
-  id: 'bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693',
-  _id: 'bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693',
-  email: 'mibtn10@gmail.com'
-}
-📊 Starting to fetch analytics data...
-📊 Fetching posts stats...
-📊 Fetching posts stats for user: bef1bbcf-0cf9-4c6b-b486-2e6ce38d5693
