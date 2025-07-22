@@ -194,7 +194,7 @@ router.post('/initiate', requireUser, async (req, res) => {
       case 'facebook':
         clientId = process.env.FACEBOOK_APP_ID;
         redirectUri = encodeURIComponent(`${baseUrl}/api/oauth/facebook/callback`);
-        scope = encodeURIComponent('pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish');
+        scope = encodeURIComponent('pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish');
 
         if (!clientId) {
           return res.status(500).json({ success: false, error: 'Facebook OAuth not configured' });
@@ -400,12 +400,36 @@ router.get('/facebook/callback', async (req, res) => {
     const finalUserToken = longLivedTokenData.access_token || tokenData.access_token;
     console.log('Successfully obtained long-lived user access token');
 
-    // Get user's managed pages
+    // Get user's managed pages - try multiple approaches
     console.log('🔍 Fetching Facebook pages...');
-    const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture,followers_count&access_token=${finalUserToken}`);
-    const pagesData = await pagesResponse.json();
+    
+    // Approach 1: Standard /me/accounts
+    let pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture,followers_count&access_token=${finalUserToken}`);
+    let pagesData = await pagesResponse.json();
+    
+    console.log('📋 Facebook pages API response (approach 1):', JSON.stringify(pagesData, null, 2));
+    
+    // Approach 2: If no pages found, try with different scope
+    if (!pagesData.data || pagesData.data.length === 0) {
+      console.log('🔄 Trying alternative approach to fetch pages...');
+      
+      // Try fetching with different fields
+      const altPagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${finalUserToken}`);
+      const altPagesData = await altPagesResponse.json();
+      console.log('📋 Alternative pages response:', JSON.stringify(altPagesData, null, 2));
+      
+      // Try getting pages the user manages (not just owns)
+      const managedPagesResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=accounts{id,name,access_token,picture,followers_count}&access_token=${finalUserToken}`);
+      const managedPagesData = await managedPagesResponse.json();
+      console.log('📋 Managed pages response:', JSON.stringify(managedPagesData, null, 2));
+      
+      // Use managed pages data if available
+      if (managedPagesData.accounts && managedPagesData.accounts.data && managedPagesData.accounts.data.length > 0) {
+        pagesData = managedPagesData.accounts;
+        console.log('✅ Found pages using managed pages approach');
+      }
+    }
 
-    console.log('📋 Facebook pages API response:', JSON.stringify(pagesData, null, 2));
     console.log(`📊 Pages data type: ${typeof pagesData.data}, Pages count: ${pagesData.data?.length || 0}`);
 
     // Also try to get basic user info to debug
@@ -414,18 +438,24 @@ router.get('/facebook/callback', async (req, res) => {
     const userData = await userResponse.json();
     console.log('👤 User data:', JSON.stringify(userData, null, 2));
 
+    // Check for API errors first
+    if (pagesData.error) {
+      console.error('🚨 Facebook API Error:', pagesData.error);
+      return res.redirect(`${process.env.CLIENT_URL}?error=facebook_api_error&details=${encodeURIComponent(pagesData.error.message)}`);
+    }
+
     if (!pagesData.data || pagesData.data.length === 0) {
       console.log('❌ User has no Facebook pages to connect.');
       console.log('💡 Note: You need to be an admin of a Facebook Page to connect it.');
       console.log('📋 Full API response:', JSON.stringify(pagesData, null, 2));
       
-      // Check if there's an error in the response
-      if (pagesData.error) {
-        console.error('🚨 Facebook API Error:', pagesData.error);
-        return res.redirect(`${process.env.CLIENT_URL}?error=facebook_api_error&details=${encodeURIComponent(pagesData.error.message)}`);
-      }
+      // Provide more helpful error message
+      console.log('🔍 Possible causes:');
+      console.log('   - App may need additional permissions');
+      console.log('   - Page admin role may not be sufficient');
+      console.log('   - Business Manager restrictions');
       
-      return res.redirect(`${process.env.CLIENT_URL}?error=no_facebook_pages_found`);
+      return res.redirect(`${process.env.CLIENT_URL}?error=no_facebook_pages_found&details=API returned empty pages array`);
     }
 
     console.log(`✅ Found ${pagesData.data.length} Facebook pages.`);
