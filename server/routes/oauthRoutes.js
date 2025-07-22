@@ -401,20 +401,40 @@ router.get('/facebook/callback', async (req, res) => {
     console.log('Successfully obtained long-lived user access token');
 
     // Get user's managed pages
+    console.log('🔍 Fetching Facebook pages...');
     const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,picture,followers_count&access_token=${finalUserToken}`);
     const pagesData = await pagesResponse.json();
 
+    console.log('📋 Facebook pages API response:', JSON.stringify(pagesData, null, 2));
+    console.log(`📊 Pages data type: ${typeof pagesData.data}, Pages count: ${pagesData.data?.length || 0}`);
+
+    // Also try to get basic user info to debug
+    console.log('🔍 Fetching user info for debugging...');
+    const userResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,email&access_token=${finalUserToken}`);
+    const userData = await userResponse.json();
+    console.log('👤 User data:', JSON.stringify(userData, null, 2));
+
     if (!pagesData.data || pagesData.data.length === 0) {
-      console.log('User has no Facebook pages to connect.');
-      // Optionally, you could still connect the main profile for other purposes,
-      // but for posting, pages are required.
+      console.log('❌ User has no Facebook pages to connect.');
+      console.log('💡 Note: You need to be an admin of a Facebook Page to connect it.');
+      console.log('📋 Full API response:', JSON.stringify(pagesData, null, 2));
+      
+      // Check if there's an error in the response
+      if (pagesData.error) {
+        console.error('🚨 Facebook API Error:', pagesData.error);
+        return res.redirect(`${process.env.CLIENT_URL}?error=facebook_api_error&details=${encodeURIComponent(pagesData.error.message)}`);
+      }
+      
       return res.redirect(`${process.env.CLIENT_URL}?error=no_facebook_pages_found`);
     }
 
-    console.log(`Found ${pagesData.data.length} Facebook pages.`);
+    console.log(`✅ Found ${pagesData.data.length} Facebook pages.`);
+    console.log('📋 Pages found:', pagesData.data.map(page => ({ id: page.id, name: page.name })));
 
     // Save each page as a new social account with long-lived page tokens
     for (const page of pagesData.data) {
+      console.log(`💾 Saving Facebook page: ${page.name} (${page.id})`);
+      
       // Page access tokens from /me/accounts are already long-lived when obtained with a long-lived user token
       const accountData = {
         platform: 'facebook',
@@ -427,9 +447,10 @@ router.get('/facebook/callback', async (req, res) => {
       };
       
       await SocialAccountService.create(userId, accountData);
-      console.log(`Facebook page "${page.name}" successfully saved to database with long-lived token.`);
+      console.log(`✅ Facebook page "${page.name}" successfully saved to database with long-lived token.`);
     }
 
+    console.log('🎉 Facebook OAuth completed successfully!');
     res.redirect(`${process.env.CLIENT_URL}?success=facebook_connected`);
   } catch (error) {
     console.error('Facebook OAuth callback error:', error);
