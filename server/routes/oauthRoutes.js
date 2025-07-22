@@ -472,58 +472,80 @@ router.get('/instagram/callback', async (req, res) => {
 
     console.log('Successfully obtained Instagram access token');
 
-    // Get Instagram account info
+    // Get Instagram account info - try direct approach first
+    console.log('🔍 Attempting direct Instagram account access...');
+    try {
+      const directIgResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,accounts{id,name,instagram_business_account{id,username,name,profile_picture_url,followers_count}}&access_token=${tokenData.access_token}`);
+      const directIgData = await directIgResponse.json();
+      console.log('📋 Direct Instagram response:', JSON.stringify(directIgData, null, 2));
+    } catch (error) {
+      console.log('⚠️ Direct approach failed:', error.message);
+    }
+
+    // Get Instagram account info - original approach
+    console.log('🔍 Getting Facebook accounts...');
     const accountsResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
     const accountsData = await accountsResponse.json();
+    
+    console.log('📋 Facebook accounts response:', JSON.stringify(accountsData, null, 2));
+    console.log(`📊 Found ${accountsData.data?.length || 0} Facebook accounts`);
 
     // Find Instagram business account
     let instagramAccount = null;
     for (const account of accountsData.data || []) {
-      const igResponse = await fetch(`https://graph.facebook.com/v18.0/${account.id}?fields=instagram_business_account&access_token=${tokenData.access_token}`);
+      console.log(`🔍 Checking account: ${account.name} (ID: ${account.id})`);
+      
+      const igResponse = await fetch(`https://graph.facebook.com/v18.0/${account.id}?fields=instagram_business_account{id,username,name,profile_picture_url,followers_count}&access_token=${tokenData.access_token}`);
       const igData = await igResponse.json();
+      
+      console.log(`📋 Instagram check for ${account.name}:`, JSON.stringify(igData, null, 2));
 
       if (igData.instagram_business_account) {
-        instagramAccount = igData.instagram_business_account;
+        console.log(`✅ Found Instagram Business Account: ${igData.instagram_business_account.username}`);
+        instagramAccount = {
+          ...igData.instagram_business_account,
+          pageAccessToken: account.access_token // Store the page access token
+        };
         break;
+      } else {
+        console.log(`❌ No Instagram Business Account found for ${account.name}`);
       }
     }
 
     if (!instagramAccount) {
-      console.error('No Instagram business account found');
+      console.error('❌ No Instagram business account found after checking all Facebook pages');
+      console.error('💡 Make sure your Instagram Business Account is connected to one of your Facebook Pages');
       return res.redirect(`${process.env.CLIENT_URL}?error=no_instagram_account`);
     }
 
-    console.log('Found Instagram business account:', instagramAccount.id);
+    console.log('✅ Found Instagram business account:', instagramAccount.username);
 
-    // Get Instagram profile info
-    const profileResponse = await fetch(`https://graph.facebook.com/v18.0/${instagramAccount.id}?fields=id,username,name,profile_picture_url,followers_count&access_token=${tokenData.access_token}`);
-    const profileData = await profileResponse.json();
-
-    if (!profileData.id) {
-      console.error('Failed to get Instagram profile data:', profileData);
-      return res.redirect(`${process.env.CLIENT_URL}?error=profile_fetch_failed`);
-    }
-
-    console.log('Successfully fetched Instagram profile for user:', profileData.username);
-
-    // Save to database
+    // Save to database with the Instagram account details
     const accountData = {
       platform: 'instagram',
-      username: profileData.username,
-      displayName: profileData.name || profileData.username,
-      platformUserId: profileData.id,
-      accessToken: tokenData.access_token,
+      username: instagramAccount.username,
+      displayName: instagramAccount.name || instagramAccount.username,
+      platformUserId: instagramAccount.id,
+      accessToken: instagramAccount.pageAccessToken || tokenData.access_token,
       refreshToken: tokenData.refresh_token,
-      profileImage: profileData.profile_picture_url || '',
-      followers: profileData.followers_count || 0
+      profileImage: instagramAccount.profile_picture_url || '',
+      followers: instagramAccount.followers_count || 0
     };
 
+    console.log('💾 Saving Instagram account data:', {
+      platform: accountData.platform,
+      username: accountData.username,
+      platformUserId: accountData.platformUserId,
+      followers: accountData.followers
+    });
+
     await SocialAccountService.create(userId, accountData);
-    console.log('Instagram account successfully saved to database');
+    console.log('✅ Instagram account successfully saved to database');
 
     res.redirect(`${process.env.CLIENT_URL}?success=instagram_connected`);
   } catch (error) {
-    console.error('Instagram OAuth callback error:', error);
+    console.error('❌ Instagram OAuth callback error:', error);
+    console.error('📋 Error details:', error.stack);
     res.redirect(`${process.env.CLIENT_URL}?error=connection_failed`);
   }
 });
